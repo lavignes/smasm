@@ -1,0 +1,25 @@
+---
+BasedOnStyle: LLVM
+---
+Language: Cpp
+
+UseTab: Never
+IndentWidth: 4
+TabWidth: 4
+
+AlignConsecutiveAssignments: AcrossEmptyLinesAndComments
+AlignConsecutiveMacros: AcrossEmptyLinesAndComments
+AlignEscapedNewlines: Right
+AlignConsecutiveDeclarations: AcrossComments
+
+# east-const best-const
+QualifierAlignment: Custom
+QualifierOrder:
+  - static
+  - inline
+  - constexpr
+  - restrict
+  - type
+  - volatile
+  - const
+
