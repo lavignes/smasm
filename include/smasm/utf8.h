@@ -3,10 +3,12 @@
 
 #include <smasm/buf.h>
 
-U32 smUtf8Decode(U8 const buf[4], UInt *len);
+U32 smUtf8Decode(SmBuf buf, UInt *len);
 
-UInt smUtf8Encode(U32 c, U8 buf[4]);
+UInt smUtf8Encode(SmBuf buf, U32 c);
 
 UInt smUtf8Len(SmBuf buf);
+
+void smUtf8Cat(SmGBuf *buf, U32 c);
 
 #endif // SMASM_UTF8_H
