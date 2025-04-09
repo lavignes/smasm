@@ -13,7 +13,7 @@ Bool smLblEqual(SmLbl lhs, SmLbl rhs);
 Bool smLblIsGlobal(SmLbl lbl);
 
 struct SmOp {
-    U8   tok;
+    U32  tok;
     Bool unary;
 };
 typedef struct SmOp SmOp;
@@ -96,7 +96,7 @@ struct SmI32GBuf {
 typedef struct SmI32GBuf SmI32GBuf;
 
 void smI32GBufAdd(SmI32GBuf *buf, I32 num);
-void smI32GBufClear(SmI32GBuf *buf);
+void smI32GBufFini(SmI32GBuf *buf);
 
 enum SmSymFlags { SM_SYM_EQU = 1 << 0 };
 

@@ -366,7 +366,7 @@ static U32 peekFile(SmTokStream *ts) {
     }
     if (peek(ts) == ';') {
         while (true) {
-            U8 c = peek(ts);
+            U32 c = peek(ts);
             if ((c == SM_TOK_EOF) || (c == '\n')) {
                 break;
             }
@@ -394,7 +394,7 @@ static U32 peekFile(SmTokStream *ts) {
     if (peek(ts) == '@') {
         eat(ts);
         // macro arg?
-        U8 c = peek(ts);
+        U32 c = peek(ts);
         if (isdigit(c)) {
             for (; isdigit(c); c = peek(ts)) {
                 pushChar(ts, toupper(c));
@@ -430,7 +430,7 @@ static U32 peekFile(SmTokStream *ts) {
     if (peek(ts) == '"') {
         eat(ts);
         while (true) {
-            U8 c = peek(ts);
+            U32 c = peek(ts);
             switch (c) {
             case SM_TOK_EOF:
                 fatalChar(ts, "unexpected end of file\n");
@@ -476,7 +476,7 @@ static U32 peekFile(SmTokStream *ts) {
     }
     if (peek(ts) == '\'') {
         eat(ts);
-        U8 c = peek(ts);
+        U32 c = peek(ts);
         switch (c) {
         case SM_TOK_EOF:
             fatalChar(ts, "unexpected end of file\n");
@@ -518,7 +518,7 @@ static U32 peekFile(SmTokStream *ts) {
         ts->file.stash   = SM_TOK_NUM;
         return SM_TOK_NUM;
     } else {
-        U8 c = peek(ts);
+        U32 c = peek(ts);
         if (isdigit(c) || (c == '%') || (c == '$')) {
             I32 radix = 10;
             if (c == '%') {
@@ -559,7 +559,7 @@ static U32 peekFile(SmTokStream *ts) {
             if (c == SM_TOK_EOF) {
                 break;
             }
-            if (!isalnum(c) && (c != '_') && (c != '.')) {
+            if (isascii(c) && !isalnum(c) && (c != '_') && (c != '.')) {
                 break;
             }
             pushChar(ts, c);
@@ -569,7 +569,7 @@ static U32 peekFile(SmTokStream *ts) {
         // doesn't start with ident symbol. digraph?
         if (ts->file.buf.inner.len == 0) {
             eat(ts);
-            U8 nc = peek(ts);
+            U32 nc = peek(ts);
             for (UInt i = 0; i < (sizeof(DIGRAPHS) / sizeof(DIGRAPHS[0]));
                  ++i) {
                 if ((DIGRAPHS[i].digraph[0] == c) &&
@@ -584,7 +584,7 @@ static U32 peekFile(SmTokStream *ts) {
         // 1 char identifier?
         if (ts->file.buf.inner.len == 1) {
             ts->file.stashed = true;
-            U8 upper         = toupper(ts->file.buf.inner.bytes[0]);
+            U32 upper        = toupper(ts->file.buf.inner.bytes[0]);
             for (UInt i = 0; i < sizeof(SINGLES); ++i) {
                 if (SINGLES[i] == upper) {
                     ts->file.stash = upper;
@@ -597,8 +597,8 @@ static U32 peekFile(SmTokStream *ts) {
         // 2 char ident?
         if (ts->file.buf.inner.len == 2) {
             ts->file.stashed = true;
-            U8 c0            = toupper(ts->file.buf.inner.bytes[0]);
-            U8 c1            = toupper(ts->file.buf.inner.bytes[1]);
+            U32 c0           = toupper(ts->file.buf.inner.bytes[0]);
+            U32 c1           = toupper(ts->file.buf.inner.bytes[1]);
             for (UInt i = 0; i < (sizeof(PAIRS) / sizeof(PAIRS[0])); ++i) {
                 if ((PAIRS[i].pair[0] == c0) && (PAIRS[i].pair[1] == c1)) {
                     eat(ts);
@@ -625,6 +625,131 @@ U32 smTokStreamPeek(SmTokStream *ts) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
         return peekFile(ts);
+    default:
+        smUnimplemented();
+    }
+}
+
+void smTokStreamEat(SmTokStream *ts) {
+    switch (ts->kind) {
+    case SM_TOK_STREAM_FILE:
+        ts->file.stashed       = false;
+        ts->file.buf.inner.len = 0;
+        return;
+    case SM_TOK_STREAM_MACRO: {
+        SmMacroTok *tok = ts->macro.buf.items + ts->macro.pos;
+        switch (tok->kind) {
+        case SM_MACRO_TOK_SHIFT:
+            smMacroArgDequeue(&ts->macro.args);
+            break;
+        case SM_MACRO_TOK_ARG:
+            ++ts->macro.argi;
+            if (ts->macro.argi < ts->macro.args.len) {
+                return;
+            }
+            ts->macro.argi = 0;
+        default:
+            break;
+        }
+        ++ts->macro.pos;
+        return;
+    }
+    case SM_TOK_STREAM_FMT:
+        ts->fmt.tok = SM_TOK_EOF;
+        return;
+    default:
+        smUnimplemented();
+    }
+}
+
+void smTokStreamRewind(SmTokStream *ts) {
+    assert(ts->kind == SM_TOK_STREAM_FILE);
+    smTokStreamEat(ts);
+    if (fseek(ts->file.hnd, 0, SEEK_SET) < 0) {
+        int err = errno;
+        fprintf(stderr, "%.*s:%zu:%zu: ", (int)ts->pos.file.len,
+                ts->pos.file.bytes, (size_t)ts->file.cline,
+                (size_t)ts->file.ccol);
+        smFatal("failed to rewind file: %s\n", strerror(err));
+    }
+    ts->pos.line      = 1;
+    ts->pos.col       = 1;
+    ts->file.cstashed = false;
+    ts->file.cline    = 1;
+    ts->file.ccol     = 1;
+    return;
+}
+
+SmBuf smTokStreamBuf(SmTokStream *ts) {
+    switch (ts->kind) {
+    case SM_TOK_STREAM_FILE:
+        return ts->file.buf.inner;
+    case SM_TOK_STREAM_MACRO: {
+        SmMacroTok *tok = ts->macro.buf.items + ts->macro.pos;
+        switch (tok->kind) {
+        case SM_MACRO_TOK_STR:
+        case SM_MACRO_TOK_ID:
+            return tok->buf;
+        case SM_MACRO_TOK_ARG:
+            tok = ts->macro.args.buf[tok->arg].items + ts->macro.argi;
+            switch (tok->kind) {
+            case SM_MACRO_TOK_STR:
+            case SM_MACRO_TOK_ID:
+                return tok->buf;
+            default:
+                smUnreachable();
+            }
+        case SM_MACRO_TOK_UNIQUE:
+            smUnimplemented();
+        default:
+            smUnreachable();
+        }
+    }
+    case SM_TOK_STREAM_FMT:
+        return ts->fmt.buf;
+    default:
+        smUnimplemented();
+    }
+}
+
+I32 smTokStreamNum(SmTokStream *ts) {
+    switch (ts->kind) {
+    case SM_TOK_STREAM_FILE:
+        return ts->file.num;
+    case SM_TOK_STREAM_MACRO: {
+        SmMacroTok *tok = ts->macro.buf.items + ts->macro.pos;
+        switch (tok->kind) {
+        case SM_MACRO_TOK_NUM:
+            return tok->num;
+        case SM_MACRO_TOK_ARG:
+            tok = ts->macro.args.buf[tok->arg].items + ts->macro.argi;
+            switch (tok->kind) {
+            case SM_MACRO_TOK_NUM:
+                return tok->num;
+            default:
+                smUnreachable();
+            }
+        case SM_MACRO_TOK_NARG:
+            return ts->macro.argi;
+        default:
+            smUnreachable();
+        }
+    }
+    case SM_TOK_STREAM_FMT:
+        smUnreachable();
+    default:
+        smUnimplemented();
+    }
+}
+
+SmPos smTokStreamPos(SmTokStream *ts) {
+    switch (ts->kind) {
+    case SM_TOK_STREAM_FILE:
+        return ts->pos;
+    case SM_TOK_STREAM_MACRO:
+        return ts->macro.buf.items[ts->macro.pos].pos;
+    case SM_TOK_STREAM_FMT:
+        return ts->pos;
     default:
         smUnimplemented();
     }

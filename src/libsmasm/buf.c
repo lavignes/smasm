@@ -25,6 +25,14 @@ Bool smBufEqualIgnoreAsciiCase(SmBuf lhs, SmBuf rhs) {
     return true;
 }
 
+UInt smBufHash(SmBuf buf) {
+    UInt hash = 5381;
+    for (UInt i = 0; i < buf.len; ++i) {
+        hash = ((hash << 5) + hash) + buf.bytes[i];
+    }
+    return hash;
+}
+
 void smGBufCat(SmGBuf *buf, SmBuf bytes) {
     if (!buf->inner.bytes) {
         buf->inner.bytes = malloc(bytes.len);
@@ -44,6 +52,8 @@ void smGBufCat(SmGBuf *buf, SmBuf bytes) {
     memcpy(buf->inner.bytes + buf->inner.len, bytes.bytes, bytes.len);
     buf->inner.len += bytes.len;
 }
+
+void smBufGBufAdd(SmBufGBuf *buf, SmBuf item) { SM_GBUF_ADD_IMPL(SmBuf); }
 
 static UInt roundUp(UInt num) {
     num--;

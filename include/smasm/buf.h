@@ -13,6 +13,7 @@ typedef struct SmBuf SmBuf;
 
 Bool smBufEqual(SmBuf lhs, SmBuf rhs);
 Bool smBufEqualIgnoreAsciiCase(SmBuf lhs, SmBuf rhs);
+UInt smBufHash(SmBuf buf);
 
 struct SmGBuf {
     SmBuf inner;
