@@ -797,9 +797,298 @@ static U16 eatSolvedU16() {
     return (U16)num;
 }
 
-static void eatMne() { smUnimplemented(); }
+static void emitBuf(SmBuf buf) { smGBufCat(&getSection()->data, buf); }
+static void emit8(U8 byte) { emitBuf((SmBuf){&byte, 1}); }
+static void emit16(U16 word) {
+    U8 bytes[2] = {word & 0x00FF, word >> 8};
+    emitBuf((SmBuf){bytes, 2});
+}
+
+static void reloc(U16 offset, U8 width, SmExprBuf buf, SmPos pos, U8 flags) {
+    smRelocGBufAdd(&getSection()->relocs, (SmReloc){
+                                              .offset = getPC() + offset,
+                                              .width  = width,
+                                              .value  = buf,
+                                              .unit   = STATIC_UNIT,
+                                              .pos    = pos,
+                                              .flags  = flags,
+                                          });
+}
+
+static void addPC(U16 offset) {
+    I32 cur = (U32)getPC();
+    I32 new = cur + offset;
+    if (new > ((I32)(U32)U16_MAX)) {
+        fatal("pc overflow\n");
+    }
+    setPC(new);
+}
+
+static Bool loadIndirect(U32 tok, U8 *op) {
+    switch (tok) {
+    case SM_TOK_BC:
+        *op = 0x0A;
+        return true;
+    case SM_TOK_DE:
+        *op = 0x1A;
+        return true;
+    case SM_TOK_HL:
+        *op = 0x7E;
+        return true;
+    default:
+        return false;
+    }
+}
+
+static Bool storeIndirect(U32 tok, U8 *op) {
+    switch (tok) {
+    case SM_TOK_BC:
+        *op = 0x02;
+        return true;
+    case SM_TOK_DE:
+        *op = 0x12;
+        return true;
+    default:
+        return false;
+    }
+}
+
+static Bool reg8Offset(U32 tok, U8 base, U8 *op) {
+    switch (tok) {
+    case 'B':
+        *op = base + 0;
+        return true;
+    case 'C':
+        *op = base + 1;
+        return true;
+    case 'D':
+        *op = base + 2;
+        return true;
+    case 'E':
+        *op = base + 3;
+        return true;
+    case 'H':
+        *op = base + 4;
+        return true;
+    case 'L':
+        *op = base + 5;
+        return true;
+    case 'A':
+        *op = base + 7;
+        return true;
+    default:
+        return false;
+    }
+}
+
+static void loadReg8(U8 base) {
+    U8 op;
+    eat();
+    expect(',');
+    eat();
+    if (reg8Offset(peek(), base, &op)) {
+        eat();
+        if (emit) {
+            emit8(op);
+        }
+        addPC(1);
+        return;
+    }
+    expect('[');
+    eat();
+    expect(SM_TOK_HL);
+    eat();
+    expect(']');
+    eat();
+    if (emit) {
+        emit8(base + 6);
+    }
+    addPC(1);
+    return;
+}
+
+static void eatMne(U8 mne) {
+    U8        op;
+    SmPos     expr_pos;
+    SmExprBuf buf;
+    I32       num;
+    switch (mne) {
+    case SM_MNE_LD:
+        switch (peek()) {
+        case 'A':
+            eat();
+            expect(',');
+            eat();
+            switch (peek()) {
+            case '[':
+                eat();
+                if (loadIndirect(peek(), &op)) {
+                    eat();
+                    expect(']');
+                    eat();
+                    if (emit) {
+                        emit8(op);
+                    }
+                    addPC(1);
+                    return;
+                }
+                buf = eatExprPos(&expr_pos);
+                expect(']');
+                eat();
+                if (emit) {
+                    emit8(0xFA);
+                    if (solve(buf, &num)) {
+                        if (!canReprU16(num)) {
+                            fatalPos(expr_pos,
+                                     "expression does not fit in word\n");
+                        }
+                        emit16(num);
+                    } else {
+                        emit16(0xFDFD);
+                        reloc(1, 2, buf, expr_pos, 0);
+                    }
+                }
+                addPC(3);
+                return;
+            default:
+                if (reg8Offset(peek(), 0x78, &op)) {
+                    eat();
+                    if (emit) {
+                        emit8(op);
+                    }
+                    addPC(1);
+                    return;
+                }
+                buf = eatExprPos(&expr_pos);
+                if (emit) {
+                    emit8(0x3E);
+                    if (solve(buf, &num)) {
+                        if (!canReprU8(num)) {
+                            fatalPos(expr_pos,
+                                     "expression does not fit in byte\n");
+                        }
+                        emit8(num);
+                    } else {
+                        emit8(0xFD);
+                        reloc(1, 1, buf, expr_pos, 0);
+                    }
+                }
+                addPC(2);
+                return;
+            }
+        case 'B':
+            loadReg8(0x40);
+            return;
+        case 'C':
+            loadReg8(0x48);
+            return;
+        case 'D':
+            loadReg8(0x50);
+            return;
+        case 'E':
+            loadReg8(0x58);
+            return;
+        case 'H':
+            loadReg8(0x60);
+            return;
+        case 'L':
+            loadReg8(0x68);
+            return;
+        case '[':
+            eat();
+            if (storeIndirect(peek(), &op)) {
+                eat();
+                expect(']');
+                eat();
+                expect(',');
+                eat();
+                expect('A');
+                eat();
+                if (emit) {
+                    emit8(op);
+                }
+                addPC(1);
+                return;
+            }
+            if (peek() == SM_TOK_HL) {
+                eat();
+                expect(']');
+                eat();
+                expect(',');
+                eat();
+                if (reg8Offset(peek(), 0x70, &op)) {
+                    eat();
+                    if (emit) {
+                        emit8(op);
+                    }
+                    addPC(1);
+                    return;
+                }
+                buf = eatExprPos(&expr_pos);
+                if (emit) {
+                    emit8(0x36);
+                    if (solve(buf, &num)) {
+                        if (!canReprU8(num)) {
+                            fatalPos(expr_pos,
+                                     "expression does not fit in byte\n");
+                        }
+                        emit8(num);
+                    } else {
+                        emit8(0xFD);
+                        reloc(1, 1, buf, expr_pos, 0);
+                    }
+                }
+                addPC(2);
+                return;
+            }
+            buf = eatExprPos(&expr_pos);
+            expect(']');
+            eat();
+            expect(',');
+            eat();
+            if (peek() == SM_TOK_SP) {
+                eat();
+                op = 0x08;
+            } else {
+                expect('A');
+                op = 0xEA;
+            }
+            if (emit) {
+                emit8(op);
+                if (solve(buf, &num)) {
+                    if (!canReprU16(num)) {
+                        fatalPos(expr_pos, "expression does not fit in word\n");
+                    }
+                    emit16(num);
+                } else {
+                    emit16(0xFDFD);
+                    reloc(1, 2, buf, expr_pos, 0);
+                }
+            }
+            addPC(3);
+            return;
+
+        default:
+            smUnimplemented();
+        }
+    default:
+        smUnimplemented();
+    }
+}
 
 static void eatDirective() { smUnimplemented(); }
+
+static SmLbl const NULL_LABEL = {0};
+
+static SmExprBuf addrExprBuf(SmBuf section, U16 offset) {
+    SmExpr expr = addrExpr(section, offset);
+    return smExprIntern(&EXPRS, (SmExprBuf){&expr, 1});
+}
+
+static SmExprBuf constExprBuf(I32 num) {
+    SmExpr expr = constExpr(num);
+    return smExprIntern(&EXPRS, (SmExprBuf){&expr, 1});
+}
 
 static void pass() {
     setSection(CODE_SECTION);
@@ -821,11 +1110,78 @@ static void pass() {
         case SM_TOK_ID: {
             U8 const *mne = smMneFind(tokBuf());
             if (mne) {
-                eatMne();
+                eatMne(*mne);
                 expectEOL();
                 eat();
                 continue;
             }
+            Macro *macro = macroFind(&MACS, tokBuf());
+            if (macro) {
+                invoke(*macro);
+                continue;
+            }
+            SmPos pos = tokPos();
+            SmLbl lbl = tokLbl();
+            eat();
+            SmSym *sym = smSymTabFind(&SYMS, lbl);
+            if (!sym) {
+                // create a placeholder symbol that we'll fill in soon
+                sym = smSymTabAdd(&SYMS, (SmSym){
+                                             .lbl     = lbl,
+                                             .value   = constExprBuf(0),
+                                             .unit    = STATIC_UNIT,
+                                             .section = getSection()->name,
+                                             .pos     = pos,
+                                             .flags   = 0,
+                                         });
+            } else if (!emit) {
+                // we are allowed to redefine labels for the second pass.
+                // TODO: but we need to ensure the value of the label
+                // never changes.
+                // TODO: also we want to create weak/redefinable symbols
+                fatalPos(pos,
+                         "symbol already defined\n\t%.*s:%zu:%zu: "
+                         "defined previously here\n",
+                         sym->pos.file.len, sym->pos.file.bytes, sym->pos.line,
+                         sym->pos.col);
+            }
+            switch (peek()) {
+            case ':':
+                eat();
+                break;
+            case SM_TOK_DCOLON:
+                eat();
+                if (emit) {
+                    sym->unit = EXPORT_UNIT;
+                }
+                break;
+            case '=':
+                eat();
+                I32 num;
+                if (emit) {
+                    sym->value = constExprBuf(eatSolvedPos(&pos));
+                    sym->flags = SM_SYM_EQU;
+                } else if (solve(eatExpr(), &num)) {
+                    sym->value = constExprBuf(num);
+                    sym->flags = SM_SYM_EQU;
+                } else {
+                    sym->lbl = NULL_LABEL;
+                }
+                expectEOL();
+                eat();
+                continue;
+            default:
+                if (!smLblIsGlobal(lbl)) {
+                    fatal("expected `:` or `=`\n");
+                }
+                fatalPos(pos, "unrecognized instruction\n");
+            }
+            // This just a new label then
+            if (smLblIsGlobal(sym->lbl)) {
+                scope = sym->lbl.name;
+            }
+            sym->value = addrExprBuf(getSection()->name, getPC());
+            continue;
         }
         default:
             eatDirective();
@@ -869,11 +1225,6 @@ static void pushFile(SmBuf path) {
 }
 
 static SmBuf intern(SmBuf buf) { return smBufIntern(&STRS, buf); }
-
-static SmExprBuf constExprBuf(I32 num) {
-    SmExpr expr = constExpr(num);
-    return smExprIntern(&EXPRS, (SmExprBuf){&expr, 1});
-}
 
 enum FmtState {
     FMT_STATE_INIT,
