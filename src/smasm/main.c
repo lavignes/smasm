@@ -763,6 +763,7 @@ complete:
 
 static Bool canReprU16(I32 num) { return (num >= 0) && (num <= U16_MAX); }
 static Bool canReprU8(I32 num) { return (num >= 0) && (num <= U8_MAX); }
+static Bool canReprI8(I32 num) { return (num >= I8_MIN) && (num <= I8_MAX); }
 
 static SmExprBuf eatExprPos(SmPos *pos) {
     // advance to get the location of the expr
@@ -783,7 +784,7 @@ static U8 eatSolvedU8() {
     SmPos pos;
     I32   num = eatSolvedPos(&pos);
     if (!canReprU8(num)) {
-        fatalPos(pos, "expression does not fit in a byte\n");
+        fatalPos(pos, "expression does not fit in a byte: $%08X\n", num);
     }
     return (U8)num;
 }
@@ -792,7 +793,7 @@ static U16 eatSolvedU16() {
     SmPos pos;
     I32   num = eatSolvedPos(&pos);
     if (!canReprU16(num)) {
-        fatalPos(pos, "expression does not fit in a word\n");
+        fatalPos(pos, "expression does not fit in a word: $%08X\n", num);
     }
     return (U16)num;
 }
@@ -819,7 +820,7 @@ static void addPC(U16 offset) {
     I32 cur = (U32)getPC();
     I32 new = cur + offset;
     if (new > ((I32)(U32)U16_MAX)) {
-        fatal("pc overflow\n");
+        fatal("pc overflow: $%08X\n", new);
     }
     setPC(new);
 }
@@ -881,6 +882,25 @@ static Bool reg8Offset(U32 tok, U8 base, U8 *op) {
     }
 }
 
+static Bool reg16OffsetSP(U32 tok, U8 base, U8 *op) {
+    switch (tok) {
+    case SM_TOK_BC:
+        *op = base + 0x00;
+        return true;
+    case SM_TOK_DE:
+        *op = base + 0x10;
+        return true;
+    case SM_TOK_HL:
+        *op = base + 0x20;
+        return true;
+    case SM_TOK_SP:
+        *op = base + 0x30;
+        return true;
+    default:
+        return false;
+    }
+}
+
 static void loadReg8(U8 base) {
     U8 op;
     eat();
@@ -907,6 +927,198 @@ static void loadReg8(U8 base) {
     return;
 }
 
+static void loadStoreIncDec(U8 load, U8 store) {
+    eat();
+    switch (peek()) {
+    case 'A':
+        eat();
+        expect(',');
+        eat();
+        expect('[');
+        eat();
+        expect(SM_TOK_HL);
+        eat();
+        expect(']');
+        eat();
+        if (emit) {
+            emit8(load);
+        }
+        addPC(1);
+        return;
+    default:
+        expect('[');
+        eat();
+        expect(SM_TOK_HL);
+        eat();
+        expect(']');
+        eat();
+        expect(',');
+        eat();
+        expect('A');
+        eat();
+        if (emit) {
+            emit8(store);
+        }
+        addPC(1);
+        return;
+    }
+}
+
+static Bool reg16OffsetAF(U32 tok, U8 base, U8 *op) {
+    switch (tok) {
+    case SM_TOK_BC:
+        *op = base + 0x00;
+        return true;
+    case SM_TOK_DE:
+        *op = base + 0x10;
+        return true;
+    case SM_TOK_HL:
+        *op = base + 0x20;
+        return true;
+    case SM_TOK_AF:
+        *op = base + 0x30;
+        return true;
+    default:
+        return false;
+    }
+}
+
+static void pushPop(U8 base) {
+    U8 op;
+    eat();
+    if (!reg16OffsetAF(peek(), base, &op)) {
+        fatal("illegal operand\n");
+    }
+    eat();
+    if (emit) {
+        emit8(op);
+    }
+    addPC(1);
+}
+
+static void aluReg8(U8 base, U8 imm) {
+    U8        op;
+    SmPos     expr_pos;
+    SmExprBuf buf;
+    I32       num;
+    expect('A');
+    eat();
+    expect(',');
+    eat();
+    if (reg8Offset(peek(), base, &op)) {
+        eat();
+        if (emit) {
+            emit8(op);
+        }
+        addPC(1);
+        return;
+    }
+    if (peek() == '[') {
+        eat();
+        expect(SM_TOK_HL);
+        eat();
+        expect(']');
+        eat();
+        if (emit) {
+            emit8(base + 6);
+        }
+        addPC(1);
+        return;
+    }
+    buf = eatExprPos(&expr_pos);
+    if (emit) {
+        emit8(imm);
+        if (solve(buf, &num)) {
+            if (!canReprU8(num)) {
+                fatalPos(expr_pos, "expression does not fit in byte: $%08X\n",
+                         num);
+            }
+            emit8(num);
+        } else {
+            emit8(0xFD);
+            reloc(1, 1, buf, expr_pos, 0);
+        }
+    }
+}
+
+static void doAluReg8Cb(U8 base) {
+    U8 op;
+    eat();
+    if (emit) {
+        emit8(0xCB);
+    }
+    if (reg8Offset(peek(), base, &op)) {
+        eat();
+        if (emit) {
+            emit8(op);
+        }
+        addPC(2);
+        return;
+    }
+    expect('[');
+    eat();
+    expect(SM_TOK_HL);
+    eat();
+    expect(']');
+    eat();
+    if (emit) {
+        emit8(base + 6);
+    }
+    addPC(2);
+}
+
+static void doBitCb(U8 base) {
+    U8        op;
+    SmPos     expr_pos;
+    SmExprBuf buf;
+    I32       num;
+    eat();
+    buf = eatExprPos(&expr_pos);
+    expect(',');
+    eat();
+    if (reg8Offset(peek(), 0x00, &op)) {
+        eat();
+    } else {
+        expect('[');
+        eat();
+        expect(SM_TOK_HL);
+        eat();
+        expect(']');
+        eat();
+        op = base + 6;
+    }
+    if (emit) {
+        emit8(0xCB);
+        if (!solve(buf, &num)) {
+            fatalPos(expr_pos, "expression must be constant\n");
+        }
+        if ((num < 0) || (num > 7)) {
+            fatalPos(expr_pos, "bit number must be between 0 and 7\n");
+        }
+        emit8(base + ((U8)num << 8) + op);
+    }
+    addPC(2);
+}
+
+static Bool flag(U32 tok, U8 base, U8 *op) {
+    switch (tok) {
+    case SM_TOK_NZ:
+        *op = base + 0x00;
+        return true;
+    case 'Z':
+        *op = base + 0x08;
+        return true;
+    case SM_TOK_NC:
+        *op = base + 0x10;
+        return true;
+    case 'C':
+        *op = base + 0x18;
+        return true;
+    default:
+        return false;
+    }
+}
+
 static void eatMne(U8 mne) {
     U8        op;
     SmPos     expr_pos;
@@ -914,6 +1126,7 @@ static void eatMne(U8 mne) {
     I32       num;
     switch (mne) {
     case SM_MNE_LD:
+        eat();
         switch (peek()) {
         case 'A':
             eat();
@@ -939,8 +1152,10 @@ static void eatMne(U8 mne) {
                     emit8(0xFA);
                     if (solve(buf, &num)) {
                         if (!canReprU16(num)) {
-                            fatalPos(expr_pos,
-                                     "expression does not fit in word\n");
+                            fatalPos(
+                                expr_pos,
+                                "expression does not fit in a word: $%08X\n",
+                                num);
                         }
                         emit16(num);
                     } else {
@@ -965,7 +1180,8 @@ static void eatMne(U8 mne) {
                     if (solve(buf, &num)) {
                         if (!canReprU8(num)) {
                             fatalPos(expr_pos,
-                                     "expression does not fit in byte\n");
+                                     "expression does not fit in byte: $%08X\n",
+                                     num);
                         }
                         emit8(num);
                     } else {
@@ -1030,7 +1246,8 @@ static void eatMne(U8 mne) {
                     if (solve(buf, &num)) {
                         if (!canReprU8(num)) {
                             fatalPos(expr_pos,
-                                     "expression does not fit in byte\n");
+                                     "expression does not fit in byte: $%08X\n",
+                                     num);
                         }
                         emit8(num);
                     } else {
@@ -1057,7 +1274,9 @@ static void eatMne(U8 mne) {
                 emit8(op);
                 if (solve(buf, &num)) {
                     if (!canReprU16(num)) {
-                        fatalPos(expr_pos, "expression does not fit in word\n");
+                        fatalPos(expr_pos,
+                                 "expression does not fit in a word: $%08X\n",
+                                 num);
                     }
                     emit16(num);
                 } else {
@@ -1067,12 +1286,581 @@ static void eatMne(U8 mne) {
             }
             addPC(3);
             return;
-
         default:
-            smUnimplemented();
+            if (reg16OffsetSP(peek(), 0x01, &op)) {
+                eat();
+                expect(',');
+                eat();
+                buf = eatExprPos(&expr_pos);
+                if (emit) {
+                    emit8(op);
+                    if (solve(buf, &num)) {
+                        if (!canReprU16(num)) {
+                            fatalPos(
+                                expr_pos,
+                                "expression does not fit in a word: $%08X\n",
+                                num);
+                        }
+                        emit16(num);
+                    } else {
+                        emit16(0xFDFD);
+                        reloc(1, 2, buf, expr_pos, 0);
+                    }
+                }
+                addPC(3);
+                return;
+            }
+            fatal("illegal operand\n");
         }
+    case SM_MNE_LDD:
+        loadStoreIncDec(0x3A, 0x32);
+        return;
+    case SM_MNE_LDI:
+        loadStoreIncDec(0x2A, 0x22);
+        return;
+    case SM_MNE_LDH:
+        eat();
+        if (peek() == 'A') {
+            expect(',');
+            eat();
+            expect('[');
+            eat();
+            if (peek() == 'C') {
+                eat();
+                expect(']');
+                eat();
+                if (emit) {
+                    emit8(0xE2);
+                }
+                addPC(1);
+                return;
+            }
+            buf = eatExprPos(&expr_pos);
+            expect(']');
+            eat();
+            if (emit) {
+                emit8(0xF0);
+                if (solve(buf, &num)) {
+                    if ((num < 0xFF00) || (num > 0xFFFF)) {
+                        fatalPos(expr_pos, "address not in high memory: %08X\n",
+                                 num);
+                    }
+                    emit8(num & 0x00FF);
+                } else {
+                    emit8(0xFD);
+                    reloc(1, 1, buf, expr_pos, SM_RELOC_HI);
+                }
+            }
+            addPC(2);
+            return;
+        }
+        expect('[');
+        eat();
+        if (peek() == 'C') {
+            eat();
+            expect(']');
+            eat();
+            expect(',');
+            eat();
+            expect('A');
+            eat();
+            if (emit) {
+                emit8(0xF2);
+            }
+            addPC(1);
+            return;
+        }
+        buf = eatExprPos(&expr_pos);
+        expect(']');
+        eat();
+        expect(',');
+        eat();
+        expect('A');
+        eat();
+        if (emit) {
+            emit8(0xE0);
+            if (solve(buf, &num)) {
+                if ((num < 0xFF00) || (num > 0xFFFF)) {
+                    fatalPos(expr_pos, "address not in high memory: %08X\n",
+                             num);
+                }
+                emit8(num & 0x00FF);
+            } else {
+                emit8(0xFD);
+                reloc(1, 1, buf, expr_pos, SM_RELOC_HI);
+            }
+        }
+        addPC(2);
+        return;
+    case SM_MNE_PUSH:
+        pushPop(0xC5);
+        return;
+    case SM_MNE_POP:
+        pushPop(0xC1);
+        return;
+    case SM_MNE_ADD:
+        switch (peek()) {
+        case SM_TOK_HL:
+            eat();
+            expect(',');
+            eat();
+            if (!reg16OffsetSP(peek(), 0x09, &op)) {
+                fatal("illegal operand\n");
+            }
+            eat();
+            if (emit) {
+                emit8(op);
+            }
+            addPC(1);
+            return;
+        case SM_TOK_SP:
+            eat();
+            expect(',');
+            eat();
+            buf = eatExprPos(&expr_pos);
+            if (emit) {
+                emit8(0xE8);
+                if (solve(buf, &num)) {
+                    if (!canReprU8(num)) {
+                        fatalPos(expr_pos,
+                                 "expression does not fit in a byte: $%08X\n",
+                                 num);
+                    }
+                    emit8(num);
+                } else {
+                    emit8(0xFD);
+                    reloc(1, 1, buf, expr_pos, 0);
+                }
+            }
+            addPC(2);
+            return;
+        default:
+            aluReg8(0x80, 0xC6);
+            return;
+        }
+    case SM_MNE_ADC:
+        aluReg8(0x88, 0xCE);
+        return;
+    case SM_MNE_SUB:
+        aluReg8(0x90, 0xD6);
+        return;
+    case SM_MNE_SBC:
+        aluReg8(0x98, 0xDE);
+        return;
+    case SM_MNE_AND:
+        aluReg8(0xA0, 0xE6);
+        return;
+    case SM_MNE_XOR:
+        aluReg8(0xA8, 0xEE);
+        return;
+    case SM_MNE_OR:
+        aluReg8(0xB0, 0xF6);
+        return;
+    case SM_MNE_CP:
+        aluReg8(0xB8, 0xFE);
+        return;
+    case SM_MNE_INC:
+        if (reg16OffsetSP(peek(), 0x03, &op)) {
+            eat();
+            if (emit) {
+                emit8(op);
+            }
+            addPC(1);
+            return;
+        }
+        switch (peek()) {
+        case 'B':
+            op = 0x04;
+            break;
+        case 'C':
+            op = 0x0C;
+            break;
+        case 'D':
+            op = 0x14;
+            break;
+        case 'E':
+            op = 0x1C;
+            break;
+        case 'H':
+            op = 0x24;
+            break;
+        case 'L':
+            op = 0x2C;
+            break;
+        case '[':
+            eat();
+            expect(SM_TOK_HL);
+            eat();
+            expect(']');
+            op = 0x34;
+            break;
+        case 'A':
+            op = 0x3C;
+            break;
+        default:
+            fatal("illegal operand\n");
+        }
+        eat();
+        if (emit) {
+            emit8(op);
+        }
+        addPC(1);
+        return;
+    case SM_MNE_DEC:
+        if (reg16OffsetSP(peek(), 0x0B, &op)) {
+            eat();
+            if (emit) {
+                emit8(op);
+            }
+            addPC(1);
+            return;
+        }
+        switch (peek()) {
+        case 'B':
+            op = 0x05;
+            break;
+        case 'C':
+            op = 0x0D;
+            break;
+        case 'D':
+            op = 0x15;
+            break;
+        case 'E':
+            op = 0x1D;
+            break;
+        case 'H':
+            op = 0x25;
+            break;
+        case 'L':
+            op = 0x2D;
+            break;
+        case '[':
+            eat();
+            expect(SM_TOK_HL);
+            eat();
+            expect(']');
+            op = 0x35;
+            break;
+        case 'A':
+            op = 0x3D;
+            break;
+        default:
+            fatal("illegal operand\n");
+        }
+        eat();
+        if (emit) {
+            emit8(op);
+        }
+        addPC(1);
+        return;
+    case SM_MNE_DAA:
+        eat();
+        if (emit) {
+            emit8(0x27);
+        }
+        addPC(1);
+        return;
+    case SM_MNE_CPL:
+        eat();
+        if (emit) {
+            emit8(0x2F);
+        }
+        addPC(1);
+        return;
+    case SM_MNE_CCF:
+        eat();
+        if (emit) {
+            emit8(0x3F);
+        }
+        addPC(1);
+        return;
+    case SM_MNE_SCF:
+        eat();
+        if (emit) {
+            emit8(0x37);
+        }
+        addPC(1);
+        return;
+    case SM_MNE_NOP:
+        eat();
+        if (emit) {
+            emit8(0x00);
+        }
+        addPC(1);
+        return;
+    case SM_MNE_HALT:
+        eat();
+        if (emit) {
+            emit8(0x76);
+            emit8(0x00);
+        }
+        addPC(2);
+        return;
+    case SM_MNE_STOP:
+        eat();
+        if (emit) {
+            emit8(0x10);
+            emit8(0x00);
+        }
+        addPC(2);
+        return;
+    case SM_MNE_DI:
+        eat();
+        if (emit) {
+            emit8(0xF3);
+        }
+        addPC(1);
+        return;
+    case SM_MNE_EI:
+        eat();
+        if (emit) {
+            emit8(0xFB);
+        }
+        addPC(1);
+        return;
+    case SM_MNE_RETI:
+        eat();
+        if (emit) {
+            emit8(0xD9);
+        }
+        addPC(1);
+        return;
+    case SM_MNE_RLCA:
+        eat();
+        if (emit) {
+            emit8(0x07);
+        }
+        addPC(1);
+        return;
+    case SM_MNE_RLA:
+        eat();
+        if (emit) {
+            emit8(0x17);
+        }
+        addPC(1);
+        return;
+    case SM_MNE_RRCA:
+        eat();
+        if (emit) {
+            emit8(0x0F);
+        }
+        addPC(1);
+        return;
+    case SM_MNE_RRA:
+        eat();
+        if (emit) {
+            emit8(0x1F);
+        }
+        addPC(1);
+        return;
+    case SM_MNE_RLC:
+        doAluReg8Cb(0x00);
+        return;
+    case SM_MNE_RRC:
+        doAluReg8Cb(0x08);
+        return;
+    case SM_MNE_RL:
+        doAluReg8Cb(0x10);
+        return;
+    case SM_MNE_RR:
+        doAluReg8Cb(0x18);
+        return;
+    case SM_MNE_SLA:
+        doAluReg8Cb(0x20);
+        return;
+    case SM_MNE_SRA:
+        doAluReg8Cb(0x28);
+        return;
+    case SM_MNE_SWAP:
+        doAluReg8Cb(0x30);
+        return;
+    case SM_MNE_SRL:
+        doAluReg8Cb(0x38);
+        return;
+    case SM_MNE_BIT:
+        doBitCb(0x40);
+        return;
+    case SM_MNE_RES:
+        doBitCb(0x80);
+        return;
+    case SM_MNE_SET:
+        doBitCb(0xC0);
+        return;
+    case SM_MNE_JP:
+        eat();
+        if (flag(peek(), 0xC2, &op)) {
+            eat();
+            expect(',');
+            eat();
+            buf = eatExprPos(&expr_pos);
+            if (emit) {
+                emit8(op);
+                if (solve(buf, &num)) {
+                    if (!canReprU16(num)) {
+                        fatalPos(expr_pos,
+                                 "expression does not fit in a word: $%08X\n",
+                                 num);
+                    }
+                    emit16(num);
+                } else {
+                    emit16(0xFDFD);
+                    reloc(1, 2, buf, expr_pos, SM_RELOC_JP);
+                }
+            }
+            addPC(3);
+            return;
+        }
+        if (peek() == SM_TOK_HL) {
+            eat();
+            if (emit) {
+                emit8(0xE9);
+            }
+            addPC(1);
+            return;
+        }
+        buf = eatExprPos(&expr_pos);
+        if (emit) {
+            emit8(0xC3);
+            if (solve(buf, &num)) {
+                if (!canReprU16(num)) {
+                    fatalPos(expr_pos,
+                             "expression does not fit in a word: $%08X\n", num);
+                }
+                emit16(num);
+            } else {
+                emit16(0xFDFD);
+                reloc(1, 2, buf, expr_pos, SM_RELOC_JP);
+            }
+        }
+        addPC(3);
+        return;
+    case SM_MNE_JR:
+        eat();
+        if (flag(peek(), 0x20, &op)) {
+            eat();
+            expect(',');
+            eat();
+            buf = eatExprPos(&expr_pos);
+            if (emit) {
+                emit8(op);
+                if (!solve(buf, &num)) {
+                    fatalPos(expr_pos, "branch distance must be constant");
+                }
+                I32 offset = num - ((I32)(U32)getPC()) - 2;
+                if (!canReprI8(offset)) {
+                    fatalPos(expr_pos, "branch distance too far\n");
+                }
+                emit8(offset);
+            }
+            addPC(2);
+            return;
+        }
+        buf = eatExprPos(&expr_pos);
+        if (emit) {
+            emit8(0x18);
+            if (!solve(buf, &num)) {
+                fatalPos(expr_pos, "branch distance must be constant");
+            }
+            I32 offset = num - ((I32)(U32)getPC()) - 2;
+            if (!canReprI8(offset)) {
+                fatalPos(expr_pos, "branch distance too far\n");
+            }
+            emit8(offset);
+        }
+        addPC(2);
+        return;
+    case SM_MNE_CALL:
+        eat();
+        if (flag(peek(), 0xC4, &op)) {
+            eat();
+            expect(',');
+            eat();
+            buf = eatExprPos(&expr_pos);
+            if (emit) {
+                emit8(op);
+                if (solve(buf, &num)) {
+                    if (!canReprU16(num)) {
+                        fatalPos(expr_pos,
+                                 "expression does not fit in a word: $%08X\n",
+                                 num);
+                    }
+                    emit16(num);
+                } else {
+                    emit16(0xFDFD);
+                    reloc(1, 2, buf, expr_pos, SM_RELOC_JP);
+                }
+            }
+            addPC(3);
+            return;
+        }
+        buf = eatExprPos(&expr_pos);
+        if (emit) {
+            emit8(0xCD);
+            if (solve(buf, &num)) {
+                if (!canReprU16(num)) {
+                    fatalPos(expr_pos,
+                             "expression does not fit in a word: $%08X\n", num);
+                }
+                emit16(num);
+            } else {
+                emit16(0xFDFD);
+                reloc(1, 2, buf, expr_pos, SM_RELOC_JP);
+            }
+        }
+        addPC(3);
+        return;
+    case SM_MNE_RET:
+        eat();
+        if (flag(peek(), 0xC0, &op)) {
+            eat();
+            expect(',');
+            eat();
+            if (emit) {
+                emit8(op);
+            }
+            addPC(1);
+            return;
+        }
+        if (emit) {
+            emit8(0xC9);
+        }
+        addPC(1);
+        return;
+    case SM_MNE_RST:
+        eat();
+        buf = eatExprPos(&expr_pos);
+        if (emit) {
+            if (solve(buf, &num)) {
+                switch (num) {
+                case 0x00:
+                    break;
+                case 0x08:
+                    break;
+                case 0x10:
+                    break;
+                case 0x18:
+                    break;
+                case 0x20:
+                    break;
+                case 0x28:
+                    break;
+                case 0x30:
+                    break;
+                case 0x38:
+                    break;
+                default:
+                    fatalPos(expr_pos, "illegal reset vector: $%08X\n", num);
+                }
+                emit8(0xC7 + num);
+            } else {
+                emit8(0xFD);
+                reloc(0, 1, buf, expr_pos, SM_RELOC_RST);
+            }
+        }
+        addPC(1);
+        return;
     default:
-        smUnimplemented();
+        smUnreachable();
     }
 }
 
@@ -1135,7 +1923,8 @@ static void pass() {
                                              .flags   = 0,
                                          });
             } else if (!emit) {
-                // we are allowed to redefine labels for the second pass.
+                // we are allowed to redefine labels for the second
+                // pass.
                 // TODO: but we need to ensure the value of the label
                 // never changes.
                 // TODO: also we want to create weak/redefinable symbols
@@ -1264,8 +2053,8 @@ static const U8 DIGITS_UPPER[] = "0123456789ABCDEF";
 
 void fmtUInt(SmGBuf *buf, I32 num, I32 radix, U8 flags, U16 width, U16 prec,
              Bool negative) {
-    // write digits to a small buffer (at least big enough to hold 32 bits
-    // of binary)
+    // write digits to a small buffer (at least big enough to hold 32
+    // bits of binary)
     U8        numbytes[32];
     U8       *end    = numbytes + 32;
     U8 const *digits = DIGITS;
@@ -1365,7 +2154,7 @@ static UInt scanDigits(SmBuf fmt, U16 *num) {
     }
     I32 bignum = smParse((SmBuf){fmt.bytes, len});
     if (!canReprU16(bignum)) {
-        fatal("expression does not fit in word\n");
+        fatal("expression does not fit in a word: $%08X\n", bignum);
     }
     *num = (U16)bignum;
     return len;
