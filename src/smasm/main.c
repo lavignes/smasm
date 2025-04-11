@@ -1049,7 +1049,7 @@ static void doBitCb(U8 base) {
     buf = eatExprPos(&expr_pos);
     expect(',');
     eat();
-    if (reg8Offset(peek(), 0x00, &op)) {
+    if (reg8Offset(peek(), base, &op)) {
         eat();
     } else {
         expect('[');
@@ -1068,7 +1068,7 @@ static void doBitCb(U8 base) {
         if ((num < 0) || (num > 7)) {
             fatalPos(expr_pos, "bit number must be between 0 and 7\n");
         }
-        emit8(base + ((U8)num << 8) + op);
+        emit8(op + ((U8)num << 8));
     }
     addPC(2);
 }
