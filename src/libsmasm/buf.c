@@ -69,13 +69,6 @@ static UInt roundUp(UInt num) {
     return num;
 }
 
-static UInt uMax(UInt lhs, UInt rhs) {
-    if (lhs > rhs) {
-        return lhs;
-    }
-    return rhs;
-}
-
 SmBuf smBufIntern(SmBufIntern *in, SmBuf buf) {
     if (!in->bufs) {
         in->bufs = malloc(sizeof(SmGBuf) * 16);
@@ -107,7 +100,7 @@ SmBuf smBufIntern(SmBufIntern *in, SmBuf buf) {
             }
             in->size *= 2;
         }
-        UInt size              = uMax(roundUp(buf.len), 256);
+        UInt size              = smUIntMax(roundUp(buf.len), 256);
         has_space              = in->bufs + in->len;
         has_space->inner.bytes = malloc(size);
         if (!has_space->inner.bytes) {

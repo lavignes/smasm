@@ -2023,20 +2023,6 @@ enum FmtFlags {
     FMT_FLAG_UPPERCASE    = 1 << 5,
 };
 
-static UInt uMax(UInt lhs, UInt rhs) {
-    if (lhs > rhs) {
-        return lhs;
-    }
-    return rhs;
-}
-
-static UInt uMin(UInt lhs, UInt rhs) {
-    if (lhs < rhs) {
-        return lhs;
-    }
-    return rhs;
-}
-
 static const U8 DIGITS[]       = "0123456789abcdef";
 static const U8 DIGITS_UPPER[] = "0123456789ABCDEF";
 
@@ -2055,8 +2041,8 @@ void fmtUInt(SmGBuf *buf, I32 num, I32 radix, U8 flags, U16 width, U16 prec,
         num /= radix;
     } while (num);
     SmBuf numbuf = {end, (numbytes + 32) - end};
-    prec         = uMax(prec, numbuf.len);
-    UInt len     = uMax(width, prec);
+    prec         = smUIntMax(prec, numbuf.len);
+    UInt len     = smUIntMax(width, prec);
     if (negative || (flags & (FMT_FLAG_FORCE_SIGN | FMT_FLAG_PAD_SIGN))) {
         ++len;
     }
@@ -2102,7 +2088,7 @@ static void fmtStr(SmGBuf *buf, SmBuf str, U8 flags, U16 width, U16 prec) {
     if (prec == 0) {
         prec = str.len;
     }
-    len += uMax(width, prec);
+    len += smUIntMax(width, prec);
     UInt i   = 0;
     UInt pad = len - prec;
     // if we are not left-justifying, then we will write padding
@@ -2116,8 +2102,8 @@ static void fmtStr(SmGBuf *buf, SmBuf str, U8 flags, U16 width, U16 prec) {
         }
     }
     // write the str
-    smGBufCat(buf, (SmBuf){str.bytes, uMin(prec, str.len)});
-    i += uMin(prec, str.len);
+    smGBufCat(buf, (SmBuf){str.bytes, smUIntMin(prec, str.len)});
+    i += smUIntMin(prec, str.len);
     // write out any leftover padding
     for (; i < len; ++i) {
         smGBufCat(buf, SM_BUF(" "));

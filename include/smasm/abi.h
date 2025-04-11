@@ -95,4 +95,12 @@ typedef I64 Int;
 #define I64_MIN I64_C(-9223372036854775808)
 #define I64_MAX I64_C(9223372036854775807)
 
+static inline UInt smUIntMax(UInt lhs, UInt rhs) {
+    return (lhs > rhs) ? lhs : rhs;
+}
+
+static inline UInt smUIntMin(UInt lhs, UInt rhs) {
+    return (lhs < rhs) ? lhs : rhs;
+}
+
 #endif // SMASM_ABI_H
