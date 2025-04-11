@@ -901,32 +901,6 @@ static Bool reg16OffsetSP(U32 tok, U8 base, U8 *op) {
     }
 }
 
-static void loadReg8(U8 base) {
-    U8 op;
-    eat();
-    expect(',');
-    eat();
-    if (reg8Offset(peek(), base, &op)) {
-        eat();
-        if (emit) {
-            emit8(op);
-        }
-        addPC(1);
-        return;
-    }
-    expect('[');
-    eat();
-    expect(SM_TOK_HL);
-    eat();
-    expect(']');
-    eat();
-    if (emit) {
-        emit8(base + 6);
-    }
-    addPC(1);
-    return;
-}
-
 static void loadStoreIncDec(U8 load, U8 store) {
     eat();
     switch (peek()) {
@@ -1001,7 +975,6 @@ static void aluReg8(U8 base, U8 imm) {
     SmPos     expr_pos;
     SmExprBuf buf;
     I32       num;
-    expect('A');
     eat();
     expect(',');
     eat();
@@ -1193,22 +1166,22 @@ static void eatMne(U8 mne) {
                 return;
             }
         case 'B':
-            loadReg8(0x40);
+            aluReg8(0x40, 0x06);
             return;
         case 'C':
-            loadReg8(0x48);
+            aluReg8(0x48, 0x0E);
             return;
         case 'D':
-            loadReg8(0x50);
+            aluReg8(0x50, 0x16);
             return;
         case 'E':
-            loadReg8(0x58);
+            aluReg8(0x58, 0x1E);
             return;
         case 'H':
-            loadReg8(0x60);
+            aluReg8(0x60, 0x26);
             return;
         case 'L':
-            loadReg8(0x68);
+            aluReg8(0x68, 0x2E);
             return;
         case '[':
             eat();
@@ -1399,6 +1372,7 @@ static void eatMne(U8 mne) {
         pushPop(0xC1);
         return;
     case SM_MNE_ADD:
+        eat();
         switch (peek()) {
         case SM_TOK_HL:
             eat();
@@ -1435,28 +1409,43 @@ static void eatMne(U8 mne) {
             addPC(2);
             return;
         default:
+            expect('A');
             aluReg8(0x80, 0xC6);
             return;
         }
     case SM_MNE_ADC:
+        eat();
+        expect('A');
         aluReg8(0x88, 0xCE);
         return;
     case SM_MNE_SUB:
+        eat();
+        expect('A');
         aluReg8(0x90, 0xD6);
         return;
     case SM_MNE_SBC:
+        eat();
+        expect('A');
         aluReg8(0x98, 0xDE);
         return;
     case SM_MNE_AND:
+        eat();
+        expect('A');
         aluReg8(0xA0, 0xE6);
         return;
     case SM_MNE_XOR:
+        eat();
+        expect('A');
         aluReg8(0xA8, 0xEE);
         return;
     case SM_MNE_OR:
+        eat();
+        expect('A');
         aluReg8(0xB0, 0xF6);
         return;
     case SM_MNE_CP:
+        eat();
+        expect('A');
         aluReg8(0xB8, 0xFE);
         return;
     case SM_MNE_INC:

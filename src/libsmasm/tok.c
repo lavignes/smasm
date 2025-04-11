@@ -359,7 +359,7 @@ static U32 peekFile(SmTokStream *ts) {
     }
     while (true) {
         U32 c = peek(ts);
-        if ((c == SM_TOK_EOF) || !isspace(c)) {
+        if ((c == SM_TOK_EOF) || !isspace(c) || (c == '\n')) {
             break;
         }
         eat(ts);
@@ -601,7 +601,6 @@ static U32 peekFile(SmTokStream *ts) {
             U32 c1           = toupper(ts->file.buf.inner.bytes[1]);
             for (UInt i = 0; i < (sizeof(PAIRS) / sizeof(PAIRS[0])); ++i) {
                 if ((PAIRS[i].pair[0] == c0) && (PAIRS[i].pair[1] == c1)) {
-                    eat(ts);
                     ts->file.stashed = true;
                     ts->file.stash   = PAIRS[i].tok;
                     return ts->file.stash;
