@@ -9,6 +9,8 @@ struct SmLbl {
 };
 typedef struct SmLbl SmLbl;
 
+static SmLbl const SM_LBL_NULL = {0};
+
 Bool smLblEqual(SmLbl lhs, SmLbl rhs);
 Bool smLblIsGlobal(SmLbl lbl);
 

@@ -33,6 +33,43 @@ UInt smBufHash(SmBuf buf) {
     return hash;
 }
 
+static char const DIGITS[] = "0123456789ABCDEF";
+
+UInt smBufParse(SmBuf buf) {
+    if (buf.len == 0) {
+        smFatal("empty number\n");
+    }
+    I32  radix = 10;
+    UInt i     = 0;
+    if (buf.bytes[0] == '%') {
+        radix = 2;
+        ++i;
+    } else if (buf.bytes[0] == '$') {
+        radix = 16;
+        ++i;
+    }
+    if (i == buf.len) {
+        smFatal("invalid number: %.*s\n", buf.len, buf.bytes);
+    }
+    UInt value = 0;
+    for (; i < buf.len; ++i) {
+        for (UInt j = 0; j < (sizeof(DIGITS) / sizeof(DIGITS[0])); ++j) {
+            if (toupper(buf.bytes[i]) == DIGITS[j]) {
+                if (j >= (UInt)radix) {
+                    smFatal("invalid number: %.*s\n", buf.len, buf.bytes);
+                }
+                value *= radix;
+                value += j;
+                goto next;
+            }
+        }
+        smFatal("invalid number: %.*s\n", buf.len, buf.bytes);
+    next:
+        (void)0;
+    }
+    return value;
+}
+
 void smGBufCat(SmGBuf *buf, SmBuf bytes) {
     if (!buf->inner.bytes) {
         buf->inner.bytes = malloc(bytes.len);
@@ -100,7 +137,7 @@ SmBuf smBufIntern(SmBufIntern *in, SmBuf buf) {
             }
             in->size *= 2;
         }
-        UInt size              = smUIntMax(roundUp(buf.len), 256);
+        UInt size              = uIntMax(roundUp(buf.len), 256);
         has_space              = in->bufs + in->len;
         has_space->inner.bytes = malloc(size);
         if (!has_space->inner.bytes) {

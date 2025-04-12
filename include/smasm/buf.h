@@ -9,11 +9,14 @@ struct SmBuf {
 };
 typedef struct SmBuf SmBuf;
 
+static SmBuf const SM_BUF_NULL = {0};
+
 #define SM_BUF(cstr) ((SmBuf){(U8 *)(cstr), (sizeof((cstr)) - 1)})
 
 Bool smBufEqual(SmBuf lhs, SmBuf rhs);
 Bool smBufEqualIgnoreAsciiCase(SmBuf lhs, SmBuf rhs);
 UInt smBufHash(SmBuf buf);
+UInt smBufParse(SmBuf buf);
 
 struct SmGBuf {
     SmBuf inner;

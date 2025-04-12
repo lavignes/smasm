@@ -8,9 +8,7 @@ Bool smLblEqual(SmLbl lhs, SmLbl rhs) {
     return smBufEqual(lhs.scope, rhs.scope) && smBufEqual(lhs.name, rhs.name);
 }
 
-static SmBuf const NULL_BUF = {0};
-
-Bool smLblIsGlobal(SmLbl lbl) { return smBufEqual(lbl.scope, NULL_BUF); }
+Bool smLblIsGlobal(SmLbl lbl) { return smBufEqual(lbl.scope, SM_BUF_NULL); }
 
 void smOpGBufAdd(SmOpGBuf *buf, SmOp item) { SM_GBUF_ADD_IMPL(SmOp); }
 
@@ -42,14 +40,12 @@ static UInt hashLabel(SmLbl lbl) {
     return hash;
 }
 
-static SmLbl const NULL_LBL = {0};
-
 static SmSym *whence(SmSymTab *tab, SmLbl lbl) {
     UInt   hash = hashLabel(lbl);
     UInt   i    = hash % tab->size;
     SmSym *sym  = tab->syms + i;
     while (hash != hashLabel(sym->lbl)) {
-        if (smLblEqual(sym->lbl, NULL_LBL)) {
+        if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
             break;
         }
         if (smLblEqual(sym->lbl, lbl)) {
@@ -80,7 +76,7 @@ static void tryGrow(SmSymTab *tab) {
         }
         for (UInt i = 0; i < old_size; ++i) {
             SmSym *sym = old_syms + i;
-            if (smLblEqual(sym->lbl, NULL_LBL)) {
+            if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
                 continue;
             }
             *whence(tab, sym->lbl) = *sym;
@@ -102,7 +98,7 @@ SmSym *smSymTabFind(SmSymTab *tab, SmLbl lbl) {
         return NULL;
     }
     SmSym *wh = whence(tab, lbl);
-    if (smLblEqual(wh->lbl, NULL_LBL)) {
+    if (smLblEqual(wh->lbl, SM_LBL_NULL)) {
         return NULL;
     }
     return wh;
