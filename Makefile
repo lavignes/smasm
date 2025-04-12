@@ -53,5 +53,7 @@ clean:
 ifneq ($(MAKECMDGOALS),clean)
 include $(ASMDEPS)
 include $(LIBDEPS)
+include $(FIXDEPS)
+include $(DISDEPS)
 endif
 
