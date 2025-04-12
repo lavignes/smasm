@@ -8,7 +8,7 @@ extern SmBufIntern  STRS;
 extern SmSymTab     SYMS;
 extern SmExprIntern EXPRS;
 extern SmPathSet    IPATHS;
-// extern SmPathSet    INCS;
+extern SmPathSet    INCS;
 
 SmBuf intern(SmBuf buf);
 
@@ -33,7 +33,7 @@ extern SmTokStream *ts;
 _Noreturn void fatal(char const *fmt, ...);
 _Noreturn void fatalPos(SmPos pos, char const *fmt, ...);
 
-void pullStream();
+void popStream();
 U32  peek();
 void eat();
 void expect(U32 tok);
@@ -42,6 +42,8 @@ SmBuf tokBuf();
 I32   tokNum();
 SmPos tokPos();
 SmLbl tokLbl();
+
+extern SmSectGBuf SECTS;
 
 SmSect *sectGet();
 void    sectSet(SmBuf name);

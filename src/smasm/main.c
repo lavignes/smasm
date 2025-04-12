@@ -5,6 +5,7 @@
 #include "state.h"
 
 #include <smasm/fatal.h>
+#include <smasm/serde.h>
 
 #include <assert.h>
 #include <errno.h>
@@ -131,7 +132,7 @@ int main(int argc, char **argv) {
     pass();
     rewindPass();
     pass();
-    pullStream();
+    popStream();
 
     if (outfile_name) {
         outfile = openFileCstr(outfile_name, "wb+");
@@ -164,6 +165,18 @@ static void expectEOL() {
         return;
     default:
         fatal("expected end of line\n");
+    }
+}
+
+static void expectReprU8(SmPos pos, I32 num) {
+    if (!exprCanReprU8(num)) {
+        fatalPos(pos, "expression does not fit in byte: $%08X\n", num);
+    }
+}
+
+static void expectReprU16(SmPos pos, I32 num) {
+    if (!exprCanReprU16(num)) {
+        fatalPos(pos, "expression does not fit in word: $%08X\n", num);
     }
 }
 
@@ -362,9 +375,7 @@ static void aluReg8(U8 base, U8 imm) {
     if (emit) {
         emit8(imm);
         if (exprSolve(buf, &num)) {
-            if (!exprCanReprU8(num)) {
-                fatalPos(pos, "expression does not fit in byte: $%08X\n", num);
-            }
+            expectReprU8(pos, num);
             emit8(num);
         } else {
             emit8(0xFD);
@@ -483,12 +494,7 @@ static void eatMne(U8 mne) {
                 if (emit) {
                     emit8(0xFA);
                     if (exprSolve(buf, &num)) {
-                        if (!exprCanReprU16(num)) {
-                            fatalPos(
-                                pos,
-                                "expression does not fit in a word: $%08X\n",
-                                num);
-                        }
+                        expectReprU16(pos, num);
                         emit16(num);
                     } else {
                         emit16(0xFDFD);
@@ -510,11 +516,7 @@ static void eatMne(U8 mne) {
                 if (emit) {
                     emit8(0x3E);
                     if (exprSolve(buf, &num)) {
-                        if (!exprCanReprU8(num)) {
-                            fatalPos(pos,
-                                     "expression does not fit in byte: $%08X\n",
-                                     num);
-                        }
+                        expectReprU8(pos, num);
                         emit8(num);
                     } else {
                         emit8(0xFD);
@@ -576,11 +578,7 @@ static void eatMne(U8 mne) {
                 if (emit) {
                     emit8(0x36);
                     if (exprSolve(buf, &num)) {
-                        if (!exprCanReprU8(num)) {
-                            fatalPos(pos,
-                                     "expression does not fit in byte: $%08X\n",
-                                     num);
-                        }
+                        expectReprU8(pos, num);
                         emit8(num);
                     } else {
                         emit8(0xFD);
@@ -605,11 +603,7 @@ static void eatMne(U8 mne) {
             if (emit) {
                 emit8(op);
                 if (exprSolve(buf, &num)) {
-                    if (!exprCanReprU16(num)) {
-                        fatalPos(pos,
-                                 "expression does not fit in a word: $%08X\n",
-                                 num);
-                    }
+                    expectReprU16(pos, num);
                     emit16(num);
                 } else {
                     emit16(0xFDFD);
@@ -627,12 +621,7 @@ static void eatMne(U8 mne) {
                 if (emit) {
                     emit8(op);
                     if (exprSolve(buf, &num)) {
-                        if (!exprCanReprU16(num)) {
-                            fatalPos(
-                                pos,
-                                "expression does not fit in a word: $%08X\n",
-                                num);
-                        }
+                        expectReprU16(pos, num);
                         emit16(num);
                     } else {
                         emit16(0xFDFD);
@@ -753,11 +742,7 @@ static void eatMne(U8 mne) {
             if (emit) {
                 emit8(0xE8);
                 if (exprSolve(buf, &num)) {
-                    if (!exprCanReprU8(num)) {
-                        fatalPos(pos,
-                                 "expression does not fit in a byte: $%08X\n",
-                                 num);
-                    }
+                    expectReprU8(pos, num);
                     emit8(num);
                 } else {
                     emit8(0xFD);
@@ -1043,11 +1028,7 @@ static void eatMne(U8 mne) {
             if (emit) {
                 emit8(op);
                 if (exprSolve(buf, &num)) {
-                    if (!exprCanReprU16(num)) {
-                        fatalPos(pos,
-                                 "expression does not fit in a word: $%08X\n",
-                                 num);
-                    }
+                    expectReprU16(pos, num);
                     emit16(num);
                 } else {
                     emit16(0xFDFD);
@@ -1069,10 +1050,7 @@ static void eatMne(U8 mne) {
         if (emit) {
             emit8(0xC3);
             if (exprSolve(buf, &num)) {
-                if (!exprCanReprU16(num)) {
-                    fatalPos(pos, "expression does not fit in a word: $%08X\n",
-                             num);
-                }
+                expectReprU16(pos, num);
                 emit16(num);
             } else {
                 emit16(0xFDFD);
@@ -1126,11 +1104,7 @@ static void eatMne(U8 mne) {
             if (emit) {
                 emit8(op);
                 if (exprSolve(buf, &num)) {
-                    if (!exprCanReprU16(num)) {
-                        fatalPos(pos,
-                                 "expression does not fit in a word: $%08X\n",
-                                 num);
-                    }
+                    expectReprU16(pos, num);
                     emit16(num);
                 } else {
                     emit16(0xFDFD);
@@ -1144,10 +1118,7 @@ static void eatMne(U8 mne) {
         if (emit) {
             emit8(0xCD);
             if (exprSolve(buf, &num)) {
-                if (!exprCanReprU16(num)) {
-                    fatalPos(pos, "expression does not fit in a word: $%08X\n",
-                             num);
-                }
+                expectReprU16(pos, num);
                 emit16(num);
             } else {
                 emit16(0xFDFD);
@@ -1234,9 +1205,7 @@ static void eatDirective() {
                 buf = exprEatPos(&pos);
                 if (emit) {
                     if (exprSolve(buf, &num)) {
-                        if (!exprCanReprU8(num)) {
-                            fatalPos(pos, "expression does not fit in byte\n");
-                        }
+                        expectReprU8(pos, num);
                         emit8(num);
                     } else {
                         emit8(0xFD);
@@ -1371,9 +1340,48 @@ static void pass() {
     }
 }
 
-static void writeDepend() { smUnimplemented(); }
+static FILE *openFile(SmBuf path, char const *modes) {
+    static SmGBuf buf = {0};
+    buf.inner.len     = 0;
+    smGBufCat(&buf, path);
+    smGBufCat(&buf, (SmBuf){(U8 *)"\0", 1});
+    return openFileCstr((char const *)buf.inner.bytes, modes);
+}
 
-static void serialize() { smUnimplemented(); }
+static void writeDepend() {
+    static SmGBuf buf = {0};
+    buf.inner.len     = 0;
+    if (!depfile_name) {
+        UInt        len    = strlen(infile_name);
+        char const *offset = strchr(infile_name, '.');
+        if (offset) {
+            len -= (offset - infile_name);
+        }
+        smGBufCat(&buf, (SmBuf){(U8 *)infile_name, len});
+        smGBufCat(&buf, SM_BUF(".d"));
+    } else {
+        smGBufCat(&buf, (SmBuf){(U8 *)depfile_name, strlen(depfile_name)});
+    }
+    FILE   *hnd = openFile(buf.inner, "wb+");
+    SmSerde ser = {hnd, buf.inner};
+    smSerializeBuf(&ser, (SmBuf){(U8 *)outfile_name, strlen(outfile_name)});
+    smSerializeBuf(&ser, SM_BUF(": \\\n"));
+    for (UInt i = 0; i < INCS.bufs.inner.len; ++i) {
+        smSerializeBuf(&ser, SM_BUF("  "));
+        smSerializeBuf(&ser, INCS.bufs.inner.items[i]);
+        smSerializeBuf(&ser, SM_BUF("\\\n"));
+    }
+    closeFile(hnd);
+}
+
+static void serialize() {
+    SmSerde ser = {outfile, {(U8 *)outfile_name, strlen(outfile_name)}};
+    smSerializeU32(&ser, *(U32 *)"SM00");
+    smSerializeBufIntern(&ser, &STRS);
+    smSerializeExprIntern(&ser, &EXPRS, &STRS);
+    smSerializeSymTab(&ser, &SYMS, &STRS, &EXPRS);
+    smSerializeSectBuf(&ser, SECTS.inner, &STRS, &EXPRS);
+}
 
 static FILE *openFileCstr(char const *name, char const *modes) {
     FILE *hnd = fopen(name, modes);
@@ -1387,14 +1395,6 @@ static void closeFile(FILE *hnd) {
     if (fclose(hnd) == EOF) {
         smFatal("failed to close file: %s\n", strerror(errno));
     }
-}
-
-static FILE *openFile(SmBuf path, char const *modes) {
-    static SmGBuf buf = {0};
-    buf.inner.len     = 0;
-    smGBufCat(&buf, path);
-    smGBufCat(&buf, (SmBuf){(U8 *)"\0", 1});
-    return openFileCstr((char const *)buf.inner.bytes, modes);
 }
 
 static void pushFile(SmBuf path) {

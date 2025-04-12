@@ -9,7 +9,7 @@ SmBufIntern  STRS   = {0};
 SmSymTab     SYMS   = {0};
 SmExprIntern EXPRS  = {0};
 SmPathSet    IPATHS = {0};
-// SmPathSet    INCS   = {0};
+SmPathSet    INCS   = {0};
 
 SmBuf intern(SmBuf buf) { return smBufIntern(&STRS, buf); }
 
@@ -44,7 +44,7 @@ _Noreturn void fatalPos(SmPos pos, char const *fmt, ...) {
     va_end(args);
 }
 
-void pullStream() {
+void popStream() {
     assert(ts >= STACK);
     smTokStreamFini(ts);
     --ts;
@@ -54,7 +54,7 @@ U32 peek() {
     U32 tok = smTokStreamPeek(ts);
     // pop if we reached EOF
     if ((tok == SM_TOK_EOF) && (ts > STACK)) {
-        pullStream();
+        popStream();
         return peek(); // yuck
     }
     return tok;
@@ -96,8 +96,8 @@ SmLbl tokLbl() {
     return lblLocal(intern(name));
 }
 
-static SmSectGBuf SECTS = {0};
-static UInt       sect;
+SmSectGBuf  SECTS = {0};
+static UInt sect;
 
 static UInt sectFind(SmBuf name) {
     for (UInt i = 0; i < SECTS.inner.len; ++i) {

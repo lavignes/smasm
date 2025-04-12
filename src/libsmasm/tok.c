@@ -152,7 +152,7 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
 
 void smTokStreamFileInit(SmTokStream *ts, SmBuf name, FILE *hnd) {
     ts->kind          = SM_TOK_STREAM_FILE;
-    ts->pos           = (SmPos){.file = name, .line = 1, .col = 1};
+    ts->pos           = (SmPos){name, 1, 1};
     ts->file.hnd      = hnd;
     ts->file.stashed  = false;
     ts->file.cstashed = false;
@@ -620,10 +620,59 @@ static U32 peekFile(SmTokStream *ts) {
     }
 }
 
+static U32 peekMacro(SmTokStream *ts) {
+    if (ts->macro.pos >= ts->macro.buf.len) {
+        return SM_TOK_EOF;
+    }
+    SmMacroTok *tok = ts->macro.buf.items + ts->macro.pos;
+    switch (tok->kind) {
+    case SM_MACRO_TOK_TOK:
+        return tok->tok;
+    case SM_MACRO_TOK_STR:
+        return SM_TOK_STR;
+    case SM_MACRO_TOK_ID:
+        return SM_TOK_ID;
+    case SM_MACRO_TOK_NUM:
+        return SM_TOK_NUM;
+    case SM_MACRO_TOK_ARG:
+        if (ts->macro.argi >= ts->macro.args.len) {
+            smTokStreamFatalPos(ts, tok->pos, "argument is undefined\n");
+        }
+        tok = ts->macro.args.buf[tok->arg].items + ts->macro.argi;
+        switch (tok->kind) {
+        case SM_MACRO_TOK_TOK:
+            return tok->tok;
+        case SM_MACRO_TOK_STR:
+            return SM_TOK_STR;
+        case SM_MACRO_TOK_ID:
+            return SM_TOK_ID;
+        case SM_MACRO_TOK_NUM:
+            return SM_TOK_NUM;
+        default:
+            smUnreachable();
+        }
+    case SM_MACRO_TOK_NARG:
+        return SM_TOK_NUM;
+    case SM_MACRO_TOK_SHIFT:
+        if (ts->macro.args.len == 0) {
+            smTokStreamFatalPos(ts, tok->pos, "no arguments left to shift\n");
+        }
+        return '\n';
+    case SM_MACRO_TOK_UNIQUE:
+        smUnimplemented();
+    default:
+        smUnreachable();
+    }
+}
+
 U32 smTokStreamPeek(SmTokStream *ts) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
         return peekFile(ts);
+    case SM_TOK_STREAM_MACRO:
+        return peekMacro(ts);
+    case SM_TOK_STREAM_FMT:
+        return ts->fmt.tok;
     default:
         smUnimplemented();
     }
