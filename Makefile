@@ -14,9 +14,17 @@ LDSRCS = $(call rwildcard,src/smold,*.c)
 LDOBJS = $(LDSRCS:.c=.o)
 LDDEPS = $(LDSRCS:.c=.d)
 
+FIXSRCS = $(call rwildcard,src/smfix,*.c)
+FIXOBJS = $(FIXSRCS:.c=.o)
+FIXDEPS = $(FIXSRCS:.c=.d)
+
+DISSRCS = $(call rwildcard,src/smdis,*.c)
+DISOBJS = $(DISSRCS:.c=.o)
+DISDEPS = $(DISSRCS:.c=.d)
+
 .PHONY: all clean
 
-all: bin/smasm bin/smold
+all: bin/smasm bin/smold bin/smfix bin/smdis
 
 lib/libsmasm.a: $(LIBDEPS) $(LIBOBJS)
 	$(AR) rcs $@ $(LIBOBJS)
@@ -26,6 +34,12 @@ bin/smasm: lib/libsmasm.a $(ASMDEPS) $(ASMOBJS)
 
 bin/smold: lib/libsmasm.a $(LDDEPS) $(LDOBJS)
 	$(LD) $(LDOBJS) -o $@ $(LDFLAGS) -lsmasm
+
+bin/smfix: lib/libsmasm.a $(FIXDEPS) $(FIXOBJS)
+	$(LD) $(FIXOBJS) -o $@ $(LDFLAGS) -lsmasm
+
+bin/smdis: lib/libsmasm.a $(DISDEPS) $(DISOBJS)
+	$(LD) $(DISOBJS) -o $@ $(LDFLAGS) -lsmasm
 
 %.o %.d: %.c
 	$(CC) $(CFLAGS) -MD -MF $(addsuffix .d,$(basename $<)) -c $< -o $(addsuffix .o,$(basename $<))

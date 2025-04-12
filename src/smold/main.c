@@ -14,6 +14,8 @@
 static void help() {
     fprintf(
         stderr,
+        "SMOLD: A linker for the SM83 (Gameboy) CPU\n"
+        "\n"
         "Usage: smold [OPTIONS] --config <CONFIG> [OBJECTS]...\n"
         "\n"
         "Arguments:\n"
@@ -37,7 +39,7 @@ static void      parseCfg();
 static void      loadObj(SmBuf path);
 static void      relocate(SmSect *sect);
 static void      solveSyms();
-static void      link();
+static void      link(SmSect *sect);
 static void      serialize();
 static void      writeSyms();
 static void      writeTags();
@@ -155,7 +157,10 @@ int main(int argc, char **argv) {
         relocate(sect);
     }
     solveSyms();
-    link();
+    for (UInt i = 0; i < SECTS.inner.len; ++i) {
+        SmSect *sect = SECTS.inner.items + i;
+        link(sect);
+    }
 
     if (outfile_name) {
         outfile = openFileCstr(outfile_name, "wb+");
@@ -220,7 +225,7 @@ static void loadObj(SmBuf path) {
     SmSerde ser   = {hnd, path};
     U32     magic = smDeserializeU32(&ser);
     if (magic != *(U32 *)"SM00") {
-        objFatal(path, "bad magic: %04x\n", magic);
+        objFatal(path, "bad magic: $%04x\n", magic);
     }
     // TODO free mem
     SmBufIntern  tmpstrs  = smDeserializeBufIntern(&ser);
@@ -342,22 +347,22 @@ static void memGBufAdd(Mem item) {
 }
 
 static void relocate(SmSect *sect) {
-    CfgSect *cfgsect = NULL;
+    CfgSect *cfgsect;
     for (UInt i = 0; i < CFGSECTS.inner.len; ++i) {
         cfgsect = CFGSECTS.inner.items + i;
         if (smBufEqual(sect->name, cfgsect->name)) {
             break;
         }
     }
-    assert(cfgsect);
-    Mem *mem = NULL;
+    assert(smBufEqual(sect->name, cfgsect->name));
+    Mem *mem;
     for (UInt i = 0; i < MEMS.inner.len; ++i) {
         mem = MEMS.inner.items + i;
         if (smBufEqual(cfgsect->load, mem->name)) {
             break;
         }
     }
-    assert(mem);
+    assert(smBufEqual(cfgsect->load, mem->name));
     U32 aligned =
         ((mem->pc + cfgsect->align - 1) / cfgsect->align) * cfgsect->align;
     sect->pc = aligned;
@@ -367,7 +372,7 @@ static void relocate(SmSect *sect) {
         SmSerde ser  = {hnd, path};
         smDeserializeToEnd(&ser, &sect->data);
     }
-    mem->pc += aligned + sect->data.inner.len;
+    mem->pc = aligned + sect->data.inner.len;
     if (mem->pc > mem->end) {
         smFatal("no room in memory %.*s for section %.*s\n", (int)mem->name.len,
                 mem->name.bytes, (int)sect->name.len, sect->name.bytes);
@@ -604,11 +609,111 @@ static void solveSyms() {
         smFatal("undefined symbol: %.*s\n"
                 "\treferenced at %.*s:%zu:%zu\n",
                 (int)name.len, name.bytes, (int)sym->pos.file.len,
-                sym->pos.file.bytes, sym->pos.line);
+                sym->pos.file.bytes, sym->pos.line, sym->pos.col);
     }
 }
 
-static void link() { smUnimplemented(); }
+static Bool canReprU8(I32 num) { return (num >= 0) && (num <= U8_MAX); }
+static Bool canReprU16(I32 num) { return (num >= 0) && (num <= U16_MAX); }
+
+static void link(SmSect *sect) {
+    for (UInt i = 0; i < sect->relocs.inner.len; ++i) {
+        SmReloc *reloc = sect->relocs.inner.items + i;
+        I32      num;
+        if (!solve(reloc->value, reloc->unit, &num)) {
+            smFatal("expression cannot be solved\n"
+                    "\treferenced at %.*s:%zu:%zu\n",
+                    (int)reloc->pos.file.len, reloc->pos.file.bytes,
+                    reloc->pos.line, reloc->pos.col);
+        }
+        switch (reloc->width) {
+        case 1:
+            if (!canReprU8(num)) {
+                Bool legal = false;
+                if (!(reloc->flags & SM_RELOC_HI)) {
+                    goto done;
+                }
+                for (UInt j = 0; j < SECTS.inner.len; ++j) {
+                    SmSect *sect = SECTS.inner.items + j;
+                    for (UInt k = 0; k < CFGSECTS.inner.len; ++k) {
+                        CfgSect *cfgsect = CFGSECTS.inner.items + k;
+                        if (!smBufEqual(sect->name, cfgsect->name)) {
+                            continue;
+                        }
+                        if (cfgsect->kind != CFG_SECT_HIGHPAGE) {
+                            goto done;
+                        }
+                        if ((num >= (I32)(sect->pc)) &&
+                            (num < (I32)(sect->pc + sect->data.inner.len))) {
+                            legal = true;
+                        }
+                        goto done;
+                    }
+                }
+            done:
+                if (!legal) {
+                    smFatal("expression does not fit in a byte: $%08X\n",
+                            "\treferenced at %.*s:%zu:%zu\n", num,
+                            (int)reloc->pos.file.len, reloc->pos.file.bytes,
+                            reloc->pos.line, reloc->pos.col);
+                }
+            }
+            if (reloc->flags & SM_RELOC_RST) {
+                U8 op;
+                switch (num) {
+                case 0x00:
+                    op = 0xC7;
+                    break;
+                case 0x08:
+                    op = 0xCF;
+                    break;
+                case 0x10:
+                    op = 0xD7;
+                    break;
+                case 0x18:
+                    op = 0xDF;
+                    break;
+                case 0x20:
+                    op = 0xE7;
+                    break;
+                case 0x28:
+                    op = 0xEF;
+                    break;
+                case 0x30:
+                    op = 0xF7;
+                    break;
+                case 0x38:
+                    op = 0xFF;
+                    break;
+                default:
+                    smFatal("illegal reset vector: $%08X\n"
+                            "\treferenced at %.*s:%zu:%zu\n",
+                            num, (int)reloc->pos.file.len,
+                            reloc->pos.file.bytes, reloc->pos.line,
+                            reloc->pos.col);
+                }
+                sect->data.inner.bytes[reloc->offset] = op;
+                continue;
+            }
+            sect->data.inner.bytes[reloc->offset] = (U8)num;
+            break;
+        case 2:
+            // TODO check if src and dst banks are the same
+            // also a JP within bank0 is always legal for GB
+            if (!canReprU16(num)) {
+                smFatal("expression does not fit in a word: $%08X\n"
+                        "\treferenced at %.*s:%zu:%zu\n",
+                        num, (int)reloc->pos.file.len, reloc->pos.file.bytes,
+                        reloc->pos.line, reloc->pos.col);
+            }
+            sect->data.inner.bytes[reloc->offset]     = (U8)(num & 0xFF);
+            sect->data.inner.bytes[reloc->offset + 1] = (U8)((num >> 8) & 0xFF);
+            break;
+        default:
+            smUnreachable();
+        }
+    }
+}
 
 static SmTokStream TS = {0};
 
@@ -654,14 +759,11 @@ static void expectEOL() {
     }
 }
 
-static Bool canReprU16(I32 num) { return (num >= 0) && (num <= U16_MAX); }
-static Bool canReprU8(I32 num) { return (num >= 0) && (num <= U8_MAX); }
-
 static U8 eatU8() {
     expect(SM_TOK_NUM);
     I32 num = tokNum();
     if (!canReprU8(num)) {
-        smTokStreamFatal(&TS, "number does not fit in a byte: %08X\n", num);
+        smTokStreamFatal(&TS, "number does not fit in a byte: $%08X\n", num);
     }
     eat();
     return (U8)num;
@@ -671,7 +773,7 @@ static U16 eatU16() {
     expect(SM_TOK_NUM);
     I32 num = tokNum();
     if (!canReprU16(num)) {
-        smTokStreamFatal(&TS, "number does not fit in a word: %08X\n", num);
+        smTokStreamFatal(&TS, "number does not fit in a word: $%08X\n", num);
     }
     eat();
     return (U16)num;
@@ -717,7 +819,8 @@ static void parseMems() {
                     eat();
                     expect('=');
                     eat();
-                    mem.fill = eatU8();
+                    mem.fill    = true;
+                    mem.fillval = eatU8();
                     continue;
                 }
                 if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("kind"))) {
@@ -1015,7 +1118,44 @@ static void parseCfg() {
     }
 }
 
-static void serialize() { smUnimplemented(); }
+static void serialize() {
+    SmSerde ser = {outfile, {(U8 *)outfile_name, strlen(outfile_name)}};
+    for (UInt i = 0; i < CFGMEMS.inner.len; ++i) {
+        CfgMem *cfgmem = CFGMEMS.inner.items + i;
+        for (UInt j = 0; j < CFGSECTS.inner.len; ++j) {
+            CfgSect *cfgsect = CFGSECTS.inner.items + j;
+            if (smBufEqual(cfgsect->load, cfgmem->name)) {
+                continue;
+            }
+            if ((cfgsect->kind == CFG_SECT_UNINIT) ||
+                (cfgsect->kind == CFG_SECT_HIGHPAGE)) {
+                continue;
+            }
+            SmSect *sect;
+            for (UInt k = 0; k < SECTS.inner.len; ++k) {
+                sect = SECTS.inner.items + k;
+                if (smBufEqual(sect->name, cfgsect->name)) {
+                    break;
+                }
+            }
+            assert(smBufEqual(sect->name, cfgsect->name));
+            smSerializeBuf(&ser, sect->data.inner);
+        }
+        if (cfgmem->fill) {
+            Mem *mem;
+            for (UInt k = 0; k < MEMS.inner.len; ++k) {
+                mem = MEMS.inner.items + k;
+                if (smBufEqual(mem->name, cfgmem->name)) {
+                    break;
+                }
+            }
+            assert(smBufEqual(mem->name, cfgmem->name));
+            for (UInt k = mem->pc; k < mem->end; ++k) {
+                smSerializeU8(&ser, cfgmem->fillval);
+            }
+        }
+    }
+}
 
 static SmLbl globalLbl(SmBuf name) { return (SmLbl){{0}, name}; }
 

@@ -14,6 +14,8 @@
 
 static void help() {
     fprintf(stderr,
+            "SMASM: An assembler for the SM83 (Gameboy) CPU\n"
+            "\n"
             "Usage: smasm [OPTIONS] <SOURCE>\n"
             "\n"
             "Arguments:\n"
@@ -663,7 +665,7 @@ static void eatMne(U8 mne) {
                 emit8(0xF0);
                 if (exprSolve(buf, &num)) {
                     if ((num < 0xFF00) || (num > 0xFFFF)) {
-                        fatalPos(pos, "address not in high memory: %08X\n",
+                        fatalPos(pos, "address not in high memory: $%08X\n",
                                  num);
                     }
                     emit8(num & 0x00FF);
@@ -702,7 +704,7 @@ static void eatMne(U8 mne) {
             emit8(0xE0);
             if (exprSolve(buf, &num)) {
                 if ((num < 0xFF00) || (num > 0xFFFF)) {
-                    fatalPos(pos, "address not in high memory: %08X\n", num);
+                    fatalPos(pos, "address not in high memory: $%08X\n", num);
                 }
                 emit8(num & 0x00FF);
             } else {

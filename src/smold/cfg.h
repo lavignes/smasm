@@ -25,7 +25,8 @@ struct CfgMem {
     SmBuf name;
     U32   start;
     U32   size;
-    U8    fill;
+    Bool  fill;
+    U8    fillval;
     U8    kind;
 };
 typedef struct CfgMem CfgMem;

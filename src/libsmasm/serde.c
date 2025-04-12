@@ -317,7 +317,7 @@ SmExprIntern smDeserializeExprIntern(SmSerde *ser, SmBufIntern const *strin) {
             expr.tag.name = readBufRef(ser, strin);
             break;
         default:
-            fatal(ser, "unrecognized expression kind: %02X\n", kind);
+            fatal(ser, "unrecognized expression kind: $%02X\n", kind);
         }
         smExprGBufAdd(&buf, expr);
     }
