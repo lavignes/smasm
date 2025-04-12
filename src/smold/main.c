@@ -5,8 +5,10 @@
 #include <smasm/serde.h>
 #include <smasm/sym.h>
 
+#include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 
 static void help() {
@@ -33,26 +35,28 @@ static SmExprBuf constExprBuf(I32 num);
 static SmBuf     intern(SmBuf buf);
 static void      parseCfg();
 static void      loadObj(SmBuf path);
+static void      relocate(SmSect *sect);
+static void      solveSyms();
+static void      link();
 static void      serialize();
 static void      writeSyms();
 static void      writeTags();
 
-static FILE *cfgfile      = NULL;
-static char *cfgfile_name = NULL;
-static FILE *outfile      = NULL;
-static char *outfile_name = NULL;
-static FILE *symfile      = NULL;
-static char *symfile_name = NULL;
-static FILE *tagfile      = NULL;
-static char *tagfile_name = NULL;
+static FILE *cfgfile        = NULL;
+static char *cfgfile_name   = NULL;
+static FILE *outfile        = NULL;
+static char *outfile_name   = NULL;
+static char *symfile_name   = NULL;
+static char *tagfile_name   = NULL;
 
-static SmBufIntern  STRS  = {0};
-static SmSymTab     SYMS  = {0};
-static SmExprIntern EXPRS = {0};
-static SmPathSet    OBJS  = {0};
+static SmBufIntern  STRS    = {0};
+static SmSymTab     SYMS    = {0};
+static SmExprIntern EXPRS   = {0};
+static SmPathSet    OBJS    = {0};
+static SmSectGBuf   SECTS   = {0};
 
-static CfgMemGBuf  MEMS   = {0};
-static CfgSectGBuf SECTS  = {0};
+static CfgMemGBuf  CFGMEMS  = {0};
+static CfgSectGBuf CFGSECTS = {0};
 
 static SmBuf DEFINES_SECTION;
 static SmBuf STATIC_UNIT;
@@ -146,6 +150,12 @@ int main(int argc, char **argv) {
     for (UInt i = 0; i < OBJS.bufs.inner.len; ++i) {
         loadObj(OBJS.bufs.inner.items[i]);
     }
+    for (UInt i = 0; i < SECTS.inner.len; ++i) {
+        SmSect *sect = SECTS.inner.items + i;
+        relocate(sect);
+    }
+    solveSyms();
+    link();
 
     if (outfile_name) {
         outfile = openFileCstr(outfile_name, "wb+");
@@ -171,12 +181,12 @@ static FILE *openFile(SmBuf path, char const *modes) {
     static SmGBuf buf = {0};
     buf.inner.len     = 0;
     smGBufCat(&buf, path);
-    smGBufCat(&buf, (SmBuf){(U8 *)"\0", 1});
+    smGBufCat(&buf, SM_BUF("\0"));
     return openFileCstr((char const *)buf.inner.bytes, modes);
 }
 
 static _Noreturn void objFatalV(SmBuf path, char const *fmt, va_list args) {
-    smFatal("%.*s: ", path.len, path.bytes);
+    fprintf(stderr, "%.*s: ", (int)path.len, path.bytes);
     smFatalV(fmt, args);
 }
 
@@ -194,47 +204,57 @@ static SmLbl internLbl(SmLbl lbl) {
     return (SmLbl){intern(lbl.scope), intern(lbl.name)};
 }
 
+static SmBuf fullLblName(SmLbl lbl) {
+    static SmGBuf buf = {0};
+    buf.inner.len     = 0;
+    if (!smBufEqual(lbl.scope, SM_BUF_NULL)) {
+        smGBufCat(&buf, lbl.scope);
+        smGBufCat(&buf, SM_BUF("."));
+    }
+    smGBufCat(&buf, lbl.name);
+    return intern(buf.inner);
+}
+
 static void loadObj(SmBuf path) {
-    // TODO free mem
-    SmBufIntern  TMPSTRS  = {0};
-    SmExprIntern TMPEXPRS = {0};
-    SmSymTab     TMPSYMS  = {0};
-    FILE        *hnd      = openFile(path, "rb");
-    SmSerde      ser      = {hnd, path};
-    U32          magic    = smDeserializeU32(&ser);
+    FILE   *hnd   = openFile(path, "rb");
+    SmSerde ser   = {hnd, path};
+    U32     magic = smDeserializeU32(&ser);
     if (magic != *(U32 *)"SM00") {
         objFatal(path, "bad magic: %04x\n", magic);
     }
-    smDeserializeBufIntern(&ser, &TMPSTRS);
-    smDeserializeExprIntern(&ser, &TMPEXPRS, &TMPSTRS);
-    smDeserializeSymTab(&ser, &TMPSYMS, &TMPSTRS, &TMPEXPRS);
+    // TODO free mem
+    SmBufIntern  tmpstrs  = smDeserializeBufIntern(&ser);
+    SmExprIntern tmpexprs = smDeserializeExprIntern(&ser, &tmpstrs);
+    SmSymTab     tmpsyms  = smDeserializeSymTab(&ser, &tmpstrs, &tmpexprs);
     // Merge into main symtab
-    for (UInt i = 0; i < TMPSYMS.len; ++i) {
-        SmSym *sym = TMPSYMS.syms + i;
+    for (UInt i = 0; i < tmpsyms.len; ++i) {
+        SmSym *sym = tmpsyms.syms + i;
         if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
             continue;
         }
         // Hide static symbols under file-specific unit
         SmBuf unit;
         if (smBufEqual(sym->unit, STATIC_UNIT)) {
-            unit = intern(path);
+            unit = path;
         } else {
-            unit = intern(sym->unit);
+            unit = sym->unit;
         }
         SmSym *whence = smSymTabFind(&SYMS, sym->lbl);
         if (whence && smBufEqual(whence->unit, unit)) {
-            smFatal("duplicate exported symbol: %.*s\n"
-                    "\tdefined at %.*s:%u:%u\n"
-                    "\tagain at %.*s:%u:%u\n",
-                    whence->lbl.name.len, whence->lbl.name.bytes,
-                    whence->pos.file.len, whence->pos.file.bytes,
-                    whence->pos.line, whence->pos.col, sym->pos.file.len,
-                    sym->pos.file.bytes, sym->pos.line, sym->pos.col);
+            SmBuf name = fullLblName(sym->lbl);
+            objFatal(path,
+                     "duplicate exported symbol: %.*s\n"
+                     "\tdefined at %.*s:%zu:%zu\n"
+                     "\tagain at %.*s:%zu:%zu\n",
+                     (int)name.len, name.bytes, (int)whence->pos.file.len,
+                     whence->pos.file.bytes, whence->pos.line, whence->pos.col,
+                     (int)sym->pos.file.len, sym->pos.file.bytes, sym->pos.line,
+                     sym->pos.col);
         }
         smSymTabAdd(&SYMS, (SmSym){
                                .lbl     = internLbl(sym->lbl),
-                               .value   = sym->value,
-                               .unit    = unit,
+                               .value   = smExprIntern(&EXPRS, sym->value),
+                               .unit    = intern(unit),
                                .section = intern(sym->section),
                                .pos =
                                    {
@@ -245,9 +265,350 @@ static void loadObj(SmBuf path) {
                                .flags = sym->flags,
                            });
     }
-    smUnimplemented();
+    // TODO free mem
+    SmSectBuf tmpsects = smDeserializeSectBuf(&ser, &tmpstrs, &tmpexprs);
     closeFile(hnd);
+    for (UInt i = 0; i < tmpsects.len; ++i) {
+        SmSect *sect    = tmpsects.items + i;
+        SmSect *dstsect = NULL;
+        for (UInt j = 0; j < SECTS.inner.len; ++j) {
+            SmSect *dst = SECTS.inner.items + j;
+            if (smBufEqual(sect->name, dst->name)) {
+                dstsect = dst;
+                break;
+            }
+        }
+        if (!dstsect) {
+            objFatal(path, "section %.*s is not defined in config\n",
+                     (int)sect->name.len, sect->name.bytes);
+        }
+        // copy relocations
+        for (UInt j = 0; j < sect->relocs.inner.len; ++j) {
+            SmReloc *reloc = sect->relocs.inner.items + j;
+            SmBuf    unit;
+            // fixup relocation units
+            if (smBufEqual(reloc->unit, STATIC_UNIT)) {
+                unit = path;
+            } else {
+                unit = EXPORT_UNIT;
+            }
+            smRelocGBufAdd(
+                &dstsect->relocs,
+                (SmReloc){
+                    // adjust relocations relative to destination section
+                    .offset = dstsect->pc + reloc->offset,
+                    .width  = reloc->width,
+                    .value  = smExprIntern(&EXPRS, reloc->value),
+                    .unit   = intern(unit),
+                    .pos =
+                        {
+                            intern(reloc->pos.file),
+                            reloc->pos.line,
+                            reloc->pos.col,
+                        },
+                    .flags = reloc->flags,
+                });
+        }
+        // extend destination section
+        smGBufCat(&dstsect->data, sect->data.inner);
+        dstsect->pc += sect->data.inner.len;
+    }
 }
+
+struct Mem {
+    SmBuf name;
+    U32   pc;
+    U32   end;
+};
+typedef struct Mem Mem;
+
+struct MemBuf {
+    Mem *items;
+    UInt len;
+};
+typedef struct MemBuf MemBuf;
+
+struct MemGBuf {
+    MemBuf inner;
+    UInt   size;
+};
+typedef struct MemGBuf MemGBuf;
+
+static MemGBuf MEMS = {0};
+
+static void memGBufAdd(Mem item) {
+    MemGBuf *buf = &MEMS;
+    SM_GBUF_ADD_IMPL(Mem);
+}
+
+static void relocate(SmSect *sect) {
+    CfgSect *cfgsect = NULL;
+    for (UInt i = 0; i < CFGSECTS.inner.len; ++i) {
+        cfgsect = CFGSECTS.inner.items + i;
+        if (smBufEqual(sect->name, cfgsect->name)) {
+            break;
+        }
+    }
+    assert(cfgsect);
+    Mem *mem = NULL;
+    for (UInt i = 0; i < MEMS.inner.len; ++i) {
+        mem = MEMS.inner.items + i;
+        if (smBufEqual(cfgsect->load, mem->name)) {
+            break;
+        }
+    }
+    assert(mem);
+    U32 aligned =
+        ((mem->pc + cfgsect->align - 1) / cfgsect->align) * cfgsect->align;
+    sect->pc = aligned;
+    for (UInt i = 0; i < cfgsect->files.inner.len; ++i) {
+        SmBuf   path = cfgsect->files.inner.items[i];
+        FILE   *hnd  = openFile(path, "rb");
+        SmSerde ser  = {hnd, path};
+        smDeserializeToEnd(&ser, &sect->data);
+    }
+    mem->pc += aligned + sect->data.inner.len;
+    if (mem->pc > mem->end) {
+        smFatal("no room in memory %.*s for section %.*s\n", (int)mem->name.len,
+                mem->name.bytes, (int)sect->name.len, sect->name.bytes);
+    }
+    if (cfgsect->define) {
+        static SmGBuf buf = {0};
+        buf.inner.len     = 0;
+        smGBufCat(&buf, SM_BUF("__"));
+        smGBufCat(&buf, cfgsect->name);
+        smGBufCat(&buf, SM_BUF("_START__"));
+        SmBuf start = intern(buf.inner);
+        smSymTabAdd(&SYMS, (SmSym){
+                               .lbl     = globalLbl(start),
+                               .value   = constExprBuf(sect->pc),
+                               .unit    = EXPORT_UNIT,
+                               .section = DEFINES_SECTION,
+                               .pos     = {DEFINES_SECTION, 1, 1},
+                               .flags   = SM_SYM_EQU,
+                           });
+        buf.inner.len = 0;
+        smGBufCat(&buf, SM_BUF("__"));
+        smGBufCat(&buf, cfgsect->name);
+        smGBufCat(&buf, SM_BUF("_SIZE__"));
+        SmBuf end = intern(buf.inner);
+        smSymTabAdd(&SYMS, (SmSym){
+                               .lbl     = globalLbl(end),
+                               .value   = constExprBuf(sect->data.inner.len),
+                               .unit    = EXPORT_UNIT,
+                               .section = DEFINES_SECTION,
+                               .pos     = {DEFINES_SECTION, 1, 1},
+                               .flags   = SM_SYM_EQU,
+                           });
+    }
+}
+
+static Bool solve(SmExprBuf buf, SmBuf unit, I32 *num) {
+    SmI32GBuf stack = {0};
+    for (UInt i = 0; i < buf.len; ++i) {
+        SmExpr *expr = buf.items + i;
+        switch (expr->kind) {
+        case SM_EXPR_CONST:
+            smI32GBufAdd(&stack, expr->num);
+            break;
+        case SM_EXPR_LABEL: {
+            SmSym *sym = smSymTabFind(&SYMS, expr->lbl);
+            if (!sym) {
+                goto fail;
+            }
+            if (!smBufEqual(sym->unit, unit) &&
+                !smBufEqual(sym->unit, EXPORT_UNIT)) {
+                goto fail;
+            }
+            I32 num;
+            // yuck
+            if (!solve(sym->value, unit, &num)) {
+                goto fail;
+            }
+            smI32GBufAdd(&stack, num);
+            break;
+        }
+        case SM_EXPR_TAG: {
+            SmSym *sym = smSymTabFind(&SYMS, expr->tag.lbl);
+            if (!sym) {
+                goto fail;
+            }
+            if (!smBufEqual(sym->unit, unit) &&
+                !smBufEqual(sym->unit, EXPORT_UNIT)) {
+                goto fail;
+            }
+            // find the section that the symbol belongs to
+            for (UInt j = 0; j < CFGSECTS.inner.len; ++j) {
+                CfgSect *sect = CFGSECTS.inner.items + j;
+                if (!smBufEqual(sym->section, sect->name)) {
+                    continue;
+                }
+                // find the tag in the section
+                CfgI32Entry *tag = cfgI32TabFind(&sect->tags, expr->tag.name);
+                if (tag) {
+                    smI32GBufAdd(&stack, tag->num);
+                    goto found;
+                }
+            }
+            goto fail;
+        found:
+            break;
+        }
+        case SM_EXPR_OP:
+            while (stack.inner.len > 0) {
+                --stack.inner.len;
+                I32 rhs = stack.inner.items[stack.inner.len];
+                if (expr->op.unary) {
+                    switch (expr->op.tok) {
+                    case '+':
+                        smI32GBufAdd(&stack, rhs);
+                        break;
+                    case '-':
+                        smI32GBufAdd(&stack, -rhs);
+                        break;
+                    case '~':
+                        smI32GBufAdd(&stack, ~rhs);
+                        break;
+                    case '!':
+                        smI32GBufAdd(&stack, !rhs);
+                        break;
+                    case '<':
+                        smI32GBufAdd(&stack, ((U32)rhs) & 0xFF);
+                        break;
+                    case '>':
+                        smI32GBufAdd(&stack, ((U32)rhs & 0xFF00) >> 8);
+                        break;
+                    case '^':
+                        smI32GBufAdd(&stack, ((U32)rhs & 0xFF0000) >> 16);
+                        break;
+                    default:
+                        smUnreachable();
+                    }
+                } else {
+                    --stack.inner.len;
+                    I32 lhs = stack.inner.items[stack.inner.len];
+                    switch (expr->op.tok) {
+                    case '+':
+                        smI32GBufAdd(&stack, lhs + rhs);
+                        break;
+                    case '-':
+                        smI32GBufAdd(&stack, lhs - rhs);
+                        break;
+                    case '*':
+                        smI32GBufAdd(&stack, lhs * rhs);
+                        break;
+                    case '/':
+                        smI32GBufAdd(&stack, lhs / rhs);
+                        break;
+                    case '%':
+                        smI32GBufAdd(&stack, lhs % rhs);
+                        break;
+                    case SM_TOK_ASL:
+                        smI32GBufAdd(&stack, lhs << rhs);
+                        break;
+                    case SM_TOK_ASR:
+                        smI32GBufAdd(&stack, lhs >> rhs);
+                        break;
+                    case SM_TOK_LSR:
+                        smI32GBufAdd(&stack, ((U32)lhs) >> ((U32)rhs));
+                        break;
+                    case '<':
+                        smI32GBufAdd(&stack, lhs < rhs);
+                        break;
+                    case SM_TOK_LTE:
+                        smI32GBufAdd(&stack, lhs <= rhs);
+                        break;
+                    case '>':
+                        smI32GBufAdd(&stack, lhs > rhs);
+                        break;
+                    case SM_TOK_GTE:
+                        smI32GBufAdd(&stack, lhs >= rhs);
+                        break;
+                    case SM_TOK_DEQ:
+                        smI32GBufAdd(&stack, lhs == rhs);
+                        break;
+                    case SM_TOK_NEQ:
+                        smI32GBufAdd(&stack, lhs != rhs);
+                        break;
+                    case '&':
+                        smI32GBufAdd(&stack, lhs & rhs);
+                        break;
+                    case '|':
+                        smI32GBufAdd(&stack, lhs | rhs);
+                        break;
+                    case '^':
+                        smI32GBufAdd(&stack, lhs ^ rhs);
+                        break;
+                    case SM_TOK_AND:
+                        smI32GBufAdd(&stack, lhs && rhs);
+                        break;
+                    case SM_TOK_OR:
+                        smI32GBufAdd(&stack, lhs || rhs);
+                        break;
+                    default:
+                        smUnreachable();
+                    }
+                }
+            }
+            break;
+        case SM_EXPR_ADDR:
+            for (UInt j = 0; j < SECTS.inner.len; ++j) {
+                SmSect *sect = SECTS.inner.items + j;
+                if (smBufEqual(sect->name, expr->addr.sect)) {
+                    smI32GBufAdd(&stack, sect->pc + expr->addr.pc);
+                    break;
+                }
+            }
+            goto fail;
+        default:
+            smUnreachable();
+        }
+    }
+    assert(stack.inner.len == 1);
+    *num = *stack.inner.items;
+    smI32GBufFini(&stack);
+    return true;
+fail:
+    smI32GBufFini(&stack);
+    return false;
+}
+
+static void solveSyms() {
+    // 2 passes over symbol table should be enough to solve all
+    for (UInt i = 0; i < 2; ++i) {
+        for (UInt j = 0; j < SYMS.len; ++j) {
+            SmSym *sym = SYMS.syms + i;
+            if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
+                continue;
+            }
+            if ((sym->value.len == 1) &&
+                (sym->value.items[0].kind == SM_EXPR_CONST)) {
+                continue;
+            }
+            I32 num;
+            if (solve(sym->value, sym->unit, &num)) {
+                sym->value = constExprBuf(num);
+            }
+        }
+    }
+    for (UInt i = 0; i < SYMS.len; ++i) {
+        SmSym *sym = SYMS.syms + i;
+        if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
+            continue;
+        }
+        if ((sym->value.len == 1) &&
+            (sym->value.items[0].kind == SM_EXPR_CONST)) {
+            continue;
+        }
+        SmBuf name = fullLblName(sym->lbl);
+        smFatal("undefined symbol: %.*s\n"
+                "\treferenced at %.*s:%zu:%zu\n",
+                (int)name.len, name.bytes, (int)sym->pos.file.len,
+                sym->pos.file.bytes, sym->pos.line);
+    }
+}
+
+static void link() { smUnimplemented(); }
 
 static SmTokStream TS = {0};
 
@@ -278,7 +639,7 @@ static void expect(U32 tok) {
             smTokStreamFatal(&TS, "expected `%c`\n", tok);
         } else {
             SmBuf name = smTokName(tok);
-            smTokStreamFatal(&TS, "expected %.*s\n", name.len, name.bytes);
+            smTokStreamFatal(&TS, "expected %.*s\n", (int)name.len, name.bytes);
         }
     }
 }
@@ -300,7 +661,7 @@ static U8 eatU8() {
     expect(SM_TOK_NUM);
     I32 num = tokNum();
     if (!canReprU8(num)) {
-        smTokStreamFatal(&TS, "number does not fit in a byte\n");
+        smTokStreamFatal(&TS, "number does not fit in a byte: %08X\n", num);
     }
     eat();
     return (U8)num;
@@ -310,7 +671,7 @@ static U16 eatU16() {
     expect(SM_TOK_NUM);
     I32 num = tokNum();
     if (!canReprU16(num)) {
-        smTokStreamFatal(&TS, "number does not fit in a word\n");
+        smTokStreamFatal(&TS, "number does not fit in a word: %08X\n", num);
     }
     eat();
     return (U16)num;
@@ -380,7 +741,7 @@ static void parseMems() {
                             continue;
                         }
                         SmBuf buf = tokBuf();
-                        fatal("unrecognized memory kind: %.*s\n", buf.len,
+                        fatal("unrecognized memory kind: %.*s\n", (int)buf.len,
                               buf.bytes);
                     }
                     default:
@@ -388,7 +749,7 @@ static void parseMems() {
                     }
                 }
                 SmBuf buf = tokBuf();
-                fatal("unrecognized memory attribute: %.*s\n", buf.len,
+                fatal("unrecognized memory attribute: %.*s\n", (int)buf.len,
                       buf.bytes);
             }
             if (!start) {
@@ -400,7 +761,7 @@ static void parseMems() {
             if (!kind) {
                 fatalPos(pos, "`kind` attribute is required\n");
             }
-            cfgMemGBufAdd(&MEMS, mem);
+            cfgMemGBufAdd(&CFGMEMS, mem);
             if (peek() == '}') {
                 break;
             }
@@ -409,7 +770,7 @@ static void parseMems() {
         }
     }
     expect('}');
-    if (MEMS.inner.len == 0) {
+    if (CFGMEMS.inner.len == 0) {
         fatal("at least 1 memory area is required for linking\n");
     }
     eat();
@@ -430,6 +791,7 @@ static void parseSects() {
             CfgSect sect = {0};
             SmPos   pos  = tokPos();
             sect.name    = intern(tokBuf());
+            sect.align   = 1;
             eat();
             Bool load = false;
             Bool kind = false;
@@ -473,13 +835,13 @@ static void parseSects() {
                             continue;
                         }
                         if (smBufEqualIgnoreAsciiCase(tokBuf(),
-                                                      SM_BUF("zeropage"))) {
+                                                      SM_BUF("highpage"))) {
                             eat();
-                            sect.kind = CFG_SECT_ZEROPAGE;
+                            sect.kind = CFG_SECT_HIGHPAGE;
                             continue;
                         }
                         SmBuf buf = tokBuf();
-                        fatal("unrecognized section kind: %.*s\n", buf.len,
+                        fatal("unrecognized section kind: %.*s\n", (int)buf.len,
                               buf.bytes);
                     }
                     default:
@@ -491,6 +853,9 @@ static void parseSects() {
                     expect('=');
                     eat();
                     sect.align = eatU16();
+                    if (sect.align == 0) {
+                        fatal("section alignment must be greater than 0\n");
+                    }
                     continue;
                 }
                 if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("define"))) {
@@ -499,7 +864,7 @@ static void parseSects() {
                     continue;
                 }
                 SmBuf buf = tokBuf();
-                fatal("unrecognized section attribute: %.*s\n", buf.len,
+                fatal("unrecognized section attribute: %.*s\n", (int)buf.len,
                       buf.bytes);
             }
             if (peek() == '{') {
@@ -531,7 +896,7 @@ static void parseSects() {
                         }
                         SmBuf buf = tokBuf();
                         fatal("unrecognized section sub-attribute: %.*s\n",
-                              buf.len, buf.bytes);
+                              (int)buf.len, buf.bytes);
                     }
                     if (peek() == '}') {
                         break;
@@ -548,7 +913,7 @@ static void parseSects() {
             if (!kind) {
                 fatalPos(pos, "`kind` attribute is required\n");
             }
-            cfgSectGrowBufAdd(&SECTS, sect);
+            cfgSectGBufAdd(&CFGSECTS, sect);
             if (peek() == '}') {
                 break;
             }
@@ -558,7 +923,7 @@ static void parseSects() {
     }
     expect('}');
     eat();
-    if (SECTS.inner.len == 0) {
+    if (CFGSECTS.inner.len == 0) {
         fatal("at least 1 section is required for linking\n");
     }
 }
@@ -589,37 +954,52 @@ static void parseCfg() {
                 continue;
             }
             SmBuf buf = tokBuf();
-            smTokStreamFatal(&TS, "unrecognized config area: %.*s\n", buf.len,
-                             buf.bytes);
+            fatal("unrecognized config area: %.*s\n", (int)buf.len, buf.bytes);
         }
         default:
+            // TODO utf8
             if (isprint(peek())) {
-                smTokStreamFatal(&TS, "unexpected `%c`\n", peek());
+                fatal("unexpected `%c`\n", peek());
             } else {
                 SmBuf name = smTokName(peek());
-                smTokStreamFatal(&TS, "unexpected %.*s\n", name.len,
-                                 name.bytes);
+                fatal("unexpected %.*s\n", (int)name.len, name.bytes);
             }
         }
     }
     if (!memories) {
-        smTokStreamFatal(&TS, "no `memories` config area was defined\n");
+        fatal("no `memories` config area was defined\n");
+    }
+    for (UInt i = 0; i < CFGMEMS.inner.len; ++i) {
+        CfgMem *mem = CFGMEMS.inner.items + i;
+        // Pre-add the memories defined in the cfg
+        memGBufAdd((Mem){
+            .name = mem->name,
+            .pc   = mem->start,
+            .end  = mem->start + mem->size,
+        });
     }
     if (!sections) {
-        smTokStreamFatal(&TS, "no `sections` config area was defined\n");
+        fatal("no `sections` config area was defined\n");
     }
-    for (UInt i = 0; i < SECTS.inner.len; ++i) {
-        CfgSect *sect = SECTS.inner.items + i;
-        for (UInt j = 0; j < MEMS.inner.len; ++j) {
-            CfgMem *mem = MEMS.inner.items + j;
+    for (UInt i = 0; i < CFGSECTS.inner.len; ++i) {
+        CfgSect *sect = CFGSECTS.inner.items + i;
+        // Pre-add the sections defined in the cfg
+        smSectGBufAdd(&SECTS, (SmSect){
+                                  .name   = sect->name,
+                                  .pc     = 0,
+                                  .data   = {{0}, 0}, // GCC doesnt like {0}
+                                  .relocs = {{0}, 0},
+                              });
+        for (UInt j = 0; j < CFGMEMS.inner.len; ++j) {
+            CfgMem *mem = CFGMEMS.inner.items + j;
             if (smBufEqual(sect->load, mem->name)) {
                 switch (mem->kind) {
                 case CFG_MEM_READONLY:
                     if (sect->kind != CFG_SECT_CODE) {
                         fatal("section %.*s is not kind-compatible "
                               "with memory %.*s\n",
-                              sect->name.len, sect->name.bytes, mem->name.len,
-                              mem->name.bytes);
+                              (int)sect->name.len, sect->name.bytes,
+                              (int)mem->name.len, mem->name.bytes);
                     }
                 case CFG_MEM_READWRITE:
                     goto nextsection;
@@ -628,7 +1008,7 @@ static void parseCfg() {
                 }
             }
         }
-        fatal("no memory found with name: %.*s\n", sect->load.len,
+        fatal("no memory found with name: %.*s\n", (int)sect->load.len,
               sect->load.bytes);
     nextsection:
         (void)0;
@@ -662,7 +1042,7 @@ static void closeFile(FILE *hnd) {
 static void writeSyms() {
     FILE   *hnd = openFileCstr(symfile_name, "wb+");
     SmSerde ser = {hnd, {(U8 *)symfile_name, strlen(symfile_name)}};
-
+    (void)ser;
     smUnimplemented();
     closeFile(hnd);
 }
@@ -670,7 +1050,7 @@ static void writeSyms() {
 static void writeTags() {
     FILE   *hnd = openFileCstr(tagfile_name, "wb+");
     SmSerde ser = {hnd, {(U8 *)tagfile_name, strlen(tagfile_name)}};
-
+    (void)ser;
     smUnimplemented();
     closeFile(hnd);
 }

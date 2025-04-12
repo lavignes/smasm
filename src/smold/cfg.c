@@ -12,14 +12,12 @@ CfgI32Entry *cfgI32TabAdd(CfgI32Tab *tab, CfgI32Entry entry) {
     SM_TAB_ADD_IMPL(CfgI32Tab, CfgI32Entry);
 }
 
-CfgI32Entry *smI32TabFind(CfgI32Tab *tab, SmBuf name) {
+CfgI32Entry *cfgI32TabFind(CfgI32Tab *tab, SmBuf name) {
     SM_TAB_FIND_IMPL(CfgI32Tab, CfgI32Entry);
 }
 
-void smCfgMemGrowBufAdd(CfgMemGBuf *buf, CfgMem item) {
-    SM_GBUF_ADD_IMPL(CfgMem);
-}
+void cfgMemGBufAdd(CfgMemGBuf *buf, CfgMem item) { SM_GBUF_ADD_IMPL(CfgMem); }
 
-void smCfgSectGrowBufAdd(CfgSectGBuf *buf, CfgSect item) {
+void cfgSectGBufAdd(CfgSectGBuf *buf, CfgSect item) {
     SM_GBUF_ADD_IMPL(CfgSect);
 }

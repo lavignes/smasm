@@ -27,10 +27,12 @@ U16  smDeserializeU16(SmSerde *ser);
 U32  smDeserializeU32(SmSerde *ser);
 void smDeserializeBuf(SmSerde *ser, SmBuf *buf);
 
-void smDeserializeBufIntern(SmSerde *ser, SmBufIntern *in);
-void smDeserializeExprIntern(SmSerde *ser, SmExprIntern *in,
-                             SmBufIntern const *strin);
-void smDeserializeSymTab(SmSerde *ser, SmSymTab *tab, SmBufIntern const *strin,
-                         SmExprIntern const *exprin);
+SmBufIntern  smDeserializeBufIntern(SmSerde *ser);
+SmExprIntern smDeserializeExprIntern(SmSerde *ser, SmBufIntern const *strin);
+SmSymTab     smDeserializeSymTab(SmSerde *ser, SmBufIntern const *strin,
+                                 SmExprIntern const *exprin);
+SmSectBuf    smDeserializeSectBuf(SmSerde *ser, SmBufIntern const *strin,
+                                  SmExprIntern const *exprin);
+void         smDeserializeToEnd(SmSerde *ser, SmGBuf *buf);
 
 #endif // SMASM_SERDE_H

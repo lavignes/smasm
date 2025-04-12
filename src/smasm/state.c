@@ -69,7 +69,7 @@ void expect(U32 tok) {
             fatal("expected `%c`\n", tok);
         } else {
             SmBuf name = smTokName(tok);
-            fatal("expected %.*s\n", name.len, name.bytes);
+            fatal("expected %.*s\n", (int)name.len, name.bytes);
         }
     }
 }
@@ -87,7 +87,7 @@ SmLbl tokLbl() {
     UInt scope_len = offset - buf.bytes;
     UInt name_len  = buf.len - scope_len - 1;
     if (name_len == 0) {
-        fatal("label is malformed: %.*s\n", buf.len, buf.bytes);
+        fatal("label is malformed: %.*s\n", (int)buf.len, buf.bytes);
     }
     SmBuf name = {.bytes = buf.bytes + scope_len + 1, .len = name_len};
     if (scope_len > 0) {

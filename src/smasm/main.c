@@ -1291,10 +1291,10 @@ static void pass() {
                 // never changes.
                 // TODO: also we want to create weak/redefinable symbols
                 fatalPos(pos,
-                         "symbol already defined\n\t%.*s:%zu:%zu: "
-                         "defined previously here\n",
-                         sym->pos.file.len, sym->pos.file.bytes, sym->pos.line,
-                         sym->pos.col);
+                         "symbol already defined\n"
+                         "\t%.*s:%zu:%zu: defined previously here\n",
+                         (int)sym->pos.file.len, sym->pos.file.bytes,
+                         sym->pos.line, sym->pos.col);
             }
             switch (peek()) {
             case ':':
@@ -1344,7 +1344,7 @@ static FILE *openFile(SmBuf path, char const *modes) {
     static SmGBuf buf = {0};
     buf.inner.len     = 0;
     smGBufCat(&buf, path);
-    smGBufCat(&buf, (SmBuf){(U8 *)"\0", 1});
+    smGBufCat(&buf, SM_BUF("\0"));
     return openFileCstr((char const *)buf.inner.bytes, modes);
 }
 

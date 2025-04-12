@@ -233,7 +233,7 @@ static U32 peek(SmTokStream *ts) {
     ts->file.cstashed = true;
     if (ts->file.clen == 0) {
         ts->file.clen = fread(ts->file.cbuf, 1, 1, ts->file.hnd);
-        if (ts->file.clen == 0) {
+        if (ts->file.clen != 1) {
             int err = ferror(ts->file.hnd);
             if (err) {
                 fatalChar(ts, "failed to read file: %s\n", strerror(err));
@@ -256,7 +256,7 @@ static U32 peek(SmTokStream *ts) {
             }
             UInt read =
                 fread(ts->file.cbuf + ts->file.clen, 1, 1, ts->file.hnd);
-            if (read == 0) {
+            if (read != 0) {
                 int err = ferror(ts->file.hnd);
                 if (err) {
                     fatalChar(ts, "failed to read file: %s\n", strerror(err));
@@ -300,15 +300,16 @@ static I32 parse(SmTokStream *ts, I32 radix) {
         for (UInt j = 0; j < (sizeof(DIGITS) / sizeof(DIGITS[0])); ++j) {
             if (buf->bytes[i] == DIGITS[j]) {
                 if (j >= (UInt)radix) {
-                    smTokStreamFatal(ts, "invalid number: %.*s\n", buf->len,
-                                     buf->bytes);
+                    smTokStreamFatal(ts, "invalid number: %.*s\n",
+                                     (int)buf->len, buf->bytes);
                 }
                 value *= radix;
                 value += j;
                 goto next;
             }
         }
-        smTokStreamFatal(ts, "invalid number: %.*s\n", buf->len, buf->bytes);
+        smTokStreamFatal(ts, "invalid number: %.*s\n", (int)buf->len,
+                         buf->bytes);
     next:
         (void)0;
     }
@@ -424,7 +425,7 @@ static U32 peekFile(SmTokStream *ts) {
                 return ts->file.stash;
             }
         }
-        smTokStreamFatal(ts, "unrecognized directive: %.*s\n", buf->len,
+        smTokStreamFatal(ts, "unrecognized directive: %.*s\n", (int)buf->len,
                          buf->bytes);
     }
     if (peek(ts) == '"') {

@@ -49,21 +49,21 @@ UInt smBufParse(SmBuf buf) {
         ++i;
     }
     if (i == buf.len) {
-        smFatal("invalid number: %.*s\n", buf.len, buf.bytes);
+        smFatal("invalid number: %.*s\n", (int)buf.len, buf.bytes);
     }
     UInt value = 0;
     for (; i < buf.len; ++i) {
         for (UInt j = 0; j < (sizeof(DIGITS) / sizeof(DIGITS[0])); ++j) {
             if (toupper(buf.bytes[i]) == DIGITS[j]) {
                 if (j >= (UInt)radix) {
-                    smFatal("invalid number: %.*s\n", buf.len, buf.bytes);
+                    smFatal("invalid number: %.*s\n", (int)buf.len, buf.bytes);
                 }
                 value *= radix;
                 value += j;
                 goto next;
             }
         }
-        smFatal("invalid number: %.*s\n", buf.len, buf.bytes);
+        smFatal("invalid number: %.*s\n", (int)buf.len, buf.bytes);
     next:
         (void)0;
     }

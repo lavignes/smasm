@@ -23,8 +23,8 @@ enum CfgMemKind {
 
 struct CfgMem {
     SmBuf name;
-    U16   start;
-    U16   size;
+    U32   start;
+    U32   size;
     U8    fill;
     U8    kind;
 };
@@ -48,14 +48,14 @@ enum CfgSectKind {
     CFG_SECT_CODE,
     CFG_SECT_DATA,
     CFG_SECT_UNINIT,
-    CFG_SECT_ZEROPAGE,
+    CFG_SECT_HIGHPAGE,
 };
 
 struct CfgSect {
     SmBuf     name;
     SmBuf     load;
     U8        kind;
-    U16       align;
+    U32       align;
     Bool      define;
     CfgI32Tab tags;
     SmBufGBuf files;
@@ -74,4 +74,4 @@ struct CfgSectGBuf {
 };
 typedef struct CfgSectGBuf CfgSectGBuf;
 
-void cfgSectGrowBufAdd(CfgSectGBuf *buf, CfgSect item);
+void cfgSectGBufAdd(CfgSectGBuf *buf, CfgSect item);

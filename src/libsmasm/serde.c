@@ -4,31 +4,38 @@
 #include <stdlib.h>
 #include <string.h>
 
+static _Noreturn void fatal(SmSerde *ser, char const *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    fprintf(stderr, "%.*s: ", (int)ser->name.len, ser->name.bytes);
+    smFatalV(fmt, args);
+}
+
 void smSerializeU8(SmSerde *ser, U8 byte) {
-    if (fwrite(&byte, sizeof(U8), 1, ser->hnd) != 1) {
+    if (fwrite(&byte, 1, 1, ser->hnd) != 1) {
         int err = ferror(ser->hnd);
-        smFatal("failed to write file: %s\n", strerror(err));
+        fatal(ser, "failed to write file: %s\n", strerror(err));
     }
 }
 
 void smSerializeU16(SmSerde *ser, U16 word) {
-    if (fwrite(&word, sizeof(U16), 1, ser->hnd) != 1) {
+    if (fwrite(&word, 1, sizeof(U16), ser->hnd) != sizeof(U16)) {
         int err = ferror(ser->hnd);
-        smFatal("failed to write file: %s\n", strerror(err));
+        fatal(ser, "failed to write file: %s\n", strerror(err));
     }
 }
 
 void smSerializeU32(SmSerde *ser, U32 num) {
-    if (fwrite(&num, sizeof(U32), 1, ser->hnd) != 1) {
+    if (fwrite(&num, 1, sizeof(U32), ser->hnd) != sizeof(U32)) {
         int err = ferror(ser->hnd);
-        smFatal("failed to write file: %s\n", strerror(err));
+        fatal(ser, "failed to write file: %s\n", strerror(err));
     }
 }
 
 void smSerializeBuf(SmSerde *ser, SmBuf buf) {
-    if (fwrite(buf.bytes, sizeof(U8), buf.len, ser->hnd) != buf.len) {
+    if (fwrite(buf.bytes, 1, buf.len, ser->hnd) != buf.len) {
         int err = ferror(ser->hnd);
-        smFatal("failed to write file: %s\n", strerror(err));
+        fatal(ser, "failed to write file: %s\n", strerror(err));
     }
 }
 
@@ -191,39 +198,59 @@ void smSerializeSectBuf(SmSerde *ser, SmSectBuf buf, SmBufIntern const *strin,
 
 U8 smDeserializeU8(SmSerde *ser) {
     U8 num;
-    if (fread(&num, sizeof(U8), 1, ser->hnd) != 1) {
+    if (fread(&num, 1, 1, ser->hnd) != 1) {
         int err = ferror(ser->hnd);
-        smFatal("failed to read file: %s\n", strerror(err));
+        if (err) {
+            fatal(ser, "failed to read file: %s\n", strerror(err));
+        }
+        if (feof(ser->hnd)) {
+            fatal(ser, "unexpected end of file\n");
+        }
     }
     return num;
 }
 
 U16 smDeserializeU16(SmSerde *ser) {
     U16 num;
-    if (fread(&num, sizeof(U16), 1, ser->hnd) != 1) {
+    if (fread(&num, 1, sizeof(U16), ser->hnd) != sizeof(U16)) {
         int err = ferror(ser->hnd);
-        smFatal("failed to read file: %s\n", strerror(err));
+        if (err) {
+            fatal(ser, "failed to read file: %s\n", strerror(err));
+        }
+        if (feof(ser->hnd)) {
+            fatal(ser, "unexpected end of file\n");
+        }
     }
     return num;
 }
 
 U32 smDeserializeU32(SmSerde *ser) {
     U32 num;
-    if (fread(&num, sizeof(U32), 1, ser->hnd) != 1) {
+    if (fread(&num, 1, sizeof(U32), ser->hnd) != sizeof(U32)) {
         int err = ferror(ser->hnd);
-        smFatal("failed to read file: %s\n", strerror(err));
+        if (err) {
+            fatal(ser, "failed to read file: %s\n", strerror(err));
+        }
+        if (feof(ser->hnd)) {
+            fatal(ser, "unexpected end of file\n");
+        }
     }
     return num;
 }
 
 void smDeserializeBuf(SmSerde *ser, SmBuf *buf) {
-    if (fread(buf->bytes, sizeof(U8), buf->len, ser->hnd) != buf->len) {
+    if (fread(buf->bytes, 1, buf->len, ser->hnd) != buf->len) {
         int err = ferror(ser->hnd);
-        smFatal("failed to read file: %s\n", strerror(err));
+        if (err) {
+            fatal(ser, "failed to read file: %s\n", strerror(err));
+        }
+        if (feof(ser->hnd)) {
+            fatal(ser, "unexpected end of file\n");
+        }
     }
 }
 
-void smDeserializeInt(SmSerde *ser, SmBufIntern *in) {
+SmBufIntern smDeserializeBufIntern(SmSerde *ser) {
     static SmGBuf buf = {0};
     UInt          len = smDeserializeU32(ser);
     if (!buf.inner.bytes) {
@@ -242,7 +269,9 @@ void smDeserializeInt(SmSerde *ser, SmBufIntern *in) {
     }
     buf.inner.len = len;
     smDeserializeBuf(ser, &buf.inner);
-    smBufIntern(in, buf.inner);
+    SmBufIntern in = {0};
+    smBufIntern(&in, buf.inner);
+    return in;
 }
 
 static SmBuf readBufRef(SmSerde *ser, SmBufIntern const *in) {
@@ -253,15 +282,14 @@ static SmBuf readBufRef(SmSerde *ser, SmBufIntern const *in) {
 
 static SmLbl readLbl(SmSerde *ser, SmBufIntern const *in) {
     SmLbl lbl = {0};
-    if (smDeserializeU8(ser)) {
+    if (smDeserializeU8(ser) == 0) {
         lbl.scope = readBufRef(ser, in);
     }
     lbl.name = readBufRef(ser, in);
     return lbl;
 }
 
-void smDeserializeExprIntern(SmSerde *ser, SmExprIntern *in,
-                             SmBufIntern const *strin) {
+SmExprIntern smDeserializeExprIntern(SmSerde *ser, SmBufIntern const *strin) {
     static SmExprGBuf buf = {0};
     buf.inner.len         = 0;
     UInt len              = smDeserializeU32(ser);
@@ -289,24 +317,89 @@ void smDeserializeExprIntern(SmSerde *ser, SmExprIntern *in,
             expr.tag.name = readBufRef(ser, strin);
             break;
         default:
-            smFatal("unrecognized expression kind: %02X\n", kind);
+            fatal(ser, "unrecognized expression kind: %02X\n", kind);
         }
         smExprGBufAdd(&buf, expr);
     }
-    smExprIntern(in, buf.inner);
+    SmExprIntern in = {0};
+    smExprIntern(&in, buf.inner);
+    return in;
 }
 
-void smDeserializeSymTab(SmSerde *ser, SmSymTab *tab, SmBufIntern const *strin,
-                         SmExprIntern const *exprin) {
-    UInt len = smDeserializeU32(ser);
+static SmExprBuf readExprBufRef(SmSerde *ser, SmExprIntern const *in) {
+    UInt offset = smDeserializeU32(ser);
+    UInt len    = smDeserializeU32(ser);
+    return (SmExprBuf){in->bufs[0].inner.items + offset, len};
+}
+
+SmSymTab smDeserializeSymTab(SmSerde *ser, SmBufIntern const *strin,
+                             SmExprIntern const *exprin) {
+    SmSymTab tab = {0};
+    UInt     len = smDeserializeU32(ser);
     for (UInt i = 0; i < len; ++i) {
-        SmLbl     lbl     = readLbl(ser, strin);
-        SmExprBuf value   = readExprBufRef(ser, exprin);
-        SmBuf     unit    = readBufRef(ser, strin);
-        SmBuf     section = readBufRef(ser, strin);
-        SmBuf     file    = readBufRef(ser, strin);
-        U32       line    = smDeserializeU32(ser);
-        U32       col     = smDeserializeU32(ser);
-        U8        flags   = smDeserializeU8(ser);
+        SmSym sym    = {0};
+        sym.lbl      = readLbl(ser, strin);
+        sym.value    = readExprBufRef(ser, exprin);
+        sym.unit     = readBufRef(ser, strin);
+        sym.section  = readBufRef(ser, strin);
+        sym.pos.file = readBufRef(ser, strin);
+        sym.pos.line = smDeserializeU32(ser);
+        sym.pos.col  = smDeserializeU32(ser);
+        sym.flags    = smDeserializeU8(ser);
+        smSymTabAdd(&tab, sym);
+    }
+    return tab;
+}
+
+SmSectBuf smDeserializeSectBuf(SmSerde *ser, SmBufIntern const *strin,
+                               SmExprIntern const *exprin) {
+    SmSectGBuf buf = {0};
+    UInt       len = smDeserializeU32(ser);
+    for (UInt i = 0; i < len; ++i) {
+        SmSect sect           = {0};
+        sect.name             = readBufRef(ser, strin);
+        UInt len              = smDeserializeU32(ser);
+        sect.data.inner.bytes = malloc(len);
+        if (!sect.data.inner.bytes) {
+            smFatal("out of memory\n");
+        }
+        sect.data.size      = len;
+        sect.data.inner.len = len;
+        smDeserializeBuf(ser, &sect.data.inner);
+        SmRelocGBuf relocs = {0};
+        len                = smDeserializeU32(ser);
+        for (UInt j = 0; j < len; ++j) {
+            SmReloc reloc  = {0};
+            reloc.offset   = smDeserializeU32(ser);
+            reloc.width    = smDeserializeU8(ser);
+            reloc.value    = readExprBufRef(ser, exprin);
+            reloc.unit     = readBufRef(ser, strin);
+            reloc.pos.file = readBufRef(ser, strin);
+            reloc.pos.line = smDeserializeU32(ser);
+            reloc.pos.col  = smDeserializeU32(ser);
+            reloc.flags    = smDeserializeU8(ser);
+            smRelocGBufAdd(&relocs, reloc);
+        }
+        smSectGBufAdd(&buf, sect);
+    }
+    return buf.inner;
+}
+
+void smDeserializeToEnd(SmSerde *ser, SmGBuf *buf) {
+    static U8 tmp[4096];
+    while (true) {
+        size_t read = fread(tmp, 1, sizeof(tmp), ser->hnd);
+        if (read == sizeof(tmp)) {
+            smGBufCat(buf, (SmBuf){tmp, read});
+            continue;
+        }
+        int err = ferror(ser->hnd);
+        if (err) {
+            fatal(ser, "failed to read file: %s\n", strerror(err));
+        }
+        if (feof(ser->hnd)) {
+            smGBufCat(buf, (SmBuf){tmp, read});
+            break;
+        }
     }
 }
