@@ -22,7 +22,7 @@ DISSRCS = $(call rwildcard,src/smdis,*.c)
 DISOBJS = $(DISSRCS:.c=.o)
 DISDEPS = $(DISSRCS:.c=.d)
 
-.PHONY: all clean
+.PHONY: all clean examples
 
 all: bin/smasm bin/smold bin/smfix bin/smdis
 
@@ -44,7 +44,11 @@ bin/smdis: lib/libsmasm.a $(DISDEPS) $(DISOBJS)
 %.o %.d: %.c
 	$(CC) $(CFLAGS) -MD -MF $(addsuffix .d,$(basename $<)) -c $< -o $(addsuffix .o,$(basename $<))
 
+examples: bin/smasm bin/smold bin/smfix
+	$(MAKE) -C examples/hello
+
 clean:
+	$(MAKE) -C examples/hello clean
 	rm -f bin/*
 	rm -f lib/*
 	rm -f $(call rwildcard,src,*.o)

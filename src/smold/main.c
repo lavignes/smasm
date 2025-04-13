@@ -37,7 +37,7 @@ static SmExprBuf constExprBuf(I32 num);
 static SmBuf     intern(SmBuf buf);
 static void      parseCfg();
 static void      loadObj(SmBuf path);
-static void      relocate(SmSect *sect);
+static void      allocate(SmSect *sect);
 static void      solveSyms();
 static void      link(SmSect *sect);
 static void      serialize();
@@ -154,7 +154,7 @@ int main(int argc, char **argv) {
     }
     for (UInt i = 0; i < SECTS.inner.len; ++i) {
         SmSect *sect = SECTS.inner.items + i;
-        relocate(sect);
+        allocate(sect);
     }
     solveSyms();
     for (UInt i = 0; i < SECTS.inner.len; ++i) {
@@ -346,7 +346,7 @@ static void memGBufAdd(Mem item) {
     SM_GBUF_ADD_IMPL(Mem);
 }
 
-static void relocate(SmSect *sect) {
+static void allocate(SmSect *sect) {
     CfgSect *cfgsect;
     for (UInt i = 0; i < CFGSECTS.inner.len; ++i) {
         cfgsect = CFGSECTS.inner.items + i;
@@ -460,99 +460,97 @@ static Bool solve(SmExprBuf buf, SmBuf unit, I32 *num) {
             break;
         }
         case SM_EXPR_OP:
-            while (stack.inner.len > 0) {
+            --stack.inner.len;
+            I32 rhs = stack.inner.items[stack.inner.len];
+            if (expr->op.unary) {
+                switch (expr->op.tok) {
+                case '+':
+                    smI32GBufAdd(&stack, rhs);
+                    break;
+                case '-':
+                    smI32GBufAdd(&stack, -rhs);
+                    break;
+                case '~':
+                    smI32GBufAdd(&stack, ~rhs);
+                    break;
+                case '!':
+                    smI32GBufAdd(&stack, !rhs);
+                    break;
+                case '<':
+                    smI32GBufAdd(&stack, ((U32)rhs) & 0xFF);
+                    break;
+                case '>':
+                    smI32GBufAdd(&stack, ((U32)rhs & 0xFF00) >> 8);
+                    break;
+                case '^':
+                    smI32GBufAdd(&stack, ((U32)rhs & 0xFF0000) >> 16);
+                    break;
+                default:
+                    smUnreachable();
+                }
+            } else {
                 --stack.inner.len;
-                I32 rhs = stack.inner.items[stack.inner.len];
-                if (expr->op.unary) {
-                    switch (expr->op.tok) {
-                    case '+':
-                        smI32GBufAdd(&stack, rhs);
-                        break;
-                    case '-':
-                        smI32GBufAdd(&stack, -rhs);
-                        break;
-                    case '~':
-                        smI32GBufAdd(&stack, ~rhs);
-                        break;
-                    case '!':
-                        smI32GBufAdd(&stack, !rhs);
-                        break;
-                    case '<':
-                        smI32GBufAdd(&stack, ((U32)rhs) & 0xFF);
-                        break;
-                    case '>':
-                        smI32GBufAdd(&stack, ((U32)rhs & 0xFF00) >> 8);
-                        break;
-                    case '^':
-                        smI32GBufAdd(&stack, ((U32)rhs & 0xFF0000) >> 16);
-                        break;
-                    default:
-                        smUnreachable();
-                    }
-                } else {
-                    --stack.inner.len;
-                    I32 lhs = stack.inner.items[stack.inner.len];
-                    switch (expr->op.tok) {
-                    case '+':
-                        smI32GBufAdd(&stack, lhs + rhs);
-                        break;
-                    case '-':
-                        smI32GBufAdd(&stack, lhs - rhs);
-                        break;
-                    case '*':
-                        smI32GBufAdd(&stack, lhs * rhs);
-                        break;
-                    case '/':
-                        smI32GBufAdd(&stack, lhs / rhs);
-                        break;
-                    case '%':
-                        smI32GBufAdd(&stack, lhs % rhs);
-                        break;
-                    case SM_TOK_ASL:
-                        smI32GBufAdd(&stack, lhs << rhs);
-                        break;
-                    case SM_TOK_ASR:
-                        smI32GBufAdd(&stack, lhs >> rhs);
-                        break;
-                    case SM_TOK_LSR:
-                        smI32GBufAdd(&stack, ((U32)lhs) >> ((U32)rhs));
-                        break;
-                    case '<':
-                        smI32GBufAdd(&stack, lhs < rhs);
-                        break;
-                    case SM_TOK_LTE:
-                        smI32GBufAdd(&stack, lhs <= rhs);
-                        break;
-                    case '>':
-                        smI32GBufAdd(&stack, lhs > rhs);
-                        break;
-                    case SM_TOK_GTE:
-                        smI32GBufAdd(&stack, lhs >= rhs);
-                        break;
-                    case SM_TOK_DEQ:
-                        smI32GBufAdd(&stack, lhs == rhs);
-                        break;
-                    case SM_TOK_NEQ:
-                        smI32GBufAdd(&stack, lhs != rhs);
-                        break;
-                    case '&':
-                        smI32GBufAdd(&stack, lhs & rhs);
-                        break;
-                    case '|':
-                        smI32GBufAdd(&stack, lhs | rhs);
-                        break;
-                    case '^':
-                        smI32GBufAdd(&stack, lhs ^ rhs);
-                        break;
-                    case SM_TOK_AND:
-                        smI32GBufAdd(&stack, lhs && rhs);
-                        break;
-                    case SM_TOK_OR:
-                        smI32GBufAdd(&stack, lhs || rhs);
-                        break;
-                    default:
-                        smUnreachable();
-                    }
+                I32 lhs = stack.inner.items[stack.inner.len];
+                switch (expr->op.tok) {
+                case '+':
+                    smI32GBufAdd(&stack, lhs + rhs);
+                    break;
+                case '-':
+                    smI32GBufAdd(&stack, lhs - rhs);
+                    break;
+                case '*':
+                    smI32GBufAdd(&stack, lhs * rhs);
+                    break;
+                case '/':
+                    smI32GBufAdd(&stack, lhs / rhs);
+                    break;
+                case '%':
+                    smI32GBufAdd(&stack, lhs % rhs);
+                    break;
+                case SM_TOK_ASL:
+                    smI32GBufAdd(&stack, lhs << rhs);
+                    break;
+                case SM_TOK_ASR:
+                    smI32GBufAdd(&stack, lhs >> rhs);
+                    break;
+                case SM_TOK_LSR:
+                    smI32GBufAdd(&stack, ((U32)lhs) >> ((U32)rhs));
+                    break;
+                case '<':
+                    smI32GBufAdd(&stack, lhs < rhs);
+                    break;
+                case SM_TOK_LTE:
+                    smI32GBufAdd(&stack, lhs <= rhs);
+                    break;
+                case '>':
+                    smI32GBufAdd(&stack, lhs > rhs);
+                    break;
+                case SM_TOK_GTE:
+                    smI32GBufAdd(&stack, lhs >= rhs);
+                    break;
+                case SM_TOK_DEQ:
+                    smI32GBufAdd(&stack, lhs == rhs);
+                    break;
+                case SM_TOK_NEQ:
+                    smI32GBufAdd(&stack, lhs != rhs);
+                    break;
+                case '&':
+                    smI32GBufAdd(&stack, lhs & rhs);
+                    break;
+                case '|':
+                    smI32GBufAdd(&stack, lhs | rhs);
+                    break;
+                case '^':
+                    smI32GBufAdd(&stack, lhs ^ rhs);
+                    break;
+                case SM_TOK_AND:
+                    smI32GBufAdd(&stack, lhs && rhs);
+                    break;
+                case SM_TOK_OR:
+                    smI32GBufAdd(&stack, lhs || rhs);
+                    break;
+                default:
+                    smUnreachable();
                 }
             }
             break;
@@ -1118,7 +1116,7 @@ static void serialize() {
         CfgMem *cfgmem = CFGMEMS.inner.items + i;
         for (UInt j = 0; j < CFGSECTS.inner.len; ++j) {
             CfgSect *cfgsect = CFGSECTS.inner.items + j;
-            if (smBufEqual(cfgsect->load, cfgmem->name)) {
+            if (!smBufEqual(cfgsect->load, cfgmem->name)) {
                 continue;
             }
             if ((cfgsect->kind == CFG_SECT_UNINIT) ||

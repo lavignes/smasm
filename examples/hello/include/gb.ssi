@@ -1,0 +1,4 @@
+@if !@defined GB_SSI
+GB_SSI = 1
+
+@end

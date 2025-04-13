@@ -433,8 +433,8 @@ static U32 peekFile(SmTokStream *ts) {
             }
             ts->file.num     = parse(ts, 10);
             ts->file.stashed = true;
-            ts->file.stash   = SM_TOK_NUM;
-            return SM_TOK_NUM;
+            ts->file.stash   = SM_TOK_ARG;
+            return SM_TOK_ARG;
         }
         // directive
         for (c = peek(ts); isalnum(c); c = peek(ts)) {
@@ -697,8 +697,24 @@ static U32 peekMacro(SmTokStream *ts) {
 }
 
 static U32 peekRepeat(SmTokStream *ts) {
-    (void)ts;
-    smUnimplemented("peekRepeat");
+    if (ts->repeat.idx >= ts->repeat.cnt) {
+        return SM_TOK_EOF;
+    }
+    SmRepeatTok *tok = ts->repeat.buf.items + ts->repeat.pos;
+    switch (tok->kind) {
+    case SM_REPEAT_TOK_TOK:
+        return tok->tok;
+    case SM_REPEAT_TOK_ID:
+        return SM_TOK_ID;
+    case SM_REPEAT_TOK_NUM:
+        return SM_TOK_NUM;
+    case SM_REPEAT_TOK_STR:
+        return SM_TOK_STR;
+    case SM_REPEAT_TOK_ITER:
+        return SM_TOK_NUM;
+    default:
+        smUnreachable();
+    }
 }
 
 U32 smTokStreamPeek(SmTokStream *ts) {
@@ -743,7 +759,7 @@ void smTokStreamEat(SmTokStream *ts) {
     }
     case SM_TOK_STREAM_REPEAT:
         ++ts->repeat.pos;
-        if (ts->repeat.pos >= ts->repeat.cnt) {
+        if (ts->repeat.pos >= ts->repeat.buf.len) {
             ts->repeat.pos = 0;
             ++ts->repeat.idx;
         }
@@ -798,10 +814,20 @@ SmBuf smTokStreamBuf(SmTokStream *ts) {
             smUnreachable();
         }
     }
+    case SM_TOK_STREAM_REPEAT: {
+        SmRepeatTok *tok = ts->repeat.buf.items + ts->repeat.pos;
+        switch (tok->kind) {
+        case SM_REPEAT_TOK_STR:
+        case SM_REPEAT_TOK_ID:
+            return tok->buf;
+        default:
+            smUnreachable();
+        }
+    }
     case SM_TOK_STREAM_FMT:
         return ts->fmt.buf;
     default:
-        smUnimplemented("getting buf from other stream types");
+        smUnreachable();
     }
 }
 
@@ -828,10 +854,20 @@ I32 smTokStreamNum(SmTokStream *ts) {
             smUnreachable();
         }
     }
+    case SM_TOK_STREAM_REPEAT: {
+        SmRepeatTok *tok = ts->repeat.buf.items + ts->repeat.pos;
+        switch (tok->kind) {
+        case SM_REPEAT_TOK_NUM:
+            return tok->num;
+        case SM_REPEAT_TOK_ITER:
+            return ts->repeat.idx;
+        default:
+            smUnreachable();
+        }
+    }
     case SM_TOK_STREAM_FMT:
-        smUnreachable();
     default:
-        smUnimplemented("getting num from other stream types");
+        smUnreachable();
     }
 }
 

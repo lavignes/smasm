@@ -1,15 +1,17 @@
-@section "HEADER"
+; @include "gb.ssi"
 
 @macro TITLE
-    @db @1
-    @if @strlen @1 > 11
+    @db @0
+    @if @strlen @0 > 11
         @fatal "game title too long"
     @end
     ; pad title
-    @repeat 11 - @strlen @1
+    @repeat 11 - @strlen @0
         @db 0
     @end
 @end
+
+@section "HEADER"
 
 EntryPoint:
     nop
@@ -32,9 +34,3 @@ Header:
     @db $00     ; 32 KiB ROM
     @db $00     ; 0 KiB SRAM
     @db $00     ; Not Japan
-
-@section "BANK0"
-
-Start:
-    halt
-    jr Start

@@ -1184,12 +1184,29 @@ static void eatMne(U8 mne) {
     }
 }
 
+static FILE *openFile(SmBuf path, char const *modes) {
+    static SmGBuf buf = {0};
+    buf.inner.len     = 0;
+    smGBufCat(&buf, path);
+    smGBufCat(&buf, SM_BUF("\0"));
+    return openFileCstr((char const *)buf.inner.bytes, modes);
+}
+
+static Bool fileExists(SmBuf path) {
+    FILE *hnd = openFile(path, "rb");
+    if (hnd) {
+        closeFile(hnd);
+        return true;
+    }
+    return false;
+}
+
 static SmBuf findInclude(SmBuf path) {
     static SmGBuf buf = {0};
     eat();
     expect(SM_TOK_STR);
     SmBuf fullpath = smPathIntern(&STRS, tokBuf());
-    if (smBufEqual(path, SM_BUF_NULL)) {
+    if (!fileExists(path)) {
         for (UInt i = 0; i < IPATHS.bufs.inner.len; ++i) {
             SmBuf inc     = IPATHS.bufs.inner.items[i];
             buf.inner.len = 0;
@@ -1197,7 +1214,7 @@ static SmBuf findInclude(SmBuf path) {
             smGBufCat(&buf, SM_BUF("/"));
             smGBufCat(&buf, path);
             fullpath = smPathIntern(&STRS, buf.inner);
-            if (!smBufEqual(fullpath, SM_BUF_NULL)) {
+            if (!fileExists(fullpath)) {
                 break;
             }
         }
@@ -1206,14 +1223,6 @@ static SmBuf findInclude(SmBuf path) {
         fatal("could not find include file: %.*s\n", (int)path.len, path.bytes);
     }
     return fullpath;
-}
-
-static FILE *openFile(SmBuf path, char const *modes) {
-    static SmGBuf buf = {0};
-    buf.inner.len     = 0;
-    smGBufCat(&buf, path);
-    smGBufCat(&buf, SM_BUF("\0"));
-    return openFileCstr((char const *)buf.inner.bytes, modes);
 }
 
 static void eatDirective() {
@@ -1324,7 +1333,7 @@ static void eatDirective() {
         eat();
         num = exprEatSolvedPos(&pos);
         if (num == 0) {
-            UInt depth = 1;
+            UInt depth = 0;
             while (true) {
                 switch (peek()) {
                 case SM_TOK_IF:
@@ -1366,6 +1375,8 @@ static void eatDirective() {
             fatal("macro name must be global\n");
         }
         // TODO: check to see if macro already exists and we're in emit pass
+        eat();
+        expectEOL();
         eat();
         UInt depth = 0;
         while (true) {
@@ -1528,8 +1539,10 @@ static void eatDirective() {
         expect(SM_TOK_STR);
         fatal("explicit fatal error: %.*s\n", (int)tokBuf().len,
               tokBuf().bytes);
-    default:
-        fatal("unexpected input\n");
+    default: {
+        SmBuf name = smTokName(peek());
+        fatal("unexpected: %.*s\n", (int)name.len, name.bytes);
+    }
     }
 }
 

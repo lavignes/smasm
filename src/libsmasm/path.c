@@ -8,7 +8,10 @@ SmBuf smPathIntern(SmBufIntern *in, SmBuf path) {
     buf.inner.len     = 0;
     smGBufCat(&buf, path);
     smGBufCat(&buf, SM_BUF("\0"));
-    char *out    = realpath((char *)buf.inner.bytes, NULL);
+    char *out = realpath((char *)buf.inner.bytes, NULL);
+    if (out == NULL) {
+        return smBufIntern(in, path);
+    }
     SmBuf result = smBufIntern(in, (SmBuf){(U8 *)out, strlen(out)});
     free(out);
     return result;

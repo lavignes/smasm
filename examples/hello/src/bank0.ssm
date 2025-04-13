@@ -1,0 +1,5 @@
+@section "BANK0"
+
+Start::
+    halt
+    jp fun
