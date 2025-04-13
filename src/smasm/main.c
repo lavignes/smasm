@@ -1184,6 +1184,38 @@ static void eatMne(U8 mne) {
     }
 }
 
+static SmBuf findInclude(SmBuf path) {
+    static SmGBuf buf = {0};
+    eat();
+    expect(SM_TOK_STR);
+    SmBuf fullpath = smPathIntern(&STRS, tokBuf());
+    if (smBufEqual(path, SM_BUF_NULL)) {
+        for (UInt i = 0; i < IPATHS.bufs.inner.len; ++i) {
+            SmBuf inc     = IPATHS.bufs.inner.items[i];
+            buf.inner.len = 0;
+            smGBufCat(&buf, inc);
+            smGBufCat(&buf, SM_BUF("/"));
+            smGBufCat(&buf, path);
+            fullpath = smPathIntern(&STRS, buf.inner);
+            if (!smBufEqual(fullpath, SM_BUF_NULL)) {
+                break;
+            }
+        }
+    }
+    if (smBufEqual(fullpath, SM_BUF_NULL)) {
+        fatal("could not find include file: %.*s\n", (int)path.len, path.bytes);
+    }
+    return fullpath;
+}
+
+static FILE *openFile(SmBuf path, char const *modes) {
+    static SmGBuf buf = {0};
+    buf.inner.len     = 0;
+    smGBufCat(&buf, path);
+    smGBufCat(&buf, SM_BUF("\0"));
+    return openFileCstr((char const *)buf.inner.bytes, modes);
+}
+
 static void eatDirective() {
     SmPos     pos;
     SmExprBuf buf;
@@ -1224,6 +1256,105 @@ static void eatDirective() {
         }
         expectEOL();
         eat();
+        return;
+    case SM_TOK_DW:
+        eat();
+        while (true) {
+            buf = exprEatPos(&pos);
+            if (emit) {
+                if (exprSolve(buf, &num)) {
+                    expectReprU16(pos, num);
+                    emit16(num);
+                } else {
+                    emit16(0xFDFD);
+                    reloc(0, 2, buf, pos, 0);
+                }
+            }
+            addPC(2);
+            if (peek() != ',') {
+                break;
+            }
+            eat();
+        }
+        expectEOL();
+        eat();
+        return;
+    case SM_TOK_DS: {
+        U16 space = exprEatSolvedU16();
+        if (emit) {
+            for (UInt i = 0; i < space; ++i) {
+                emit8(0x00);
+            }
+        }
+        addPC(space);
+        expectEOL();
+        eat();
+        return;
+    }
+    case SM_TOK_SECTION:
+        eat();
+        expect(SM_TOK_STR);
+        sectSet(intern(tokBuf()));
+        eat();
+        expectEOL();
+        eat();
+        return;
+    case SM_TOK_INCLUDE:
+        eat();
+        expect(SM_TOK_STR);
+        pushFile(findInclude(tokBuf()));
+        eat();
+        return;
+    case SM_TOK_INCBIN: {
+        static SmGBuf buf = {0};
+        buf.inner.len     = 0;
+        eat();
+        expect(SM_TOK_STR);
+        SmBuf   path = findInclude(tokBuf());
+        FILE   *hnd  = openFile(path, "rb");
+        SmSerde ser  = {hnd, path};
+        smDeserializeToEnd(&ser, &buf);
+        if (emit) {
+            emitBuf(buf.inner);
+        }
+        addPC(buf.inner.len);
+        return;
+    }
+    case SM_TOK_IF:
+        eat();
+        if (!exprEatSolvedPos(&pos)) {
+            UInt depth = 1;
+            while (true) {
+                switch (peek()) {
+                case SM_TOK_IF:
+                case SM_TOK_MACRO:
+                case SM_TOK_REPEAT:
+                    ++depth;
+                    break;
+                case SM_TOK_END:
+                    if (depth == 0) {
+                        eat();
+                        goto done;
+                    }
+                    --depth;
+                    break;
+                default:
+                    break;
+                }
+                eat();
+            }
+        }
+    done:
+        ++if_level;
+        return;
+    case SM_TOK_END:
+        if (if_level == 0) {
+            fatal("unexpected @END\n");
+        }
+        eat();
+        --if_level;
+        return;
+    case SM_TOK_MACRO:
         return;
     default:
         smUnimplemented();
@@ -1340,14 +1471,6 @@ static void pass() {
             eatDirective();
         }
     }
-}
-
-static FILE *openFile(SmBuf path, char const *modes) {
-    static SmGBuf buf = {0};
-    buf.inner.len     = 0;
-    smGBufCat(&buf, path);
-    smGBufCat(&buf, SM_BUF("\0"));
-    return openFileCstr((char const *)buf.inner.bytes, modes);
 }
 
 static void writeDepend() {

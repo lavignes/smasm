@@ -175,6 +175,7 @@ SmExprBuf exprEat() {
             fatal("unmatched parentheses\n");
         matched:
             continue;
+        // TODO idfmt
         case SM_TOK_ID: {
             // is this a macro?
             Macro *macro = macroFind(tokBuf());
@@ -190,7 +191,33 @@ SmExprBuf exprEat() {
             seen_value = true;
             continue;
         }
+        case SM_TOK_DEFINED: {
+            if (seen_value) {
+                fatal("expected an operator\n");
+            }
+            eat();
+            expect(SM_TOK_ID);
+            SmLbl lbl = tokLbl();
+            pushExpr((SmExpr){.kind = SM_EXPR_CONST,
+                              .num  = (smSymTabFind(&SYMS, lbl) != NULL)});
+            eat();
+            seen_value = true;
+            continue;
+        }
+        case SM_TOK_STRLEN:
+            if (seen_value) {
+                fatal("expected an operator\n");
+            }
+            eat();
+            expect(SM_TOK_STR);
+            pushExpr((SmExpr){.kind = SM_EXPR_CONST, .num = tokBuf().len});
+            eat();
+            seen_value = true;
+            continue;
         case SM_TOK_TAG: {
+            if (seen_value) {
+                fatal("expected an operator\n");
+            }
             eat();
             expect(SM_TOK_ID);
             SmLbl lbl = tokLbl();
@@ -200,17 +227,10 @@ SmExprBuf exprEat() {
             expect(SM_TOK_STR);
             pushExpr(
                 (SmExpr){.kind = SM_EXPR_TAG, .tag = {lbl, intern(tokBuf())}});
-            seen_value = true;
             eat();
+            seen_value = true;
             continue;
         }
-        case SM_TOK_STRLEN:
-            eat();
-            expect(SM_TOK_STR);
-            pushExpr((SmExpr){.kind = SM_EXPR_CONST, .num = tokBuf().len});
-            eat();
-            seen_value = true;
-            continue;
         default:
             if (!seen_value) {
                 fatal("expected a value\n");
