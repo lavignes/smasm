@@ -58,20 +58,19 @@ U32 peek() {
         popStream();
         return peek(); // yuck
     }
+    // TODO: should I handle macros and @strfmt/@idfmt here?
     return tok;
 }
 
 void eat() { smTokStreamEat(ts); }
 
 void expect(U32 tok) {
-    if (peek() != tok) {
-        // TODO: utf8
-        if (isprint(tok)) {
-            fatal("expected `%c`\n", tok);
-        } else {
-            SmBuf name = smTokName(tok);
-            fatal("expected %.*s\n", (int)name.len, name.bytes);
-        }
+    U32 peeked = peek();
+    if (peeked != tok) {
+        SmBuf expected = smTokName(tok);
+        SmBuf found    = smTokName(peeked);
+        fatal("expected %.*s, got %.*s\n", (int)expected.len, expected.bytes,
+              (int)found.len, found.bytes);
     }
 }
 

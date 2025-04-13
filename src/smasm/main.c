@@ -1360,7 +1360,7 @@ static void eatDirective() {
         static SmMacroTokGBuf buf = {0};
         buf.inner.len             = 0;
         eat();
-        expect(SM_TOK_STR);
+        expect(SM_TOK_ID);
         SmLbl lbl = tokLbl();
         if (!smLblIsGlobal(lbl)) {
             fatal("macro name must be global\n");
@@ -1383,6 +1383,10 @@ static void eatDirective() {
                 }
                 --depth;
                 break;
+            default:
+                break;
+            }
+            switch (peek()) {
             case SM_TOK_EOF:
                 fatal("unexpected end of file\n");
             case SM_TOK_ID:
@@ -1436,8 +1440,9 @@ static void eatDirective() {
         return;
     }
     case SM_TOK_REPEAT: {
-        static SmRepeatTokGBuf buf = {0};
-        buf.inner.len              = 0;
+        SmPos                  start = tokPos();
+        static SmRepeatTokGBuf buf   = {0};
+        buf.inner.len                = 0;
         eat();
         num = exprEatSolvedPos(&pos);
         if (num < 0) {
@@ -1469,6 +1474,10 @@ static void eatDirective() {
                 }
                 --depth;
                 break;
+            default:
+                break;
+            }
+            switch (peek()) {
             case SM_TOK_EOF:
                 fatal("unexpected end of file\n");
             case SM_TOK_ID:
@@ -1510,11 +1519,17 @@ static void eatDirective() {
         if (ts >= (STACK + STACK_SIZE)) {
             smFatal("too many open files\n");
         }
-        smTokStreamRepeatInit(ts, smRepeatTokIntern(&REPEATS, buf.inner), num);
+        smTokStreamRepeatInit(ts, start, smRepeatTokIntern(&REPEATS, buf.inner),
+                              num);
         return;
     }
+    case SM_TOK_FATAL:
+        eat();
+        expect(SM_TOK_STR);
+        fatal("explicit fatal error: %.*s\n", (int)tokBuf().len,
+              tokBuf().bytes);
     default:
-        smUnimplemented("other directives");
+        fatal("unexpected input\n");
     }
 }
 

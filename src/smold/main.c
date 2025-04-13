@@ -738,14 +738,12 @@ static I32   tokNum() { return smTokStreamNum(&TS); }
 static SmBuf tokBuf() { return smTokStreamBuf(&TS); }
 
 static void expect(U32 tok) {
-    if (peek() != tok) {
-        // TODO utf8
-        if (isprint(tok)) {
-            smTokStreamFatal(&TS, "expected `%c`\n", tok);
-        } else {
-            SmBuf name = smTokName(tok);
-            smTokStreamFatal(&TS, "expected %.*s\n", (int)name.len, name.bytes);
-        }
+    U32 peeked = peek();
+    if (peeked != tok) {
+        SmBuf expected = smTokName(tok);
+        SmBuf found    = smTokName(peeked);
+        fatal("expected %.*s, got %.*s\n", (int)expected.len, expected.bytes,
+              (int)found.len, found.bytes);
     }
 }
 
@@ -1059,14 +1057,10 @@ static void parseCfg() {
             SmBuf buf = tokBuf();
             fatal("unrecognized config area: %.*s\n", (int)buf.len, buf.bytes);
         }
-        default:
-            // TODO utf8
-            if (isprint(peek())) {
-                fatal("unexpected `%c`\n", peek());
-            } else {
-                SmBuf name = smTokName(peek());
-                fatal("unexpected %.*s\n", (int)name.len, name.bytes);
-            }
+        default: {
+            SmBuf name = smTokName(peek());
+            fatal("unexpected %.*s\n", (int)name.len, name.bytes);
+        }
         }
     }
     if (!memories) {

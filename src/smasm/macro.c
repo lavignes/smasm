@@ -34,18 +34,18 @@ void macroAdd(SmBuf name, SmMacroTokBuf buf) {
 void macroInvoke(Macro macro) {
     SmPos pos = tokPos();
     eat();
-    SmMacroArgQueue args        = {0};
-    SmMacroTokGBuf  toks        = {0};
-    UInt            brace_depth = 0;
+    SmMacroArgQueue args  = {0};
+    SmMacroTokGBuf  toks  = {0};
+    UInt            depth = 0;
     if (peek() == '{') {
         eat();
-        ++brace_depth;
+        ++depth;
     }
     while (true) {
         switch (peek()) {
         case '\n':
         case SM_TOK_EOF:
-            if (brace_depth == 0) {
+            if (depth == 0) {
                 goto flush;
             }
             break;
@@ -66,12 +66,12 @@ void macroInvoke(Macro macro) {
             fmtInvoke(SM_TOK_ID);
             continue;
         default:
-            if (brace_depth > 0) {
+            if (depth > 0) {
                 if (peek() == '{') {
-                    ++brace_depth;
+                    ++depth;
                 } else if (peek() == '}') {
-                    --brace_depth;
-                    if (brace_depth == 0) {
+                    --depth;
+                    if (depth == 0) {
                         goto flush;
                     }
                 }

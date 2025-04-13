@@ -1,5 +1,8 @@
 *.o
 *.d
+*.gb
+*.gbc
+
 /lib/*
 /bin/*
 

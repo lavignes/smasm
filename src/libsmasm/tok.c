@@ -136,7 +136,19 @@ _Noreturn void smTokStreamFatalPos(SmTokStream *ts, SmPos pos, char const *fmt,
 
 _Noreturn void smTokStreamFatalV(SmTokStream *ts, char const *fmt,
                                  va_list args) {
-    smTokStreamFatalPosV(ts, ts->pos, fmt, args);
+    switch (ts->kind) {
+    case SM_TOK_STREAM_FILE:
+        smTokStreamFatalPosV(ts, ts->pos, fmt, args);
+    case SM_TOK_STREAM_MACRO:
+        // TODO macro arg position
+        smTokStreamFatalPosV(ts, ts->macro.buf.items[ts->macro.pos].pos, fmt,
+                             args);
+    case SM_TOK_STREAM_REPEAT:
+        smTokStreamFatalPosV(ts, ts->repeat.buf.items[ts->repeat.pos].pos, fmt,
+                             args);
+    default:
+        smUnreachable();
+    }
 }
 
 _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
@@ -145,10 +157,27 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
         fprintf(stderr, "%.*s:%zu:%zu: ", (int)pos.file.len, pos.file.bytes,
-                (size_t)pos.line, (size_t)pos.col);
+                pos.line, pos.col);
+        break;
+    case SM_TOK_STREAM_MACRO:
+        // TODO macro arg position
+        fprintf(stderr,
+                "%.*s:%zu:%zu: in macro %.*s\n"
+                "\t%.*s:%zu:%zu: ",
+                (int)ts->pos.file.len, ts->pos.file.bytes, ts->pos.line,
+                ts->pos.col, (int)ts->macro.name.len, ts->macro.name.bytes,
+                (int)pos.file.len, pos.file.bytes, pos.line, pos.col);
+        break;
+    case SM_TOK_STREAM_REPEAT:
+        fprintf(stderr,
+                "%.*s:%zu:%zu: at repeat index %zu\n"
+                "\t%.*s:%zu:%zu: ",
+                (int)ts->pos.file.len, ts->pos.file.bytes, ts->pos.line,
+                ts->pos.col, ts->repeat.idx, (int)pos.file.len, pos.file.bytes,
+                pos.line, pos.col);
         break;
     default:
-        smUnimplemented("fatals for other stream types");
+        smUnreachable();
     }
     smFatalV(fmt, args);
 }
@@ -176,8 +205,10 @@ void smTokStreamMacroInit(SmTokStream *ts, SmBuf name, SmPos pos,
     ts->macro.nonce = nonce;
 }
 
-void smTokStreamRepeatInit(SmTokStream *ts, SmRepeatTokBuf buf, UInt cnt) {
+void smTokStreamRepeatInit(SmTokStream *ts, SmPos pos, SmRepeatTokBuf buf,
+                           UInt cnt) {
     ts->kind       = SM_TOK_STREAM_REPEAT;
+    ts->pos        = pos;
     ts->repeat.buf = buf;
     ts->repeat.cnt = cnt;
     ts->repeat.pos = 0;
@@ -196,29 +227,26 @@ void smTokStreamFini(SmTokStream *ts) {
         if (fclose(ts->file.hnd) == EOF) {
             int err = errno;
             fprintf(stderr, "%.*s:%zu:%zu: ", (int)ts->pos.file.len,
-                    ts->pos.file.bytes, (size_t)ts->pos.line,
-                    (size_t)ts->pos.col);
+                    ts->pos.file.bytes, ts->pos.line, ts->pos.col);
             smFatal("failed to close file: %s\n", strerror(err));
         }
-
         return;
     case SM_TOK_STREAM_MACRO:
         if (ts->macro.args.buf->items) {
             free(ts->macro.args.buf->items);
         }
         return;
+    case SM_TOK_STREAM_REPEAT:
     case SM_TOK_STREAM_FMT:
         return;
     default:
-        smUnimplemented("finalizing other stream types");
-        break;
+        smUnreachable();
     }
 }
 
 static _Noreturn void fatalChar(SmTokStream *ts, char const *fmt, ...) {
     fprintf(stderr, "%.*s:%zu:%zu: ", (int)ts->file.buf.inner.len,
-            ts->file.buf.inner.bytes, (size_t)ts->file.cline,
-            (size_t)ts->file.ccol);
+            ts->file.buf.inner.bytes, ts->file.cline, ts->file.ccol);
     va_list args;
     va_start(args, fmt);
     smFatalV(fmt, args);
@@ -638,7 +666,7 @@ static U32 peekMacro(SmTokStream *ts) {
     case SM_MACRO_TOK_STR:
         return SM_TOK_STR;
     case SM_MACRO_TOK_ARG:
-        if (ts->macro.argi >= ts->macro.args.len) {
+        if (tok->arg >= ts->macro.args.len) {
             smTokStreamFatalPos(ts, tok->pos, "argument is undefined\n");
         }
         tok = ts->macro.args.buf[tok->arg].items + ts->macro.argi;
@@ -668,16 +696,23 @@ static U32 peekMacro(SmTokStream *ts) {
     }
 }
 
+static U32 peekRepeat(SmTokStream *ts) {
+    (void)ts;
+    smUnimplemented("peekRepeat");
+}
+
 U32 smTokStreamPeek(SmTokStream *ts) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
         return peekFile(ts);
     case SM_TOK_STREAM_MACRO:
         return peekMacro(ts);
+    case SM_TOK_STREAM_REPEAT:
+        return peekRepeat(ts);
     case SM_TOK_STREAM_FMT:
         return ts->fmt.tok;
     default:
-        smUnimplemented("peeking other stream types");
+        smUnreachable();
     }
 }
 
@@ -699,17 +734,25 @@ void smTokStreamEat(SmTokStream *ts) {
                 return;
             }
             ts->macro.argi = 0;
+            break;
         default:
             break;
         }
         ++ts->macro.pos;
         return;
     }
+    case SM_TOK_STREAM_REPEAT:
+        ++ts->repeat.pos;
+        if (ts->repeat.pos >= ts->repeat.cnt) {
+            ts->repeat.pos = 0;
+            ++ts->repeat.idx;
+        }
+        return;
     case SM_TOK_STREAM_FMT:
         ts->fmt.tok = SM_TOK_EOF;
         return;
     default:
-        smUnimplemented("eating other stream types");
+        smUnreachable();
     }
 }
 
@@ -719,8 +762,7 @@ void smTokStreamRewind(SmTokStream *ts) {
     if (fseek(ts->file.hnd, 0, SEEK_SET) < 0) {
         int err = errno;
         fprintf(stderr, "%.*s:%zu:%zu: ", (int)ts->pos.file.len,
-                ts->pos.file.bytes, (size_t)ts->file.cline,
-                (size_t)ts->file.ccol);
+                ts->pos.file.bytes, ts->file.cline, ts->file.ccol);
         smFatal("failed to rewind file: %s\n", strerror(err));
     }
     ts->pos.line      = 1;
@@ -798,10 +840,13 @@ SmPos smTokStreamPos(SmTokStream *ts) {
     case SM_TOK_STREAM_FILE:
         return ts->pos;
     case SM_TOK_STREAM_MACRO:
+        // TODO macro arg pos
         return ts->macro.buf.items[ts->macro.pos].pos;
+    case SM_TOK_STREAM_REPEAT:
+        return ts->repeat.buf.items[ts->repeat.pos].pos;
     case SM_TOK_STREAM_FMT:
         return ts->pos;
     default:
-        smUnimplemented("getting pos from other stream types");
+        smUnreachable();
     }
 }
