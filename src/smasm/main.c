@@ -1053,7 +1053,6 @@ static void eatMne(U8 mne) {
             emit8(0xC3);
             if (exprSolve(buf, &num)) {
                 expectReprU16(pos, num);
-                emit16(num);
             } else {
                 emit16(0xFDFD);
                 reloc(1, 2, buf, pos, SM_RELOC_JP);
@@ -1070,7 +1069,7 @@ static void eatMne(U8 mne) {
             buf = exprEatPos(&pos);
             if (emit) {
                 emit8(op);
-                if (!exprSolve(buf, &num)) {
+                if (!exprSolveRelative(buf, &num)) {
                     fatalPos(pos, "branch distance must be constant\n");
                 }
                 I32 offset = num - ((I32)(U32)getPC()) - 2;
@@ -1085,7 +1084,7 @@ static void eatMne(U8 mne) {
         buf = exprEatPos(&pos);
         if (emit) {
             emit8(0x18);
-            if (!exprSolve(buf, &num)) {
+            if (!exprSolveRelative(buf, &num)) {
                 fatalPos(pos, "branch distance must be constant\n");
             }
             I32 offset = num - ((I32)(U32)getPC()) - 2;

@@ -10,6 +10,7 @@ U8        exprEatSolvedU8();
 U16       exprEatSolvedU16();
 
 Bool exprSolve(SmExprBuf buf, I32 *num);
+Bool exprSolveRelative(SmExprBuf buf, I32 *num);
 
 Bool exprCanReprU16(I32 num);
 Bool exprCanReprU8(I32 num);

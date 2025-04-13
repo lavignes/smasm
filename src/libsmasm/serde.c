@@ -366,8 +366,7 @@ SmSectBuf smDeserializeSectBuf(SmSerde *ser, SmBufIntern const *strin,
         sect.data.size      = len;
         sect.data.inner.len = len;
         smDeserializeBuf(ser, &sect.data.inner);
-        SmRelocGBuf relocs = {0};
-        len                = smDeserializeU32(ser);
+        len = smDeserializeU32(ser);
         for (UInt j = 0; j < len; ++j) {
             SmReloc reloc  = {0};
             reloc.offset   = smDeserializeU32(ser);
@@ -378,7 +377,7 @@ SmSectBuf smDeserializeSectBuf(SmSerde *ser, SmBufIntern const *strin,
             reloc.pos.line = smDeserializeU32(ser);
             reloc.pos.col  = smDeserializeU32(ser);
             reloc.flags    = smDeserializeU8(ser);
-            smRelocGBufAdd(&relocs, reloc);
+            smRelocGBufAdd(&sect.relocs, reloc);
         }
         smSectGBufAdd(&buf, sect);
     }

@@ -6,7 +6,6 @@
 #include <smasm/sym.h>
 
 #include <assert.h>
-#include <ctype.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -220,6 +219,36 @@ static SmBuf fullLblName(SmLbl lbl) {
     return intern(buf.inner);
 }
 
+static SmSect *findSect(SmBuf name) {
+    for (UInt i = 0; i < SECTS.inner.len; ++i) {
+        SmSect *sect = SECTS.inner.items + i;
+        if (smBufEqual(sect->name, name)) {
+            return sect;
+        }
+    }
+    return NULL;
+}
+
+static CfgSect *findCfgSect(SmBuf name) {
+    for (UInt i = 0; i < CFGSECTS.inner.len; ++i) {
+        CfgSect *sect = CFGSECTS.inner.items + i;
+        if (smBufEqual(sect->name, name)) {
+            return sect;
+        }
+    }
+    return NULL;
+}
+
+static CfgMem *findCfgMem(SmBuf name) {
+    for (UInt i = 0; i < CFGMEMS.inner.len; ++i) {
+        CfgMem *mem = CFGMEMS.inner.items + i;
+        if (smBufEqual(mem->name, name)) {
+            return mem;
+        }
+    }
+    return NULL;
+}
+
 static void loadObj(SmBuf path) {
     FILE   *hnd   = openFile(path, "rb");
     SmSerde ser   = {hnd, path};
@@ -232,7 +261,7 @@ static void loadObj(SmBuf path) {
     SmExprIntern tmpexprs = smDeserializeExprIntern(&ser, &tmpstrs);
     SmSymTab     tmpsyms  = smDeserializeSymTab(&ser, &tmpstrs, &tmpexprs);
     // Merge into main symtab
-    for (UInt i = 0; i < tmpsyms.len; ++i) {
+    for (UInt i = 0; i < tmpsyms.size; ++i) {
         SmSym *sym = tmpsyms.syms + i;
         if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
             continue;
@@ -275,14 +304,7 @@ static void loadObj(SmBuf path) {
     closeFile(hnd);
     for (UInt i = 0; i < tmpsects.len; ++i) {
         SmSect *sect    = tmpsects.items + i;
-        SmSect *dstsect = NULL;
-        for (UInt j = 0; j < SECTS.inner.len; ++j) {
-            SmSect *dst = SECTS.inner.items + j;
-            if (smBufEqual(sect->name, dst->name)) {
-                dstsect = dst;
-                break;
-            }
-        }
+        SmSect *dstsect = findSect(sect->name);
         if (!dstsect) {
             objFatal(path, "section %.*s is not defined in config\n",
                      (int)sect->name.len, sect->name.bytes);
@@ -346,22 +368,20 @@ static void memGBufAdd(Mem item) {
     SM_GBUF_ADD_IMPL(Mem);
 }
 
-static void allocate(SmSect *sect) {
-    CfgSect *cfgsect;
-    for (UInt i = 0; i < CFGSECTS.inner.len; ++i) {
-        cfgsect = CFGSECTS.inner.items + i;
-        if (smBufEqual(sect->name, cfgsect->name)) {
-            break;
-        }
-    }
-    assert(smBufEqual(sect->name, cfgsect->name));
-    Mem *mem;
+static Mem *findMem(SmBuf name) {
     for (UInt i = 0; i < MEMS.inner.len; ++i) {
-        mem = MEMS.inner.items + i;
-        if (smBufEqual(cfgsect->load, mem->name)) {
-            break;
+        Mem *mem = MEMS.inner.items + i;
+        if (smBufEqual(mem->name, name)) {
+            return mem;
         }
     }
+    return NULL;
+}
+
+static void allocate(SmSect *sect) {
+    CfgSect *cfgsect = findCfgSect(sect->name);
+    assert(smBufEqual(sect->name, cfgsect->name));
+    Mem *mem = findMem(cfgsect->load);
     assert(smBufEqual(cfgsect->load, mem->name));
     U32 aligned =
         ((mem->pc + cfgsect->align - 1) / cfgsect->align) * cfgsect->align;
@@ -442,21 +462,13 @@ static Bool solve(SmExprBuf buf, SmBuf unit, I32 *num) {
                 !smBufEqual(sym->unit, EXPORT_UNIT)) {
                 goto fail;
             }
-            // find the section that the symbol belongs to
-            for (UInt j = 0; j < CFGSECTS.inner.len; ++j) {
-                CfgSect *sect = CFGSECTS.inner.items + j;
-                if (!smBufEqual(sym->section, sect->name)) {
-                    continue;
-                }
-                // find the tag in the section
-                CfgI32Entry *tag = cfgI32TabFind(&sect->tags, expr->tag.name);
-                if (tag) {
-                    smI32GBufAdd(&stack, tag->num);
-                    goto found;
-                }
+            CfgSect     *sect = findCfgSect(sym->section);
+            // find the tag in the section
+            CfgI32Entry *tag  = cfgI32TabFind(&sect->tags, expr->tag.name);
+            if (!tag) {
+                goto fail;
             }
-            goto fail;
-        found:
+            smI32GBufAdd(&stack, tag->num);
             break;
         }
         case SM_EXPR_OP:
@@ -554,15 +566,14 @@ static Bool solve(SmExprBuf buf, SmBuf unit, I32 *num) {
                 }
             }
             break;
-        case SM_EXPR_ADDR:
-            for (UInt j = 0; j < SECTS.inner.len; ++j) {
-                SmSect *sect = SECTS.inner.items + j;
-                if (smBufEqual(sect->name, expr->addr.sect)) {
-                    smI32GBufAdd(&stack, sect->pc + expr->addr.pc);
-                    break;
-                }
+        case SM_EXPR_ADDR: {
+            SmSect *sect = findSect(expr->addr.sect);
+            if (!sect) {
+                goto fail;
             }
-            goto fail;
+            smI32GBufAdd(&stack, sect->pc + expr->addr.pc);
+            break;
+        }
         default:
             smUnreachable();
         }
@@ -579,8 +590,8 @@ fail:
 static void solveSyms() {
     // 2 passes over symbol table should be enough to solve all
     for (UInt i = 0; i < 2; ++i) {
-        for (UInt j = 0; j < SYMS.len; ++j) {
-            SmSym *sym = SYMS.syms + i;
+        for (UInt j = 0; j < SYMS.size; ++j) {
+            SmSym *sym = SYMS.syms + j;
             if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
                 continue;
             }
@@ -594,7 +605,7 @@ static void solveSyms() {
             }
         }
     }
-    for (UInt i = 0; i < SYMS.len; ++i) {
+    for (UInt i = 0; i < SYMS.size; ++i) {
         SmSym *sym = SYMS.syms + i;
         if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
             continue;
@@ -632,21 +643,19 @@ static void link(SmSect *sect) {
                     goto done;
                 }
                 for (UInt j = 0; j < SECTS.inner.len; ++j) {
-                    SmSect *sect = SECTS.inner.items + j;
-                    for (UInt k = 0; k < CFGSECTS.inner.len; ++k) {
-                        CfgSect *cfgsect = CFGSECTS.inner.items + k;
-                        if (!smBufEqual(sect->name, cfgsect->name)) {
-                            continue;
-                        }
-                        if (cfgsect->kind != CFG_SECT_HIGHPAGE) {
-                            goto done;
-                        }
-                        if ((num >= (I32)(sect->pc)) &&
-                            (num < (I32)(sect->pc + sect->data.inner.len))) {
-                            legal = true;
-                        }
-                        goto done;
+                    SmSect  *sect    = SECTS.inner.items + j;
+                    CfgSect *cfgsect = findCfgSect(sect->name);
+                    if (!cfgsect) {
+                        continue;
                     }
+                    if (cfgsect->kind != CFG_SECT_HIGHPAGE) {
+                        break;
+                    }
+                    if ((num >= (I32)(sect->pc)) &&
+                        (num < (I32)(sect->pc + sect->data.inner.len))) {
+                        legal = true;
+                    }
+                    break;
                 }
             done:
                 if (!legal) {
@@ -1085,28 +1094,24 @@ static void parseCfg() {
                                   .data   = {{0}, 0}, // GCC doesnt like {0}
                                   .relocs = {{0}, 0},
                               });
-        for (UInt j = 0; j < CFGMEMS.inner.len; ++j) {
-            CfgMem *mem = CFGMEMS.inner.items + j;
-            if (smBufEqual(sect->load, mem->name)) {
-                switch (mem->kind) {
-                case CFG_MEM_READONLY:
-                    if (sect->kind != CFG_SECT_CODE) {
-                        fatal("section %.*s is not kind-compatible "
-                              "with memory %.*s\n",
-                              (int)sect->name.len, sect->name.bytes,
-                              (int)mem->name.len, mem->name.bytes);
-                    }
-                case CFG_MEM_READWRITE:
-                    goto nextsection;
-                default:
-                    smUnreachable();
-                }
-            }
+        CfgMem *mem = findCfgMem(sect->load);
+        if (!mem) {
+            fatal("no memory found with name: %.*s\n", (int)sect->load.len,
+                  sect->load.bytes);
         }
-        fatal("no memory found with name: %.*s\n", (int)sect->load.len,
-              sect->load.bytes);
-    nextsection:
-        (void)0;
+        switch (mem->kind) {
+        case CFG_MEM_READONLY:
+            if (sect->kind != CFG_SECT_CODE) {
+                fatal("section %.*s is not kind-compatible "
+                      "with memory %.*s\n",
+                      (int)sect->name.len, sect->name.bytes, (int)mem->name.len,
+                      mem->name.bytes);
+            }
+        case CFG_MEM_READWRITE:
+            continue;
+        default:
+            smUnreachable();
+        }
     }
 }
 
@@ -1123,24 +1128,12 @@ static void serialize() {
                 (cfgsect->kind == CFG_SECT_HIGHPAGE)) {
                 continue;
             }
-            SmSect *sect;
-            for (UInt k = 0; k < SECTS.inner.len; ++k) {
-                sect = SECTS.inner.items + k;
-                if (smBufEqual(sect->name, cfgsect->name)) {
-                    break;
-                }
-            }
+            SmSect *sect = findSect(cfgsect->name);
             assert(smBufEqual(sect->name, cfgsect->name));
             smSerializeBuf(&ser, sect->data.inner);
         }
         if (cfgmem->fill) {
-            Mem *mem;
-            for (UInt k = 0; k < MEMS.inner.len; ++k) {
-                mem = MEMS.inner.items + k;
-                if (smBufEqual(mem->name, cfgmem->name)) {
-                    break;
-                }
-            }
+            Mem *mem = findMem(cfgmem->name);
             assert(smBufEqual(mem->name, cfgmem->name));
             for (UInt k = mem->pc; k < mem->end; ++k) {
                 smSerializeU8(&ser, cfgmem->fillval);

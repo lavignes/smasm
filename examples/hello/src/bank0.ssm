@@ -2,4 +2,4 @@
 
 Start::
     halt
-    jp fun
+    jp Start

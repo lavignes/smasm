@@ -287,7 +287,7 @@ U16 exprEatSolvedU16() {
     return (U16)num;
 }
 
-Bool exprSolve(SmExprBuf buf, I32 *num) {
+static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
     SmI32GBuf stack = {0};
     for (UInt i = 0; i < buf.len; ++i) {
         SmExpr *expr = buf.items + i;
@@ -409,7 +409,10 @@ Bool exprSolve(SmExprBuf buf, I32 *num) {
             if (!smBufEqual(expr->addr.sect, sectGet()->name)) {
                 goto fail;
             }
-            // relative offset within same section?
+            // absolute addresses can only be solved at link time
+            if (!relative) {
+                goto fail;
+            }
             smI32GBufAdd(&stack, expr->addr.pc);
             break;
         default:
@@ -423,6 +426,14 @@ Bool exprSolve(SmExprBuf buf, I32 *num) {
 fail:
     smI32GBufFini(&stack);
     return false;
+}
+
+Bool exprSolve(SmExprBuf buf, I32 *num) {
+    return exprSolveFull(buf, num, false);
+}
+
+Bool exprSolveRelative(SmExprBuf buf, I32 *num) {
+    return exprSolveFull(buf, num, true);
 }
 
 Bool exprCanReprU16(I32 num) { return (num >= 0) && (num <= U16_MAX); }
