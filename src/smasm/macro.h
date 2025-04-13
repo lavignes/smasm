@@ -17,6 +17,7 @@ struct MacroTab {
 typedef struct MacroTab MacroTab;
 
 Macro *macroFind(SmBuf name);
+void   macroAdd(SmBuf name, SmMacroTokBuf buf);
 
 void macroInvoke(Macro macro);
 

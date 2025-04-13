@@ -22,8 +22,11 @@ enum SmTok {
     SM_TOK_END     = 0xF0017,
     SM_TOK_MACRO   = 0xF0018,
     SM_TOK_REPEAT  = 0xF0019,
-    SM_TOK_STRFMT  = 0xF001A,
-    SM_TOK_IDFMT   = 0xF001B,
+    SM_TOK_STRUCT  = 0xF001A,
+    SM_TOK_STRFMT  = 0xF001B,
+    SM_TOK_IDFMT   = 0xF001C,
+    SM_TOK_CREATE  = 0xF001D,
+    SM_TOK_FATAL   = 0xF001E,
 
     SM_TOK_DEFINED = 0xF0020,
     SM_TOK_STRLEN  = 0xF0021,
@@ -66,9 +69,9 @@ typedef struct SmPos SmPos;
 
 enum SmMacroTokKind {
     SM_MACRO_TOK_TOK,
-    SM_MACRO_TOK_STR,
     SM_MACRO_TOK_ID,
     SM_MACRO_TOK_NUM,
+    SM_MACRO_TOK_STR,
     SM_MACRO_TOK_ARG,
     SM_MACRO_TOK_NARG,
     SM_MACRO_TOK_SHIFT,
@@ -123,9 +126,9 @@ void smMacroArgDequeue(SmMacroArgQueue *q);
 
 enum SmRepeatTokKind {
     SM_REPEAT_TOK_TOK,
-    SM_REPEAT_TOK_STR,
     SM_REPEAT_TOK_ID,
     SM_REPEAT_TOK_NUM,
+    SM_REPEAT_TOK_STR,
     SM_REPEAT_TOK_ITER,
 };
 
@@ -225,8 +228,7 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
 void smTokStreamFileInit(SmTokStream *ts, SmBuf name, FILE *hnd);
 void smTokStreamMacroInit(SmTokStream *ts, SmBuf name, SmPos pos,
                           SmMacroTokBuf buf, SmMacroArgQueue args, UInt nonce);
-void smTokStreamRepeatInit(SmTokStream *ts, SmBuf name, SmPos pos,
-                           SmRepeatTokBuf buf, UInt cnt);
+void smTokStreamRepeatInit(SmTokStream *ts, SmRepeatTokBuf buf, UInt cnt);
 void smTokStreamFmtInit(SmTokStream *ts, SmBuf buf, SmPos pos, U32 tok);
 void smTokStreamFini(SmTokStream *ts);
 

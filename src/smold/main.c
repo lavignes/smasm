@@ -1183,7 +1183,7 @@ static void writeSyms() {
     FILE   *hnd = openFileCstr(symfile_name, "wb+");
     SmSerde ser = {hnd, {(U8 *)symfile_name, strlen(symfile_name)}};
     (void)ser;
-    smUnimplemented();
+    smUnimplemented("writing SYM files");
     closeFile(hnd);
 }
 
@@ -1191,6 +1191,6 @@ static void writeTags() {
     FILE   *hnd = openFileCstr(tagfile_name, "wb+");
     SmSerde ser = {hnd, {(U8 *)tagfile_name, strlen(tagfile_name)}};
     (void)ser;
-    smUnimplemented();
+    smUnimplemented("writing TAG files");
     closeFile(hnd);
 }

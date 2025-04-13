@@ -4,11 +4,12 @@
 #include <smasm/path.h>
 #include <smasm/sect.h>
 
-extern SmBufIntern  STRS;
-extern SmSymTab     SYMS;
-extern SmExprIntern EXPRS;
-extern SmPathSet    IPATHS;
-extern SmPathSet    INCS;
+extern SmBufIntern       STRS;
+extern SmSymTab          SYMS;
+extern SmExprIntern      EXPRS;
+extern SmPathSet         IPATHS;
+extern SmPathSet         INCS;
+extern SmRepeatTokIntern REPEATS;
 
 SmBuf intern(SmBuf buf);
 
@@ -26,7 +27,7 @@ SmLbl lblGlobal(SmBuf name);
 SmLbl lblLocal(SmBuf name);
 SmLbl lblAbs(SmBuf scope, SmBuf name);
 
-#define STACK_SIZE 16
+#define STACK_SIZE 64
 extern SmTokStream  STACK[STACK_SIZE];
 extern SmTokStream *ts;
 

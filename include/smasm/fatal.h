@@ -9,10 +9,10 @@ _Noreturn void smFatalV(char const *fmt, va_list args);
 #ifdef __builtin_unreachable
 #define smUnreachable() __builtin_unreachable()
 #else
-#define smUnreachable() (smFatal("unreachable: %s:%d\n", __FILE__, __LINE__))
+#define smUnreachable() (smFatal("%s:%d unreachable\n", __FILE__, __LINE__))
 #endif
 
-#define smUnimplemented()                                                      \
-    (smFatal("unimplemented: %s:%d\n", __FILE__, __LINE__))
+#define smUnimplemented(msg)                                                   \
+    (smFatal("%s:%d: not implemented: %s\n", __FILE__, __LINE__, (msg)))
 
 #endif // SMASM_FATAL_H

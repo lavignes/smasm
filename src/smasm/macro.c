@@ -5,7 +5,10 @@
 #include <smasm/fatal.h>
 #include <smasm/tab.h>
 
+#include <stdlib.h>
+
 SM_TAB_WHENCE_IMPL(MacroTab, Macro);
+SM_TAB_TRYGROW_IMPL(MacroTab, Macro);
 
 static MacroTab MACS = {0};
 
@@ -15,6 +18,18 @@ Macro *macroFind(SmBuf name) {
 }
 
 static SmMacroTokIntern MTOKS = {0};
+
+static Macro *add(Macro entry) {
+    MacroTab *tab = &MACS;
+    SM_TAB_ADD_IMPL(MacroTab, Macro);
+}
+
+void macroAdd(SmBuf name, SmMacroTokBuf buf) {
+    add((Macro){
+        .name = name,
+        .buf  = smMacroTokIntern(&MTOKS, buf),
+    });
+}
 
 void macroInvoke(Macro macro) {
     SmPos pos = tokPos();

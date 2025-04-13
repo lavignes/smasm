@@ -1071,7 +1071,7 @@ static void eatMne(U8 mne) {
             if (emit) {
                 emit8(op);
                 if (!exprSolve(buf, &num)) {
-                    fatalPos(pos, "branch distance must be constant");
+                    fatalPos(pos, "branch distance must be constant\n");
                 }
                 I32 offset = num - ((I32)(U32)getPC()) - 2;
                 if (!exprCanReprI8(offset)) {
@@ -1086,7 +1086,7 @@ static void eatMne(U8 mne) {
         if (emit) {
             emit8(0x18);
             if (!exprSolve(buf, &num)) {
-                fatalPos(pos, "branch distance must be constant");
+                fatalPos(pos, "branch distance must be constant\n");
             }
             I32 offset = num - ((I32)(U32)getPC()) - 2;
             if (!exprCanReprI8(offset)) {
@@ -1322,19 +1322,21 @@ static void eatDirective() {
     }
     case SM_TOK_IF:
         eat();
-        if (!exprEatSolvedPos(&pos)) {
+        num = exprEatSolvedPos(&pos);
+        if (num == 0) {
             UInt depth = 1;
             while (true) {
                 switch (peek()) {
                 case SM_TOK_IF:
                 case SM_TOK_MACRO:
                 case SM_TOK_REPEAT:
+                case SM_TOK_STRUCT:
                     ++depth;
                     break;
                 case SM_TOK_END:
                     if (depth == 0) {
                         eat();
-                        goto done;
+                        goto ifdone;
                     }
                     --depth;
                     break;
@@ -1344,7 +1346,7 @@ static void eatDirective() {
                 eat();
             }
         }
-    done:
+    ifdone:
         ++if_level;
         return;
     case SM_TOK_END:
@@ -1354,10 +1356,165 @@ static void eatDirective() {
         eat();
         --if_level;
         return;
-    case SM_TOK_MACRO:
+    case SM_TOK_MACRO: {
+        static SmMacroTokGBuf buf = {0};
+        buf.inner.len             = 0;
+        eat();
+        expect(SM_TOK_STR);
+        SmLbl lbl = tokLbl();
+        if (!smLblIsGlobal(lbl)) {
+            fatal("macro name must be global\n");
+        }
+        // TODO: check to see if macro already exists and we're in emit pass
+        eat();
+        UInt depth = 0;
+        while (true) {
+            switch (peek()) {
+            case SM_TOK_IF:
+            case SM_TOK_MACRO:
+            case SM_TOK_REPEAT:
+            case SM_TOK_STRUCT:
+                ++depth;
+                break;
+            case SM_TOK_END:
+                if (depth == 0) {
+                    eat();
+                    goto macdone;
+                }
+                --depth;
+                break;
+            case SM_TOK_EOF:
+                fatal("unexpected end of file\n");
+            case SM_TOK_ID:
+                smMacroTokGBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_ID,
+                                                     .pos  = tokPos(),
+                                                     .buf  = intern(tokBuf())});
+                break;
+            case SM_TOK_NUM:
+                smMacroTokGBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_NUM,
+                                                     .pos  = tokPos(),
+                                                     .num  = tokNum()});
+                break;
+            case SM_TOK_STR:
+                smMacroTokGBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_STR,
+                                                     .pos  = tokPos(),
+                                                     .buf  = intern(tokBuf())});
+                break;
+            case SM_TOK_ARG:
+                smMacroTokGBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_ARG,
+                                                     .pos  = tokPos(),
+                                                     .arg  = tokNum()});
+                break;
+            case SM_TOK_NARG:
+                smMacroTokGBufAdd(&buf, (SmMacroTok){
+                                            .kind = SM_MACRO_TOK_NARG,
+                                            .pos  = tokPos(),
+                                        });
+                break;
+            case SM_TOK_SHIFT:
+                smMacroTokGBufAdd(&buf, (SmMacroTok){
+                                            .kind = SM_MACRO_TOK_SHIFT,
+                                            .pos  = tokPos(),
+                                        });
+                break;
+            case SM_TOK_UNIQUE:
+                smMacroTokGBufAdd(&buf, (SmMacroTok){
+                                            .kind = SM_MACRO_TOK_UNIQUE,
+                                            .pos  = tokPos(),
+                                        });
+                break;
+            default:
+                smMacroTokGBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_TOK,
+                                                     .pos  = tokPos(),
+                                                     .tok  = peek()});
+                break;
+            }
+            eat();
+        }
+    macdone:
+        macroAdd(lbl.name, buf.inner);
         return;
+    }
+    case SM_TOK_REPEAT: {
+        static SmRepeatTokGBuf buf = {0};
+        buf.inner.len              = 0;
+        eat();
+        num = exprEatSolvedPos(&pos);
+        if (num < 0) {
+            fatalPos(pos, "repeat count must be positive\n");
+        }
+        SmLbl lbl = SM_LBL_NULL;
+        if (peek() == ',') {
+            eat();
+            lbl = tokLbl();
+            if (!smLblIsGlobal(lbl)) {
+                fatal("variable name must be global\n");
+            }
+            // TODO should I check if this shadows an existing label?
+            eat();
+        }
+        UInt depth = 0;
+        while (true) {
+            switch (peek()) {
+            case SM_TOK_IF:
+            case SM_TOK_MACRO:
+            case SM_TOK_REPEAT:
+            case SM_TOK_STRUCT:
+                ++depth;
+                break;
+            case SM_TOK_END:
+                if (depth == 0) {
+                    eat();
+                    goto rptdone;
+                }
+                --depth;
+                break;
+            case SM_TOK_EOF:
+                fatal("unexpected end of file\n");
+            case SM_TOK_ID:
+                // referencing the variable
+                if (smBufEqual(tokBuf(), lbl.name)) {
+                    smRepeatTokGBufAdd(&buf,
+                                       (SmRepeatTok){.kind = SM_REPEAT_TOK_ITER,
+                                                     .pos  = tokPos()});
+                    break;
+                }
+                smRepeatTokGBufAdd(&buf,
+                                   (SmRepeatTok){.kind = SM_REPEAT_TOK_ID,
+                                                 .pos  = tokPos(),
+                                                 .buf  = intern(tokBuf())});
+                break;
+            case SM_TOK_NUM:
+                smRepeatTokGBufAdd(&buf,
+                                   (SmRepeatTok){.kind = SM_REPEAT_TOK_NUM,
+                                                 .pos  = tokPos(),
+                                                 .num  = tokNum()});
+                break;
+            case SM_TOK_STR:
+                smRepeatTokGBufAdd(&buf,
+                                   (SmRepeatTok){.kind = SM_REPEAT_TOK_STR,
+                                                 .pos  = tokPos(),
+                                                 .buf  = intern(tokBuf())});
+                break;
+            default:
+                smRepeatTokGBufAdd(&buf,
+                                   (SmRepeatTok){.kind = SM_REPEAT_TOK_TOK,
+                                                 .pos  = tokPos(),
+                                                 .tok  = peek()});
+                break;
+            }
+            eat();
+        }
+    rptdone:
+        ++ts;
+        if (ts >= (STACK + STACK_SIZE)) {
+            smFatal("too many open files\n");
+        }
+        smTokStreamRepeatInit(ts, smRepeatTokIntern(&REPEATS, buf.inner), num);
+        return;
+    }
     default:
-        smUnimplemented();
+        smUnimplemented("other directives");
     }
 }
 

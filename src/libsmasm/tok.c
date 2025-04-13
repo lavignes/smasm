@@ -27,8 +27,11 @@ static struct {
     {SM_TOK_END, SM_BUF("@END")},
     {SM_TOK_MACRO, SM_BUF("@MACRO")},
     {SM_TOK_REPEAT, SM_BUF("@REPEAT")},
+    {SM_TOK_STRUCT, SM_BUF("@STRUCT")},
     {SM_TOK_STRFMT, SM_BUF("@STRFMT")},
     {SM_TOK_IDFMT, SM_BUF("@IDFMT")},
+    {SM_TOK_CREATE, SM_BUF("@CREATE")},
+    {SM_TOK_FATAL, SM_BUF("@FATAL")},
     {SM_TOK_DEFINED, SM_BUF("@DEFINED")},
     {SM_TOK_STRLEN, SM_BUF("@STRLEN")},
     {SM_TOK_TAG, SM_BUF("@TAG")},
@@ -145,7 +148,7 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
                 (size_t)pos.line, (size_t)pos.col);
         break;
     default:
-        smUnimplemented();
+        smUnimplemented("fatals for other stream types");
     }
     smFatalV(fmt, args);
 }
@@ -173,14 +176,11 @@ void smTokStreamMacroInit(SmTokStream *ts, SmBuf name, SmPos pos,
     ts->macro.nonce = nonce;
 }
 
-void smTokStreamRepeatInit(SmTokStream *ts, SmBuf name, SmPos pos,
-                           SmRepeatTokBuf buf, UInt cnt) {
-    (void)ts;
-    (void)name;
-    (void)pos;
-    (void)buf;
-    (void)cnt;
-    smUnimplemented();
+void smTokStreamRepeatInit(SmTokStream *ts, SmRepeatTokBuf buf, UInt cnt) {
+    ts->kind       = SM_TOK_STREAM_REPEAT;
+    ts->repeat.buf = buf;
+    ts->repeat.cnt = cnt;
+    ts->repeat.pos = 0;
 }
 
 void smTokStreamFmtInit(SmTokStream *ts, SmBuf buf, SmPos pos, U32 tok) {
@@ -210,7 +210,7 @@ void smTokStreamFini(SmTokStream *ts) {
     case SM_TOK_STREAM_FMT:
         return;
     default:
-        smUnimplemented();
+        smUnimplemented("finalizing other stream types");
         break;
     }
 }
@@ -325,7 +325,9 @@ static struct {
     {"INCLUDE", SM_TOK_INCLUDE}, {"INCBIN", SM_TOK_INCBIN},
     {"IF", SM_TOK_IF},           {"END", SM_TOK_END},
     {"MACRO", SM_TOK_MACRO},     {"REPEAT", SM_TOK_REPEAT},
-    {"STRFMT", SM_TOK_STRFMT},   {"IDFMT", SM_TOK_IDFMT},
+    {"STRUCT", SM_TOK_STRUCT},   {"STRFMT", SM_TOK_STRFMT},
+    {"IDFMT", SM_TOK_IDFMT},     {"CREATE", SM_TOK_CREATE},
+    {"FATAL", SM_TOK_FATAL},
 
     {"DEFINED", SM_TOK_DEFINED}, {"STRLEN", SM_TOK_STRLEN},
     {"TAG", SM_TOK_TAG},
@@ -629,12 +631,12 @@ static U32 peekMacro(SmTokStream *ts) {
     switch (tok->kind) {
     case SM_MACRO_TOK_TOK:
         return tok->tok;
-    case SM_MACRO_TOK_STR:
-        return SM_TOK_STR;
     case SM_MACRO_TOK_ID:
         return SM_TOK_ID;
     case SM_MACRO_TOK_NUM:
         return SM_TOK_NUM;
+    case SM_MACRO_TOK_STR:
+        return SM_TOK_STR;
     case SM_MACRO_TOK_ARG:
         if (ts->macro.argi >= ts->macro.args.len) {
             smTokStreamFatalPos(ts, tok->pos, "argument is undefined\n");
@@ -643,12 +645,12 @@ static U32 peekMacro(SmTokStream *ts) {
         switch (tok->kind) {
         case SM_MACRO_TOK_TOK:
             return tok->tok;
-        case SM_MACRO_TOK_STR:
-            return SM_TOK_STR;
         case SM_MACRO_TOK_ID:
             return SM_TOK_ID;
         case SM_MACRO_TOK_NUM:
             return SM_TOK_NUM;
+        case SM_MACRO_TOK_STR:
+            return SM_TOK_STR;
         default:
             smUnreachable();
         }
@@ -660,7 +662,7 @@ static U32 peekMacro(SmTokStream *ts) {
         }
         return '\n';
     case SM_MACRO_TOK_UNIQUE:
-        smUnimplemented();
+        smUnimplemented("@UNIQUE token in macro");
     default:
         smUnreachable();
     }
@@ -675,7 +677,7 @@ U32 smTokStreamPeek(SmTokStream *ts) {
     case SM_TOK_STREAM_FMT:
         return ts->fmt.tok;
     default:
-        smUnimplemented();
+        smUnimplemented("peeking other stream types");
     }
 }
 
@@ -707,7 +709,7 @@ void smTokStreamEat(SmTokStream *ts) {
         ts->fmt.tok = SM_TOK_EOF;
         return;
     default:
-        smUnimplemented();
+        smUnimplemented("eating other stream types");
     }
 }
 
@@ -749,7 +751,7 @@ SmBuf smTokStreamBuf(SmTokStream *ts) {
                 smUnreachable();
             }
         case SM_MACRO_TOK_UNIQUE:
-            smUnimplemented();
+            smUnimplemented("@UNIQUE token in macro");
         default:
             smUnreachable();
         }
@@ -757,7 +759,7 @@ SmBuf smTokStreamBuf(SmTokStream *ts) {
     case SM_TOK_STREAM_FMT:
         return ts->fmt.buf;
     default:
-        smUnimplemented();
+        smUnimplemented("getting buf from other stream types");
     }
 }
 
@@ -787,7 +789,7 @@ I32 smTokStreamNum(SmTokStream *ts) {
     case SM_TOK_STREAM_FMT:
         smUnreachable();
     default:
-        smUnimplemented();
+        smUnimplemented("getting num from other stream types");
     }
 }
 
@@ -800,6 +802,6 @@ SmPos smTokStreamPos(SmTokStream *ts) {
     case SM_TOK_STREAM_FMT:
         return ts->pos;
     default:
-        smUnimplemented();
+        smUnimplemented("getting pos from other stream types");
     }
 }
