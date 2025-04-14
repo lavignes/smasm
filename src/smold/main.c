@@ -259,7 +259,20 @@ static void loadObj(SmBuf path) {
     // TODO free mem
     SmBufIntern  tmpstrs  = smDeserializeBufIntern(&ser);
     SmExprIntern tmpexprs = smDeserializeExprIntern(&ser, &tmpstrs);
-    SmSymTab     tmpsyms  = smDeserializeSymTab(&ser, &tmpstrs, &tmpexprs);
+    // Fixup addresses to be absolute
+    for (UInt i = 0; i < tmpexprs.len; ++i) {
+        SmExprGBuf *gbuf = tmpexprs.bufs + i;
+        for (UInt j = 0; j < gbuf->inner.len; ++j) {
+            SmExpr *expr = gbuf->inner.items + j;
+            if (expr->kind != SM_EXPR_ADDR) {
+                continue;
+            }
+            SmSect *sect = findSect(expr->addr.sect);
+            assert(sect);
+            expr->addr.pc += sect->pc;
+        }
+    }
+    SmSymTab tmpsyms = smDeserializeSymTab(&ser, &tmpstrs, &tmpexprs);
     // Merge into main symtab
     for (UInt i = 0; i < tmpsyms.size; ++i) {
         SmSym *sym = tmpsyms.syms + i;
