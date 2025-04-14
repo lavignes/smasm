@@ -26,6 +26,11 @@ In order, they are:
 
 ### String Table
 
+| Offset | Size | Description |
+|--------|------|-------------|
+| 0      | 4    | Size of the string table in bytes |
+| 4      | N    | String data |
+
 The string table is a contiguous block of memory that contains all the strings
 used in the object file. Later parts of the file will refer to strings in the
 string table by a 32-bit offset from the start of the string table and a 32-bit
@@ -35,6 +40,11 @@ The beginning of the string table is a 32-bit number representing the size of
 the string table in bytes. Following that is the contiguous string data itself.
 
 ### Expression Table
+
+| Offset | Size | Description                           |
+|--------|------|---------------------------------------|
+| 0      | 4    | Size of the expression table in bytes |
+| 4      | N    | Expression nodes                      |
 
 The expression table is a contiguous block of memory that contains all the
 expressions used in the object file. Later parts of the file will refer to
@@ -61,10 +71,22 @@ The following kinds of expression nodes are defined:
 
 ##### Constant Expression Node
 
+| Offset | Size | Description |
+|--------|------|-------------|
+| 0      | 1    | Kind ($00) |
+| 1      | 4    | Value       |
+
 The constant expression node is used to represent a constant value in the
 expression. It is a 32-bit signed integer value.
 
 ##### Address Expression Node
+
+| Offset | Size | Description         |
+|--------|------|---------------------|
+| 0      | 1    | Kind ($01)          |
+| 1      | 4    | Section name offset |
+| 5      | 4    | Section name length |
+| 9      | 4    | Offset              |
 
 The address expression node is used to represent an address in the expression.
 It is made up of 2 parts:
@@ -74,6 +96,12 @@ which is a 32-bit offset from the start of the string table and a 32-bit length)
 * A 32-bit unsigned integer offset from the start of that section.
 
 ##### Operator Expression Node
+
+| Offset | Size | Description        |
+|--------|------|--------------------|
+| 0      | 1    | Kind ($02)         |
+| 1      | 4    | Operator codepoint |
+| 5      | 1    | Is binary? (0/1)   |
 
 The operator expression node is used to represent an operator in the expression.
 It is made up of 2 parts:
@@ -98,9 +126,45 @@ public use area to define additional multi-byte operators:
 
 ##### Label Expression Node
 
+| Offset | Size | Description       |
+|--------|------|-------------------|
+| 0      | 1    | Kind ($03)        |
+| 1      | 1    | Global (0)        |
+| 2      | 4    | Scope name offset |
+| 6      | 4    | Scope name length |
+| 10     | 4    | Label name offset |
+| 14     | 4    | Label name length |
+
+| Offset | Size | Description       |
+|--------|------|-------------------|
+| 0      | 1    | Kind ($03)        |
+| 1      | 1    | Local (1)         |
+| 2      | 4    | Label name offset |
+| 6      | 4    | Label name length |
+
 The label expression node is used to represent a label in the expression.
 
 ##### Tag Expression Node
+
+| Offset | Size | Description       |
+|--------|------|-------------------|
+| 0      | 1    | Kind ($04)        |
+| 1      | 1    | Global (0)        |
+| 2      | 4    | Scope name offset |
+| 6      | 4    | Scope name length |
+| 10     | 4    | Label name offset |
+| 14     | 4    | Label name length |
+| 18     | 4    | Tag name offset   |
+| 22     | 4    | Tag name length   |
+
+| Offset | Size | Description       |
+|--------|------|-------------------|
+| 0      | 1    | Kind ($04)        |
+| 1      | 1    | Local (1)         |
+| 2      | 4    | Label name offset |
+| 6      | 4    | Label name length |
+| 10     | 4    | Tag name offset   |
+| 14     | 4    | Tag name length   |
 
 The tag expression node is used to represent a `@tag` directive in the
 expression.
