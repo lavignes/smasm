@@ -15,9 +15,9 @@ static U8 precedence(SmOp op) {
     if (op.unary) {
         // lowest precedence
         if (op.tok == '(') {
-            return 0;
+            return U8_MAX;
         }
-        return U8_MAX;
+        return 0;
     }
     switch (op.tok) {
     case '/':
@@ -60,6 +60,7 @@ static void pushApply(SmOp op) {
         --op_stack.inner.len;
         SmOp top = op_stack.inner.items[op_stack.inner.len];
         if (precedence(top) >= precedence(op)) {
+            smOpGBufAdd(&op_stack, top);
             break;
         }
         pushExpr((SmExpr){.kind = SM_EXPR_OP, .op = op});
@@ -154,7 +155,7 @@ SmExprBuf exprEat() {
                 fatal("expected an operator\n");
             }
             ++paren_depth;
-            pushApplyUnary('(');
+            smOpGBufAdd(&op_stack, (SmOp){'(', true});
             eat();
             seen_value = false;
             continue;
@@ -163,17 +164,18 @@ SmExprBuf exprEat() {
                 fatal("expected a value\n");
             }
             --paren_depth;
-            while (op_stack.inner.len > 0) {
+            while (true) {
+                if (op_stack.inner.len == 0) {
+                    fatal("unmatched parentheses\n");
+                }
                 --op_stack.inner.len;
                 SmOp op = op_stack.inner.items[op_stack.inner.len];
                 if (op.tok == '(') {
-                    eat();
-                    goto matched;
+                    break;
                 }
                 pushExpr((SmExpr){.kind = SM_EXPR_OP, .op = op});
             }
-            fatal("unmatched parentheses\n");
-        matched:
+            eat();
             continue;
         case SM_TOK_ID: {
             // is this a macro?
