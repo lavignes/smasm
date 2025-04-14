@@ -2,6 +2,7 @@
 #define SMASM_TOK_H
 
 #include <smasm/buf.h>
+#include <smasm/fatal.h>
 
 #include <stdio.h>
 
@@ -218,7 +219,9 @@ struct SmTokStream {
 };
 typedef struct SmTokStream SmTokStream;
 
+SM_FORMAT(2)
 _Noreturn void smTokStreamFatal(SmTokStream *ts, char const *fmt, ...);
+SM_FORMAT(3)
 _Noreturn void smTokStreamFatalPos(SmTokStream *ts, SmPos pos, char const *fmt,
                                    ...);
 

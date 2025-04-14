@@ -140,6 +140,7 @@ _Noreturn void smTokStreamFatalV(SmTokStream *ts, char const *fmt,
                                  va_list args) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
+    case SM_TOK_STREAM_FMT:
         smTokStreamFatalPosV(ts, ts->pos, fmt, args);
     case SM_TOK_STREAM_MACRO:
         // TODO macro arg position
@@ -158,6 +159,7 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
 
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
+    case SM_TOK_STREAM_FMT:
         fprintf(stderr, "%.*s:%zu:%zu: ", (int)pos.file.len, pos.file.bytes,
                 pos.line, pos.col);
         break;

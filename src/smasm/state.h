@@ -32,8 +32,8 @@ SmLbl lblAbs(SmBuf scope, SmBuf name);
 extern SmTokStream  STACK[STACK_SIZE];
 extern SmTokStream *ts;
 
-_Noreturn void fatal(char const *fmt, ...);
-_Noreturn void fatalPos(SmPos pos, char const *fmt, ...);
+SM_FORMAT(1) _Noreturn void fatal(char const *fmt, ...);
+SM_FORMAT(2) _Noreturn void fatalPos(SmPos pos, char const *fmt, ...);
 
 void popStream();
 U32  peek();

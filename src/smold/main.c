@@ -672,10 +672,11 @@ static void link(SmSect *sect) {
                 }
             done:
                 if (!legal) {
-                    smFatal("expression does not fit in a byte: $%08X\n",
-                            "\treferenced at %.*s:%zu:%zu\n", num,
-                            (int)reloc->pos.file.len, reloc->pos.file.bytes,
-                            reloc->pos.line, reloc->pos.col);
+                    smFatal("expression does not fit in a byte: $%08X\n"
+                            "\treferenced at %.*s:%zu:%zu\n",
+                            num, (int)reloc->pos.file.len,
+                            reloc->pos.file.bytes, reloc->pos.line,
+                            reloc->pos.col);
                 }
             }
             if (reloc->flags & SM_RELOC_RST) {

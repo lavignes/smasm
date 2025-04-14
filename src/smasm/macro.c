@@ -33,10 +33,11 @@ static Macro *add(Macro entry) {
     SM_TAB_ADD_IMPL(MacroTab, Macro);
 }
 
-void macroAdd(SmBuf name, SmMacroTokBuf buf) {
+void macroAdd(SmBuf name, SmPos pos, SmMacroTokBuf buf) {
     add((Macro){
-        .name = name,
-        .buf  = smMacroTokIntern(&MTOKS, buf),
+        name,
+        pos,
+        smMacroTokIntern(&MTOKS, buf),
     });
 }
 

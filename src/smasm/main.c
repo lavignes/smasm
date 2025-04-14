@@ -1371,6 +1371,7 @@ static void eatDirective() {
         --if_level;
         return;
     case SM_TOK_MACRO: {
+        pos                       = tokPos();
         static SmMacroTokGBuf buf = {0};
         buf.inner.len             = 0;
         eat();
@@ -1382,8 +1383,10 @@ static void eatDirective() {
         }
         Macro *macro = macroFind(lbl.name);
         if (macro) {
-            fatal("macro %.*s already defined\n", (int)lbl.name.len,
-                  lbl.name.bytes);
+            fatal("macro %.*s already defined\n"
+                  "\toriginally defined at %.*s:%zu:%zu\n",
+                  (int)lbl.name.len, lbl.name.bytes, (int)macro->pos.file.len,
+                  macro->pos.file.bytes, macro->pos.line, macro->pos.col);
         }
         eat();
         expectEOL();
@@ -1458,7 +1461,7 @@ static void eatDirective() {
         }
     macdone:
         macrodef = false;
-        macroAdd(lbl.name, buf.inner);
+        macroAdd(lbl.name, pos, buf.inner);
         return;
     }
     case SM_TOK_REPEAT: {

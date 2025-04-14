@@ -5,6 +5,7 @@
 
 struct Macro {
     SmBuf         name;
+    SmPos         pos;
     SmMacroTokBuf buf;
 };
 typedef struct Macro Macro;
@@ -18,7 +19,7 @@ typedef struct MacroTab MacroTab;
 
 void   macroTabFini();
 Macro *macroFind(SmBuf name);
-void   macroAdd(SmBuf name, SmMacroTokBuf buf);
+void   macroAdd(SmBuf name, SmPos pos, SmMacroTokBuf buf);
 
 void macroInvoke(Macro macro);
 

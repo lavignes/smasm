@@ -3,7 +3,13 @@
 
 #include <stdarg.h>
 
-_Noreturn void smFatal(char const *fmt, ...);
+#ifdef __has_attribute
+#if __has_attribute(format)
+#define SM_FORMAT(n) __attribute__((format(printf, (n), (n + 1))))
+#endif
+#endif
+
+SM_FORMAT(1) _Noreturn void smFatal(char const *fmt, ...);
 _Noreturn void smFatalV(char const *fmt, va_list args);
 
 #ifdef __builtin_unreachable
