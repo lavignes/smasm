@@ -72,7 +72,7 @@ static void writeBufRef(SmSerde *ser, SmBufIntern const *in, SmBuf buf) {
 }
 
 static void writeLbl(SmSerde *ser, SmBufIntern const *in, SmLbl lbl) {
-    if (smLblIsGlobal(lbl)) {
+    if (!smLblIsGlobal(lbl)) {
         smSerializeU8(ser, 0);
         writeBufRef(ser, in, lbl.scope);
     } else {

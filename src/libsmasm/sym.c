@@ -66,7 +66,8 @@ static void tryGrow(SmSymTab *tab) {
         tab->len  = 0;
         tab->size = 16;
     }
-    if ((tab->size - tab->len) == 0) {
+    // We always want at least 1 empty slot
+    if ((tab->size - tab->len) == 1) {
         SmSym *old_syms = tab->syms;
         UInt   old_size = tab->size;
         tab->size *= 2;

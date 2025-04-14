@@ -9,7 +9,7 @@ OBJS  = $(SRCS:.ssm=.o)
 DEPS  = $(SRCS:.ssm=.d)
 
 ASMFLAGS = -I include
-LDFLAGS = #-g hello.sym
+LDFLAGS = -g hello.sym
 
 .PHONY: all clean
 

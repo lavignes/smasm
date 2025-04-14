@@ -10,6 +10,11 @@ Start::
     di
     ld sp, stackBase
 
+    ld de, $8000
+    ld hl, LetterH
+    ld bc, 16
+    call MemCopy
+
 .Wait:
     halt
     jp .Wait

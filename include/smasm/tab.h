@@ -31,6 +31,7 @@
             tab->len  = 0;                                                     \
             tab->size = 16;                                                    \
         }                                                                      \
+        /* we always want at least 1 empty slot */                             \
         if ((tab->size - tab->len) == 0) {                                     \
             EntryType *old_entries = tab->entries;                             \
             UInt       old_size    = tab->size;                                \

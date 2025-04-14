@@ -24,7 +24,7 @@ static void help() {
         "  -c, --config <CONFIG>        Config file\n"
         "  -o, --output <OUTPUT>        Output file (default: stdout)\n"
         "  -g, --debug <DEBUG>          Output file for `SYM` debug symbols\n"
-        "      --tags <TAGS>            Output file for VIM tags\n"
+        "      --tags <TAGS>            Output file for ctags\n"
         "  -D, --define <KEY1=val>      Pre-defined symbols (repeatable)\n"
         "  -h, --help                   Print help\n");
 }
@@ -380,9 +380,9 @@ static Mem *findMem(SmBuf name) {
 
 static void allocate(SmSect *sect) {
     CfgSect *cfgsect = findCfgSect(sect->name);
-    assert(smBufEqual(sect->name, cfgsect->name));
+    assert(cfgsect);
     Mem *mem = findMem(cfgsect->load);
-    assert(smBufEqual(cfgsect->load, mem->name));
+    assert(mem);
     U32 aligned =
         ((mem->pc + cfgsect->align - 1) / cfgsect->align) * cfgsect->align;
     sect->pc = aligned;
@@ -1129,12 +1129,12 @@ static void serialize() {
                 continue;
             }
             SmSect *sect = findSect(cfgsect->name);
-            assert(smBufEqual(sect->name, cfgsect->name));
+            assert(sect);
             smSerializeBuf(&ser, sect->data.inner);
         }
         if (cfgmem->fill) {
             Mem *mem = findMem(cfgmem->name);
-            assert(smBufEqual(mem->name, cfgmem->name));
+            assert(mem);
             for (UInt k = mem->pc; k < mem->end; ++k) {
                 smSerializeU8(&ser, cfgmem->fillval);
             }
@@ -1165,10 +1165,33 @@ static void closeFile(FILE *hnd) {
 }
 
 static void writeSyms() {
-    FILE   *hnd = openFileCstr(symfile_name, "wb+");
-    SmSerde ser = {hnd, {(U8 *)symfile_name, strlen(symfile_name)}};
-    (void)ser;
-    smUnimplemented("writing SYM files");
+    FILE *hnd = openFileCstr(symfile_name, "wb+");
+    for (UInt i = 0; i < SYMS.size; ++i) {
+        SmSym *sym = SYMS.syms + i;
+        if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
+            continue;
+        }
+        if (sym->flags & SM_SYM_EQU) {
+            continue;
+        }
+        if ((sym->value.len != 1) ||
+            (sym->value.items[0].kind != SM_EXPR_CONST)) {
+            continue;
+        }
+        SmBuf    name    = fullLblName(sym->lbl);
+        CfgSect *cfgsect = findCfgSect(sym->section);
+        assert(cfgsect);
+        I32          bank = 0;
+        CfgI32Entry *tag  = cfgI32TabFind(&cfgsect->tags, SM_BUF("bank"));
+        if (tag) {
+            bank = tag->num;
+        }
+        if (fprintf(hnd, "%02X:%04X %.*s\n", bank, sym->value.items[0].num,
+                    (int)name.len, name.bytes) < 0) {
+            smFatal("%s: failed to write file: %s\n", symfile_name,
+                    strerror(errno));
+        }
+    }
     closeFile(hnd);
 }
 
@@ -1176,6 +1199,6 @@ static void writeTags() {
     FILE   *hnd = openFileCstr(tagfile_name, "wb+");
     SmSerde ser = {hnd, {(U8 *)tagfile_name, strlen(tagfile_name)}};
     (void)ser;
-    smUnimplemented("writing TAG files");
+    smUnimplemented("writing CTAG files");
     closeFile(hnd);
 }
