@@ -10,17 +10,29 @@ Start::
     di
     ld sp, stackBase
 
-    ld de, $8000
+    ; copy tile data
+    ld de, $8010
     ld hl, LetterH
-    ld bc, 16
+    ld bc, 16 * 4
     call MemCopy
+
+    ; write tile map
+    ld de, $9800
+    ld hl, Message
+    ld bc, Message.Len
+    call MemCopy
+
+    ; scroll to center the message
+    ld a, 200
+    ldh [$FF42], a
+    ldh [$FF43], a
 
 .Wait:
     halt
     jp .Wait
 
 Message:
-    @db 0, 1, 2, 2, 3
+    @db 1, 2, 3, 3, 4
 .Len = * - @rel Message
 
 LetterH:
@@ -60,20 +72,20 @@ LetterE:
     @db %00000000
 
 LetterL:
-    @db %01100000
-    @db %01100000
-    @db %00100000
-    @db %00100000
-    @db %00100000
-    @db %00100000
-    @db %00100000
-    @db %00100000
-    @db %00100000
-    @db %00100000
-    @db %00100000
-    @db %00100000
     @db %00110000
     @db %00110000
+    @db %00010000
+    @db %00010000
+    @db %00010000
+    @db %00010000
+    @db %00010000
+    @db %00010000
+    @db %00010000
+    @db %00010000
+    @db %00010000
+    @db %00010000
+    @db %00011000
+    @db %00011000
     @db %00000000
     @db %00000000
 
