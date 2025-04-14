@@ -3,6 +3,8 @@
 The SMASM assembler produces object files in a custom format rather than
 a standard format like ELF or COFF.
 
+**Note that all integers in this format are stored in little-endian byte order.**
+
 ## Header
 
 Every object file begins with a 4 byte magic string that identifies the
@@ -44,7 +46,7 @@ the string table in bytes. Following that is the contiguous string data itself.
 | Offset | Size | Description                           |
 |--------|------|---------------------------------------|
 | 0      | 4    | Size of the expression table in bytes |
-| 4      | N    | Expression nodes                      |
+| 4      | ???  | Expression nodes                      |
 
 The expression table is a contiguous block of memory that contains all the
 expressions used in the object file. Later parts of the file will refer to
