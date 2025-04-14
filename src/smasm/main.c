@@ -154,10 +154,12 @@ int main(int argc, char **argv) {
 static void rewindPass() {
     smTokStreamRewind(ts);
     sectRewind();
+    macroTabFini();
     scope    = SM_BUF_NULL;
     if_level = 0;
     nonce    = 0;
     emit     = true;
+    macrodef = false;
 }
 
 static void expectEOL() {
@@ -1372,12 +1374,17 @@ static void eatDirective() {
         static SmMacroTokGBuf buf = {0};
         buf.inner.len             = 0;
         eat();
+        macrodef = true;
         expect(SM_TOK_ID);
         SmLbl lbl = tokLbl();
         if (!smLblIsGlobal(lbl)) {
             fatal("macro name must be global\n");
         }
-        // TODO: check to see if macro already exists and we're in emit pass
+        Macro *macro = macroFind(lbl.name);
+        if (macro) {
+            fatal("macro %.*s already defined\n", (int)lbl.name.len,
+                  lbl.name.bytes);
+        }
         eat();
         expectEOL();
         eat();
@@ -1450,6 +1457,7 @@ static void eatDirective() {
             eat();
         }
     macdone:
+        macrodef = false;
         macroAdd(lbl.name, buf.inner);
         return;
     }
@@ -1540,8 +1548,15 @@ static void eatDirective() {
     case SM_TOK_FATAL:
         eat();
         expect(SM_TOK_STR);
-        fatal("explicit fatal error: %.*s\n", (int)tokBuf().len,
-              tokBuf().bytes);
+        fatal("explicit fatal error: %.*s", (int)tokBuf().len, tokBuf().bytes);
+    case SM_TOK_PRINT:
+        eat();
+        expect(SM_TOK_STR);
+        if (emit) {
+            fprintf(stderr, "%.*s", (int)tokBuf().len, tokBuf().bytes);
+        }
+        eat();
+        return;
     default: {
         SmBuf name = smTokName(peek());
         fatal("unexpected: %.*s\n", (int)name.len, name.bytes);
@@ -1584,11 +1599,6 @@ static void pass() {
                 eatMne(*mne);
                 expectEOL();
                 eat();
-                continue;
-            }
-            Macro *macro = macroFind(tokBuf());
-            if (macro) {
-                macroInvoke(*macro);
                 continue;
             }
             SmPos pos = tokPos();

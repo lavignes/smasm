@@ -178,12 +178,6 @@ SmExprBuf exprEat() {
             eat();
             continue;
         case SM_TOK_ID: {
-            // is this a macro?
-            Macro *macro = macroFind(tokBuf());
-            if (macro) {
-                macroInvoke(*macro);
-                continue;
-            }
             if (seen_value) {
                 fatal("expected an operator\n");
             }
@@ -192,10 +186,6 @@ SmExprBuf exprEat() {
             seen_value = true;
             continue;
         }
-        case SM_TOK_IDFMT:
-            // TODO
-            smUnimplemented("@IDFMT in expressions");
-            continue;
         case SM_TOK_DEFINED: {
             if (seen_value) {
                 fatal("expected an operator\n");

@@ -6,11 +6,20 @@
 #include <smasm/tab.h>
 
 #include <stdlib.h>
+#include <string.h>
 
 SM_TAB_WHENCE_IMPL(MacroTab, Macro);
 SM_TAB_TRYGROW_IMPL(MacroTab, Macro);
 
 static MacroTab MACS = {0};
+
+void macroTabFini() {
+    if (!MACS.entries) {
+        return;
+    }
+    free(MACS.entries);
+    memset(&MACS, 0, sizeof(MacroTab));
+}
 
 Macro *macroFind(SmBuf name) {
     MacroTab *tab = &MACS;

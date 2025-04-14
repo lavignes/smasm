@@ -1,5 +1,5 @@
 ; vim: ft=smasm
-@if (!@defined GB_SSI)
+@if !@defined GB_SSI
 GB_SSI = 1
 
 GB_SCY = $FF42

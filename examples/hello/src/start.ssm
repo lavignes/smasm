@@ -37,6 +37,8 @@ Message:
     @db 1, 2, 3, 3, 4
 .Len = * - @rel Message
 
+@print @strfmt "message is %d bytes\n", Message.Len
+
 Letters:
     @db %01000010
     @db %01000010

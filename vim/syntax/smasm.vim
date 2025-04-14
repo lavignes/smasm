@@ -30,6 +30,7 @@ syn match smasmDirective "@strfmt"
 syn match smasmDirective "@idfmt"
 syn match smasmDirective "@create"
 syn match smasmDirective "@fatal"
+syn match smasmDirective "@print"
 
 syn match smasmDirective "@defined"
 syn match smasmDirective "@strlen"

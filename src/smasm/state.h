@@ -22,6 +22,7 @@ extern SmBuf scope;
 extern UInt  if_level;
 extern UInt  nonce;
 extern Bool  emit;
+extern Bool  macrodef;
 
 SmLbl lblGlobal(SmBuf name);
 SmLbl lblLocal(SmBuf name);

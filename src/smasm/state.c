@@ -1,4 +1,6 @@
 #include "state.h"
+#include "fmt.h"
+#include "macro.h"
 
 #include <assert.h>
 #include <stdarg.h>
@@ -22,6 +24,7 @@ SmBuf scope    = SM_BUF_NULL;
 UInt  if_level = 0;
 UInt  nonce    = 0;
 Bool  emit     = false;
+Bool  macrodef = false;
 
 SmLbl lblLocal(SmBuf name) { return (SmLbl){scope, name}; }
 SmLbl lblGlobal(SmBuf name) { return (SmLbl){{0}, name}; }
@@ -57,8 +60,28 @@ U32 peek() {
         popStream();
         return peek(); // yuck
     }
-    // TODO: should I handle macros and @strfmt/@idfmt here?
-    return tok;
+    // if we're in a macro definition, don't evaluate other meta-programming
+    if (macrodef) {
+        return tok;
+    }
+    switch (tok) {
+    case SM_TOK_ID: {
+        Macro *macro = macroFind(tokBuf());
+        if (macro) {
+            macroInvoke(*macro);
+            return peek(); // yuck
+        }
+        return tok;
+    }
+    case SM_TOK_STRFMT:
+        fmtInvoke(SM_TOK_STR);
+        return peek(); // yuck
+    case SM_TOK_IDFMT:
+        fmtInvoke(SM_TOK_ID);
+        return peek(); // yuck
+    default:
+        return tok;
+    }
 }
 
 void eat() { smTokStreamEat(ts); }

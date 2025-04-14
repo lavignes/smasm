@@ -3,7 +3,7 @@
 @macro TITLE
     @db @0
     @if @strlen @0 > 11
-        @fatal "game title too long"
+        @fatal "game title too long\n"
     @end
     ; pad title
     @repeat 11 - @strlen @0

@@ -32,6 +32,7 @@ static struct {
     {SM_TOK_IDFMT, SM_BUF("@IDFMT")},
     {SM_TOK_CREATE, SM_BUF("@CREATE")},
     {SM_TOK_FATAL, SM_BUF("@FATAL")},
+    {SM_TOK_PRINT, SM_BUF("@PRINT")},
     {SM_TOK_DEFINED, SM_BUF("@DEFINED")},
     {SM_TOK_STRLEN, SM_BUF("@STRLEN")},
     {SM_TOK_TAG, SM_BUF("@TAG")},
@@ -356,7 +357,7 @@ static struct {
     {"MACRO", SM_TOK_MACRO},     {"REPEAT", SM_TOK_REPEAT},
     {"STRUCT", SM_TOK_STRUCT},   {"STRFMT", SM_TOK_STRFMT},
     {"IDFMT", SM_TOK_IDFMT},     {"CREATE", SM_TOK_CREATE},
-    {"FATAL", SM_TOK_FATAL},
+    {"FATAL", SM_TOK_FATAL},     {"PRINT", SM_TOK_PRINT},
 
     {"DEFINED", SM_TOK_DEFINED}, {"STRLEN", SM_TOK_STRLEN},
     {"TAG", SM_TOK_TAG},         {"REL", SM_TOK_REL},
