@@ -1,9 +1,8 @@
 ; vim: ft=smasm
-@include "gb.ssi"
 
 @macro TITLE
     @db @0
-    @if @strlen @0 > 11
+    @if (@strlen @0 > 11)
         @fatal "game title too long"
     @end
     ; pad title

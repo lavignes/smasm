@@ -2,4 +2,7 @@
 @if !@defined GB_SSI
 GB_SSI = 1
 
+GB_SCY = $FF42
+GB_SCX = $FF43
+
 @end

@@ -1,4 +1,6 @@
 ; vim: ft=smasm
+@include "gb.ssi"
+
 @section "WRAM0"
 
 stackTop: @ds 128
@@ -12,8 +14,8 @@ Start::
 
     ; copy tile data
     ld de, $8010
-    ld hl, LetterH
-    ld bc, 16 * 4
+    ld hl, Letters
+    ld bc, Letters.Len
     call MemCopy
 
     ; write tile map
@@ -24,8 +26,8 @@ Start::
 
     ; scroll to center the message
     ld a, 200
-    ldh [$FF42], a
-    ldh [$FF43], a
+    ldh [GB_SCY], a
+    ldh [GB_SCX], a
 
 .Wait:
     halt
@@ -35,7 +37,7 @@ Message:
     @db 1, 2, 3, 3, 4
 .Len = * - @rel Message
 
-LetterH:
+Letters:
     @db %01000010
     @db %01000010
     @db %01000010
@@ -53,7 +55,6 @@ LetterH:
     @db %00000000
     @db %00000000
 
-LetterE:
     @db %00111100
     @db %00111100
     @db %01000010
@@ -71,7 +72,6 @@ LetterE:
     @db %00000000
     @db %00000000
 
-LetterL:
     @db %00110000
     @db %00110000
     @db %00010000
@@ -89,7 +89,6 @@ LetterL:
     @db %00000000
     @db %00000000
 
-LetterO:
     @db %00111100
     @db %00111100
     @db %01000010
@@ -106,3 +105,4 @@ LetterO:
     @db %00111100
     @db %00000000
     @db %00000000
+.Len = * - @rel Letters
