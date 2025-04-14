@@ -102,7 +102,7 @@ void smSerializeExprIntern(SmSerde *ser, SmExprIntern const *in,
                 smSerializeU32(ser, expr->addr.pc);
                 break;
             case SM_EXPR_OP:
-                smSerializeU8(ser, expr->op.tok);
+                smSerializeU32(ser, expr->op.tok);
                 smSerializeU8(ser, expr->op.unary);
                 break;
             case SM_EXPR_LABEL:
@@ -307,7 +307,7 @@ SmExprIntern smDeserializeExprIntern(SmSerde *ser, SmBufIntern const *strin) {
             expr.addr.pc   = smDeserializeU32(ser);
             break;
         case SM_EXPR_OP:
-            expr.op.unary = smDeserializeU8(ser);
+            expr.op.tok   = smDeserializeU32(ser);
             expr.op.unary = smDeserializeU8(ser);
             break;
         case SM_EXPR_LABEL:

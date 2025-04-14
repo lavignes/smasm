@@ -17,6 +17,11 @@ Options:
 
 ## Syntax
 
+This is a high-level overview of the assembler syntax. Anyone comfortable
+with Z80 or SM83/GBZ80 assembly should feel at home. For more details and
+examples of the assembler's directives see the complete [directives](directives.md)
+documentation.
+
 ### Token Types
 
 * Identifiers: Start with a `.` (dot), `_` (underscore), or a letter, followed
@@ -75,12 +80,12 @@ MemCopy:
     ret
 ```
 
-Two symbols will be defined:
+Three symbols will be defined:
 * `MemCopy` equal to the address of the subroutine.
 * `MemCopy.CopyByte` equal to the address of the `ldi` opcode.
 * `MemCopy.Decrement` equal, of course, to the address of the `dec` opcode.
 
-`.CopyByte` and `.Decrement` above are examples of a "local" label.
+`.CopyByte` and `.Decrement` above are examples of "local" labels.
 Whenever you create a label without a `.` (dot) a new "scope" is created,
 under which every local label will be prefixed with in the symbol table.
 
