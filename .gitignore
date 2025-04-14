@@ -2,6 +2,7 @@
 *.d
 *.gb
 *.gbc
+*.sym
 
 /lib/*
 /bin/*

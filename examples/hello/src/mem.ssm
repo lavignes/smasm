@@ -1,5 +1,4 @@
 ; vim: ft=smasm
-
 @section "BANK0"
 
 MemCopy::
