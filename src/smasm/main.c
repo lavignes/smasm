@@ -794,6 +794,7 @@ static void eatMne(U8 mne) {
         aluReg8(0xB8, 0xFE);
         return;
     case MNE_INC:
+        eat();
         if (reg16OffsetSP(peek(), 0x03, &op)) {
             eat();
             if (emit) {
@@ -841,6 +842,7 @@ static void eatMne(U8 mne) {
         addPC(1);
         return;
     case MNE_DEC:
+        eat();
         if (reg16OffsetSP(peek(), 0x0B, &op)) {
             eat();
             if (emit) {
@@ -1192,7 +1194,11 @@ static FILE *openFile(SmBuf path, char const *modes) {
 }
 
 static Bool fileExists(SmBuf path) {
-    FILE *hnd = openFile(path, "rb");
+    static SmGBuf buf = {0};
+    buf.inner.len     = 0;
+    smGBufCat(&buf, path);
+    smGBufCat(&buf, SM_BUF("\0"));
+    FILE *hnd = fopen((char const *)buf.inner.bytes, "rb");
     if (hnd) {
         closeFile(hnd);
         return true;
@@ -1201,11 +1207,9 @@ static Bool fileExists(SmBuf path) {
 }
 
 static SmBuf findInclude(SmBuf path) {
-    static SmGBuf buf = {0};
-    eat();
-    expect(SM_TOK_STR);
-    SmBuf fullpath = smPathIntern(&STRS, tokBuf());
-    if (!fileExists(path)) {
+    static SmGBuf buf      = {0};
+    SmBuf         fullpath = smPathIntern(&STRS, path);
+    if (!fileExists(fullpath)) {
         for (UInt i = 0; i < IPATHS.bufs.inner.len; ++i) {
             SmBuf inc     = IPATHS.bufs.inner.items[i];
             buf.inner.len = 0;
@@ -1213,15 +1217,12 @@ static SmBuf findInclude(SmBuf path) {
             smGBufCat(&buf, SM_BUF("/"));
             smGBufCat(&buf, path);
             fullpath = smPathIntern(&STRS, buf.inner);
-            if (!fileExists(fullpath)) {
-                break;
+            if (fileExists(fullpath)) {
+                return fullpath;
             }
         }
     }
-    if (smBufEqual(fullpath, SM_BUF_NULL)) {
-        fatal("could not find include file: %.*s\n", (int)path.len, path.bytes);
-    }
-    return fullpath;
+    fatal("could not find include file: %.*s\n", (int)path.len, path.bytes);
 }
 
 static void eatDirective() {
@@ -1288,6 +1289,7 @@ static void eatDirective() {
         eat();
         return;
     case SM_TOK_DS: {
+        eat();
         U16 space = exprEatSolvedU16();
         if (emit) {
             for (UInt i = 0; i < space; ++i) {
@@ -1307,12 +1309,14 @@ static void eatDirective() {
         expectEOL();
         eat();
         return;
-    case SM_TOK_INCLUDE:
+    case SM_TOK_INCLUDE: {
         eat();
         expect(SM_TOK_STR);
-        pushFile(findInclude(tokBuf()));
+        SmBuf path = findInclude(tokBuf());
         eat();
+        pushFile(path);
         return;
+    }
     case SM_TOK_INCBIN: {
         static SmGBuf buf = {0};
         buf.inner.len     = 0;

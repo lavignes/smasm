@@ -34,6 +34,7 @@ syn match smasmDirective "@fatal"
 syn match smasmDirective "@defined"
 syn match smasmDirective "@strlen"
 syn match smasmDirective "@tag"
+syn match smasmDirective "@rel"
 
 syn match smasmDirective "@[0-9]\+"
 syn match smasmDirective "@narg"

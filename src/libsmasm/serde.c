@@ -106,6 +106,7 @@ void smSerializeExprIntern(SmSerde *ser, SmExprIntern const *in,
                 smSerializeU8(ser, expr->op.unary);
                 break;
             case SM_EXPR_LABEL:
+            case SM_EXPR_REL:
                 writeLbl(ser, strin, expr->lbl);
                 break;
             case SM_EXPR_TAG:
@@ -310,6 +311,7 @@ SmExprIntern smDeserializeExprIntern(SmSerde *ser, SmBufIntern const *strin) {
             expr.op.unary = smDeserializeU8(ser);
             break;
         case SM_EXPR_LABEL:
+        case SM_EXPR_REL:
             expr.lbl = readLbl(ser, strin);
             break;
         case SM_EXPR_TAG:

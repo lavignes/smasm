@@ -1,5 +1,0 @@
-@section "BANK0"
-
-Start::
-    halt
-    jp Start

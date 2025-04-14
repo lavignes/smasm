@@ -31,6 +31,7 @@ enum SmTok {
     SM_TOK_DEFINED = 0xF0020,
     SM_TOK_STRLEN  = 0xF0021,
     SM_TOK_TAG     = 0xF0022,
+    SM_TOK_REL     = 0xF0023,
 
     SM_TOK_ASL     = 0xF0030, // <<
     SM_TOK_ASR     = 0xF0031, // >>

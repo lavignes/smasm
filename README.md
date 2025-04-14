@@ -28,4 +28,4 @@ The documentation for the different toolchain components is available in the
 The SMASM toolchain and all of its associated source code is released under the
 [CC0 1.0 Universal (CC0 1.0) Public Domain Dedication](https://creativecommons.org/publicdomain/zero/1.0/).
 
-For more information, see the include CC0 legal code in the [LEGAL](LEGAL) file.
+For more information, see the included CC0 legal code in the [LEGAL](LEGAL) file.

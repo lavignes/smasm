@@ -40,6 +40,7 @@ enum SmExprKind {
     SM_EXPR_OP,
     SM_EXPR_LABEL,
     SM_EXPR_TAG,
+    SM_EXPR_REL,
 };
 
 struct SmExpr {

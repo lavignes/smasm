@@ -234,6 +234,16 @@ SmExprBuf exprEat() {
             seen_value = true;
             continue;
         }
+        case SM_TOK_REL:
+            if (seen_value) {
+                fatal("expected an operator\n");
+            }
+            eat();
+            expect(SM_TOK_ID);
+            pushExpr((SmExpr){.kind = SM_EXPR_REL, .lbl = tokLbl()});
+            eat();
+            seen_value = true;
+            continue;
         default:
             if (!seen_value) {
                 fatal("expected a value\n");
@@ -246,7 +256,6 @@ SmExprBuf exprEat() {
     }
 complete:
     while (op_stack.inner.len > 0) {
-        // TODO: what ops would remain here?
         --op_stack.inner.len;
         SmOp op = op_stack.inner.items[op_stack.inner.len];
         pushExpr((SmExpr){.kind = SM_EXPR_OP, .op = op});
@@ -302,7 +311,7 @@ static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
             }
             I32 num;
             // yuck
-            if (!exprSolve(sym->value, &num)) {
+            if (!exprSolveFull(sym->value, &num, relative)) {
                 goto fail;
             }
             smI32GBufAdd(&stack, num);
@@ -406,15 +415,28 @@ static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
             }
             break;
         case SM_EXPR_ADDR:
+            // absolute addresses can only be solved at link time
             if (!smBufEqual(expr->addr.sect, sectGet()->name)) {
                 goto fail;
             }
-            // absolute addresses can only be solved at link time
             if (!relative) {
                 goto fail;
             }
             smI32GBufAdd(&stack, expr->addr.pc);
             break;
+        case SM_EXPR_REL: {
+            SmSym *sym = smSymTabFind(&SYMS, expr->lbl);
+            if (!sym) {
+                goto fail;
+            }
+            I32 num;
+            // yuck
+            if (!exprSolveFull(sym->value, &num, true)) {
+                goto fail;
+            }
+            smI32GBufAdd(&stack, num);
+            break;
+        }
         default:
             smUnreachable();
         }

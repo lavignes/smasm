@@ -1,4 +1,5 @@
-; @include "gb.ssi"
+; vim: ft=smasm
+@include "gb.ssi"
 
 @macro TITLE
     @db @0

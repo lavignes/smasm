@@ -35,6 +35,7 @@ static struct {
     {SM_TOK_DEFINED, SM_BUF("@DEFINED")},
     {SM_TOK_STRLEN, SM_BUF("@STRLEN")},
     {SM_TOK_TAG, SM_BUF("@TAG")},
+    {SM_TOK_REL, SM_BUF("@REL")},
     {SM_TOK_ASL, SM_BUF("`<<`")},
     {SM_TOK_ASR, SM_BUF("`>>`")},
     {SM_TOK_LSR, SM_BUF("`~>`")},
@@ -183,6 +184,7 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
 }
 
 void smTokStreamFileInit(SmTokStream *ts, SmBuf name, FILE *hnd) {
+    memset(ts, 0, sizeof(SmTokStream));
     ts->kind          = SM_TOK_STREAM_FILE;
     ts->pos           = (SmPos){name, 1, 1};
     ts->file.hnd      = hnd;
@@ -190,31 +192,30 @@ void smTokStreamFileInit(SmTokStream *ts, SmBuf name, FILE *hnd) {
     ts->file.cstashed = false;
     ts->file.cline    = 1;
     ts->file.ccol     = 1;
-    ts->file.buf      = (SmGBuf){0};
 }
 
 void smTokStreamMacroInit(SmTokStream *ts, SmBuf name, SmPos pos,
                           SmMacroTokBuf buf, SmMacroArgQueue args, UInt nonce) {
+    memset(ts, 0, sizeof(SmTokStream));
     ts->kind        = SM_TOK_STREAM_MACRO;
     ts->pos         = pos;
     ts->macro.name  = name;
     ts->macro.buf   = buf;
-    ts->macro.pos   = 0;
     ts->macro.args  = args;
-    ts->macro.argi  = 0;
     ts->macro.nonce = nonce;
 }
 
 void smTokStreamRepeatInit(SmTokStream *ts, SmPos pos, SmRepeatTokBuf buf,
                            UInt cnt) {
+    memset(ts, 0, sizeof(SmTokStream));
     ts->kind       = SM_TOK_STREAM_REPEAT;
     ts->pos        = pos;
     ts->repeat.buf = buf;
     ts->repeat.cnt = cnt;
-    ts->repeat.pos = 0;
 }
 
 void smTokStreamFmtInit(SmTokStream *ts, SmBuf buf, SmPos pos, U32 tok) {
+    memset(ts, 0, sizeof(SmTokStream));
     ts->kind    = SM_TOK_STREAM_FMT;
     ts->pos     = pos;
     ts->fmt.buf = buf;
@@ -358,7 +359,7 @@ static struct {
     {"FATAL", SM_TOK_FATAL},
 
     {"DEFINED", SM_TOK_DEFINED}, {"STRLEN", SM_TOK_STRLEN},
-    {"TAG", SM_TOK_TAG},
+    {"TAG", SM_TOK_TAG},         {"REL", SM_TOK_REL},
 
     {"ARG", SM_TOK_ARG},         {"NARG", SM_TOK_NARG},
     {"SHIFT", SM_TOK_SHIFT},     {"UNIQUE", SM_TOK_UNIQUE},

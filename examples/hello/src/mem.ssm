@@ -1,0 +1,19 @@
+; vim: ft=smasm
+
+@section "BANK0"
+
+MemCopy::
+    inc b
+    inc c
+    jr .Decrement
+.CopyByte:
+    ldi a, [hl]
+    ld [de], a
+    inc de
+.Decrement:
+    dec c
+    jr nz, .CopyByte
+    dec b
+    jr nz, .CopyByte
+    ret
+

@@ -1,7 +1,6 @@
 #include "state.h"
 
 #include <assert.h>
-#include <ctype.h>
 #include <stdarg.h>
 #include <string.h>
 
@@ -101,7 +100,7 @@ static UInt sect;
 
 static UInt sectFind(SmBuf name) {
     for (UInt i = 0; i < SECTS.inner.len; ++i) {
-        if (smBufEqual(SECTS.inner.items->name, name)) {
+        if (smBufEqual(SECTS.inner.items[i].name, name)) {
             return i;
         }
     }
