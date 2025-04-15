@@ -38,7 +38,7 @@ used in the object file. Later parts of the file will refer to strings in the
 string table by a 32-bit offset from the start of the string table and a 32-bit
 length in bytes:
 
-### String Reference
+#### String Reference
 
 | Size | Description                        |
 |------|------------------------------------|
@@ -60,7 +60,7 @@ expressions used in the object file. Later parts of the file will refer to
 expressions in the expression table by a 32-bit offset from the start of the
 expression table and a 32-bit length in "nodes":
 
-### Expression Reference
+#### Expression Reference
 
 | Size | Description                         |
 |------|-------------------------------------|
