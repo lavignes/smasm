@@ -1,5 +1,4 @@
 #include "expr.h"
-#include "macro.h"
 #include "state.h"
 
 #include <smasm/fatal.h>

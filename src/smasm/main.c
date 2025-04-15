@@ -1316,6 +1316,8 @@ static void eatDirective() {
         expect(SM_TOK_STR);
         SmBuf path = findInclude(tokBuf());
         eat();
+        expectEOL();
+        eat();
         pushFile(path);
         return;
     }
@@ -1324,9 +1326,11 @@ static void eatDirective() {
         buf.inner.len     = 0;
         eat();
         expect(SM_TOK_STR);
-        SmBuf   path = findInclude(tokBuf());
-        FILE   *hnd  = openFile(path, "rb");
-        SmSerde ser  = {hnd, path};
+        SmBuf path = findInclude(tokBuf());
+        expectEOL();
+        eat();
+        FILE   *hnd = openFile(path, "rb");
+        SmSerde ser = {hnd, path};
         smDeserializeToEnd(&ser, &buf);
         if (emit) {
             emitBuf(buf.inner);
@@ -1388,8 +1392,6 @@ static void eatDirective() {
                   (int)lbl.name.len, lbl.name.bytes, (int)macro->pos.file.len,
                   macro->pos.file.bytes, macro->pos.line, macro->pos.col);
         }
-        eat();
-        expectEOL();
         eat();
         UInt depth = 0;
         while (true) {
@@ -1559,6 +1561,8 @@ static void eatDirective() {
             fprintf(stderr, "%.*s", (int)tokBuf().len, tokBuf().bytes);
         }
         eat();
+        expectEOL();
+        eat();
         return;
     default: {
         SmBuf name = smTokName(peek());
@@ -1631,15 +1635,15 @@ static void pass() {
                          sym->pos.line, sym->pos.col);
             }
             switch (peek()) {
+            case SM_TOK_DCOLON:
+                sym->unit = EXPORT_UNIT;
+                // fall through
             case ':':
                 eat();
                 break;
-            case SM_TOK_DCOLON:
-                eat();
-                if (emit) {
-                    sym->unit = EXPORT_UNIT;
-                }
-                break;
+            case SM_TOK_EXPEQU:
+                sym->unit = EXPORT_UNIT;
+                // fall through
             case '=':
                 eat();
                 I32 num;

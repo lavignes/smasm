@@ -45,7 +45,8 @@ enum SmTok {
     SM_TOK_AND     = 0xF0037, // &&
     SM_TOK_OR      = 0xF0038, // ||
     SM_TOK_DCOLON  = 0xF0039, // ::
-    SM_TOK_DSTAR   = 0xF003A, // **
+    SM_TOK_EXPEQU  = 0xF003B, // =:
+    SM_TOK_DSTAR   = 0xF003C, // **
 
     SM_TOK_AF      = 0xF0040,
     SM_TOK_BC      = 0xF0041,

@@ -135,9 +135,30 @@ AddAmount:
     ret
 ```
 
-Note that constant symbols are not visible outside the current translation unit.
-To share constants across translation units, place them in a "header" file
-and `@include` the header in each translation unit as needed.
+The main thing to consider when using constants is that the values you assign
+to them must be constant expressions. This means you cannot use any values
+that are not known at the *exact* point in the code where the constant
+is defined. For example, you cannot reference a label or a symbol that is
+defined later in the code.
+
+Note that constant symbols are not normally visible outside the current
+translation unit.
+
+To share constants across translation units, you have a couple options:
+
+1. Place them in a "header" file and `@include` the header in each translation
+unit as needed. (Like a traditional C-style header)
+2. Make the constants visible by using the `=:` (equal-colon) syntax:
+
+```
+Subroutine::
+    .DATA =: 2
+    ld a, .DATA
+    ret
+```
+
+Using this syntax will make the symbol `Subroutine.DATA` visible to other
+translation units.
 
 ### Expressions
 
@@ -229,7 +250,7 @@ SomeDataOrSubroutine::
     nop
     nop
     ret
-.Len = * - @rel SomeDataOrSubroutine
+.Len =: * - @rel SomeDataOrSubroutine
 ```
 
 Here `@rel` is a special operator directive used to calculate the relative
@@ -313,7 +334,6 @@ directive:
 ```
 TileData:
     @incbin "res/tiles.2bpp"
-.Len = * - @rel TileData
 ```
 
 ### String and Identifier Formatting

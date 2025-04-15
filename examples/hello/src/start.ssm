@@ -15,7 +15,7 @@ Start::
     ; copy tile data
     ld de, $8010
     ld hl, Letters
-    ld bc, Letters.Len
+    ld bc, Letters.End - Letters
     call MemCopy
 
     ; write tile map
@@ -35,7 +35,7 @@ Start::
 
 Message:
     @db 1, 2, 3, 3, 4
-.Len = * - @rel Message
+.Len =: * - @rel Message
 
 Letters:
     @db %01000010
@@ -105,4 +105,4 @@ Letters:
     @db %00111100
     @db %00000000
     @db %00000000
-.Len = * - @rel Letters
+.End:

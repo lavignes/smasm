@@ -47,6 +47,7 @@ static struct {
     {SM_TOK_AND, SM_BUF("`&&`")},
     {SM_TOK_OR, SM_BUF("`||`")},
     {SM_TOK_DCOLON, SM_BUF("`::`")},
+    {SM_TOK_EXPEQU, SM_BUF("`=:`")},
     {SM_TOK_DSTAR, SM_BUF("`**`")},
     {SM_TOK_AF, SM_BUF("register `AF`")},
     {SM_TOK_BC, SM_BUF("register `BC`")},
@@ -372,10 +373,10 @@ static struct {
     U8  digraph[2];
     U32 tok;
 } const DIGRAPHS[] = {
-    {"<<", SM_TOK_ASL},    {">>", SM_TOK_ASR},   {"~>", SM_TOK_LSR},
-    {"<=", SM_TOK_LTE},    {">=", SM_TOK_GTE},   {"==", SM_TOK_DEQ},
-    {"!=", SM_TOK_NEQ},    {"&&", SM_TOK_AND},   {"||", SM_TOK_OR},
-    {"::", SM_TOK_DCOLON}, {"**", SM_TOK_DSTAR},
+    {"<<", SM_TOK_ASL},    {">>", SM_TOK_ASR},    {"~>", SM_TOK_LSR},
+    {"<=", SM_TOK_LTE},    {">=", SM_TOK_GTE},    {"==", SM_TOK_DEQ},
+    {"!=", SM_TOK_NEQ},    {"&&", SM_TOK_AND},    {"||", SM_TOK_OR},
+    {"::", SM_TOK_DCOLON}, {"=:", SM_TOK_EXPEQU}, {"**", SM_TOK_DSTAR},
 };
 
 static struct {
