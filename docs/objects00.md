@@ -141,7 +141,7 @@ public use area to define additional multi-byte operators:
 | $F0035    | `==`     | Equal to                 |
 | $F0036    | `!=`     | Not equal to             |
 | $F0037    | `&&`     | Logical AND              |
-| $F0038    | `||`     | Logical OR               |
+| $F0038    | `\|\|`   | Logical OR               |
    
 ##### Label Expression Node
 
