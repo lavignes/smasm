@@ -28,30 +28,44 @@ In order, they are:
 
 ### String Table
 
-| Offset | Size | Description |
-|--------|------|-------------|
-| 0      | 4    | Size of the string table in bytes |
-| 4      | N    | String data |
+| Size | Description                       |
+|------|-----------------------------------|
+| 4    | Size of the string table in bytes |
+| N    | String data                       |
 
 The string table is a contiguous block of memory that contains all the strings
 used in the object file. Later parts of the file will refer to strings in the
 string table by a 32-bit offset from the start of the string table and a 32-bit
-length in bytes.
+length in bytes:
+
+### String Reference
+
+| Size | Description                        |
+|------|------------------------------------|
+| 4    | Offset from the start of the table |
+| 4    | Length of the string in bytes      |
 
 The beginning of the string table is a 32-bit number representing the size of
 the string table in bytes. Following that is the contiguous string data itself.
 
 ### Expression Table
 
-| Offset | Size | Description                           |
-|--------|------|---------------------------------------|
-| 0      | 4    | Size of the expression table in bytes |
-| 4      | ???  | Expression nodes                      |
+| Size | Description                             |
+|------|-----------------------------------------|
+| 4    | Size of the expression table in "nodes" |
+| ???  | Expression nodes                        |
 
 The expression table is a contiguous block of memory that contains all the
 expressions used in the object file. Later parts of the file will refer to
 expressions in the expression table by a 32-bit offset from the start of the
-expression table and a 32-bit length in "expression nodes".
+expression table and a 32-bit length in "nodes":
+
+### Expression Reference
+
+| Size | Description                         |
+|------|-------------------------------------|
+| 4    | Offset from the start of the table  |
+| 4    | Length of the expression in "nodes" |
 
 The beginning of the expression table is a 32-bit number representing the size
 of the expression table as a count of expression nodes. Following that is the
@@ -64,31 +78,32 @@ determine how to interpret the rest of the node.
 
 The following kinds of expression nodes are defined:
 
-* `$00` - Constant
-* `$01` - Address
-* `$02` - Operator
-* `$03` - Label
-* `$04` - Tag
-* `$05` - Relative Label
+| Kind | Description                       |
+|------|-----------------------------------|
+| $00  | Constant                          |
+| $01  | Address                           |
+| $02  | Operator                          |
+| $03  | Label                             |
+| $04  | Tag                               |
+| $05  | Relative Label                    |
 
 ##### Constant Expression Node
 
-| Offset | Size | Description |
-|--------|------|-------------|
-| 0      | 1    | Kind ($00) |
-| 1      | 4    | Value       |
+| Size | Description |
+|------|-------------|
+| 1    | Kind ($00)  |
+| 4    | Value       |
 
 The constant expression node is used to represent a constant value in the
 expression. It is a 32-bit signed integer value.
 
 ##### Address Expression Node
 
-| Offset | Size | Description         |
-|--------|------|---------------------|
-| 0      | 1    | Kind ($01)          |
-| 1      | 4    | Section name offset |
-| 5      | 4    | Section name length |
-| 9      | 4    | Offset              |
+| Size | Description                     |
+|------|---------------------------------|
+| 1    | Kind ($01)                      |
+| 8    | Section name (String reference) |
+| 4    | Offset                          |
 
 The address expression node is used to represent an address in the expression.
 It is made up of 2 parts:
@@ -99,11 +114,11 @@ which is a 32-bit offset from the start of the string table and a 32-bit length)
 
 ##### Operator Expression Node
 
-| Offset | Size | Description        |
-|--------|------|--------------------|
-| 0      | 1    | Kind ($02)         |
-| 1      | 4    | Operator codepoint |
-| 5      | 1    | Is binary? (0/1)   |
+| Size | Description        |
+|------|--------------------|
+| 1    | Kind ($02)         |
+| 4    | Operator codepoint |
+| 1    | Is binary? (0/1)   |
 
 The operator expression node is used to represent an operator in the expression.
 It is made up of 2 parts:
@@ -116,57 +131,51 @@ unary (1).
 Besides the standard ASCII codepoints for operators, SMASM leverages the unicode
 public use area to define additional multi-byte operators:
 
-* `$F0030` - `<<` (Arithmethic left shift) 
-* `$F0031` - `>>` (Arithmethic right shift)
-* `$F0032` - `~>` (Logical right shift)
-* `$F0033` - `<=` (Less than or equal to)
-* `$F0034` - `>=` (Greater than or equal to)
-* `$F0035` - `==` (Equal to)
-* `$F0036` - `!=` (Not equal to)
-* `$F0037` - `&&` (Logical AND)
-* `$F0038` - `||` (Logical OR)
-
+| Codepoint | Operator | Description              |
+|-----------|----------|--------------------------|
+| $F0030    | `<<`     | Arithmetic left shift    |
+| $F0031    | `>>`     | Arithmetic right shift   |
+| $F0032    | `~>`     | Logical right shift      |
+| $F0033    | `<=`     | Less than or equal to    |
+| $F0034    | `>=`     | Greater than or equal to |
+| $F0035    | `==`     | Equal to                 |
+| $F0036    | `!=`     | Not equal to             |
+| $F0037    | `&&`     | Logical AND              |
+| $F0038    | `||`     | Logical OR               |
+   
 ##### Label Expression Node
 
-| Offset | Size | Description       |
-|--------|------|-------------------|
-| 0      | 1    | Kind ($03)        |
-| 1      | 1    | Global (0)        |
-| 2      | 4    | Scope name offset |
-| 6      | 4    | Scope name length |
-| 10     | 4    | Label name offset |
-| 14     | 4    | Label name length |
+| Size | Description                   |
+|------|-------------------------------|
+| 1    | Kind ($03)                    |
+| 1    | Global (0)                    |
+| 8    | Scope name (String reference) |
+| 8    | Label name (String reference) |
 
-| Offset | Size | Description       |
-|--------|------|-------------------|
-| 0      | 1    | Kind ($03)        |
-| 1      | 1    | Local (1)         |
-| 2      | 4    | Label name offset |
-| 6      | 4    | Label name length |
+| Size | Description                   |
+|------|-------------------------------|
+| 1    | Kind ($03)                    |
+| 1    | Local (1)                     |
+| 8    | Label name (String reference) |
 
 The label expression node is used to represent a label in the expression.
 
 ##### Tag Expression Node
 
-| Offset | Size | Description       |
-|--------|------|-------------------|
-| 0      | 1    | Kind ($04)        |
-| 1      | 1    | Global (0)        |
-| 2      | 4    | Scope name offset |
-| 6      | 4    | Scope name length |
-| 10     | 4    | Label name offset |
-| 14     | 4    | Label name length |
-| 18     | 4    | Tag name offset   |
-| 22     | 4    | Tag name length   |
+| Size | Description                   |
+|------|-------------------------------|
+| 1    | Kind ($04)                    |
+| 1    | Global (0)                    |
+| 8    | Scope name (String reference) |
+| 8    | Label name (String reference) |
+| 8    | Tag name (String reference)   |
 
-| Offset | Size | Description       |
-|--------|------|-------------------|
-| 0      | 1    | Kind ($04)        |
-| 1      | 1    | Local (1)         |
-| 2      | 4    | Label name offset |
-| 6      | 4    | Label name length |
-| 10     | 4    | Tag name offset   |
-| 14     | 4    | Tag name length   |
+| Size | Description                   |
+|------|-------------------------------|
+| 1    | Kind ($04)                    |
+| 1    | Local (1)                     |
+| 8    | Label name (String reference) |
+| 8    | Tag name (String reference)   |
 
 The tag expression node is used to represent a `@tag` directive in the
 expression.
@@ -178,4 +187,79 @@ in the expression. It is otherwise identical to the label expression node.
 
 ### Symbol Table
 
+| Size | Description                           |
+|------|---------------------------------------|
+| 4    | Size of the symbol table in "symbols" |
+| ???  | Symbol nodes                          |
+
+The symbol table is a contiguous block of memory that contains all the symbols
+used in the object file. Later parts of the file will refer to symbols in the
+symbol table by name rather than by an offset-length pair.
+
+The beginning of the symbol table is a 32-bit number representing the size of
+the symbol table as a count of symbols. Following that is the contiguous list
+of symbol nodes themselves.
+
+#### Symbol Nodes
+
+| Size | Description                       |
+|------|-----------------------------------|
+| 1    | Global (0)                        |
+| 8    | Scope name (String reference)     |
+| 8    | Label name (String reference)     |
+| 8    | Expression (Expression reference) |
+| 8    | Section name (String reference)   |
+| 8    | File name (String reference)      |
+| 4    | Line number                       |
+| 4    | Column number                     |
+| 1    | Flags                             |
+
+| Size | Description                              |
+|------|------------------------------------------|
+| 1    | Local (1)                                |
+| 8    | Label name (String reference)            |
+| 8    | Expression (Expression reference)        |
+| 8    | Translation unit name (String reference) |
+| 8    | Section name (String reference)          |
+| 8    | File name (String reference)             |
+| 4    | Line number                              |
+| 4    | Column number                            |
+| 1    | Flags                                    |
+
 ### Section Table
+
+| Size | Description                           |
+|------|---------------------------------------|
+| 4    | Number of sections                    |
+| ???  | Sections                              |
+
+The section table is a contiguous block of memory that contains all the sections
+used in the object file.
+
+The beginning of the section table is a 32-bit number representing the number of
+sections in the table. Following that is the contiguous list of sections
+themselves.
+
+#### Section
+
+| Size | Description                            |
+|------|----------------------------------------|
+| 8    | Section name (String reference)        |
+| 4    | Section data length in bytes           |
+| N    | Section data                           |
+| 4    | Number of "relocations" in the section |
+| ???  | Relocations list                       |
+
+#### Relocation
+
+| Size | Description                              |
+|------|------------------------------------------|
+| 4    | Offset from the start of the section     |
+| 1    | Length of the relocation in bytes        |
+| 8    | Expression (Expression reference)        |
+| 8    | Translation unit name (String reference) |
+| 8    | File name (String reference)             |
+| 4    | Line number                              |
+| 4    | Column number                            |
+| 1    | Flags                                    |
+
