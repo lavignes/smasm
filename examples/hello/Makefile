@@ -9,7 +9,7 @@ OBJS  = $(SRCS:.ssm=.o)
 DEPS  = $(SRCS:.ssm=.d)
 
 ASMFLAGS = -I include
-LDFLAGS = -g hello.sym
+LDFLAGS = -g hello.sym --tags hello.tags
 
 .PHONY: all clean
 
@@ -24,6 +24,7 @@ hello.gb: hello.cfg $(DEPS) $(OBJS)
 
 clean:
 	rm -f hello.sym
+	rm -f hello.tags
 	rm -f hello.gb
 	rm -f $(call rwildcard,src,*.o)
 	rm -f $(call rwildcard,src,*.d)

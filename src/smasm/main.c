@@ -1183,7 +1183,7 @@ static void eatMne(U8 mne) {
         addPC(1);
         return;
     default:
-        smUnreachable();
+        SM_UNREACHABLE();
     }
 }
 

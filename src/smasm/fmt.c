@@ -278,7 +278,7 @@ void fmtInvoke(U32 tok) {
             break;
         }
         default:
-            smUnreachable();
+            SM_UNREACHABLE();
         }
     }
     if (braced) {
@@ -298,6 +298,6 @@ void fmtInvoke(U32 tok) {
         smTokStreamFmtInit(ts, intern(buf.inner), pos, tok);
         return;
     default:
-        smUnreachable();
+        SM_UNREACHABLE();
     }
 }

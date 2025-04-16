@@ -49,7 +49,7 @@ static U8 precedence(SmOp op) {
     case SM_TOK_OR:
         return 10;
     default:
-        smUnreachable();
+        SM_UNREACHABLE();
     }
 }
 
@@ -337,7 +337,7 @@ static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
                     smI32GBufAdd(&stack, ((U32)rhs & 0xFF0000) >> 16);
                     break;
                 default:
-                    smUnreachable();
+                    SM_UNREACHABLE();
                 }
             } else {
                 --stack.inner.len;
@@ -401,7 +401,7 @@ static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
                     smI32GBufAdd(&stack, lhs || rhs);
                     break;
                 default:
-                    smUnreachable();
+                    SM_UNREACHABLE();
                 }
             }
             break;
@@ -429,7 +429,7 @@ static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
             break;
         }
         default:
-            smUnreachable();
+            SM_UNREACHABLE();
         }
     }
     assert(stack.inner.len == 1);

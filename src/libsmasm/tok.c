@@ -151,7 +151,7 @@ _Noreturn void smTokStreamFatalV(SmTokStream *ts, char const *fmt,
         smTokStreamFatalPosV(ts, ts->repeat.buf.items[ts->repeat.pos].pos, fmt,
                              args);
     default:
-        smUnreachable();
+        SM_UNREACHABLE();
     }
 }
 
@@ -182,7 +182,7 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
                 pos.line, pos.col);
         break;
     default:
-        smUnreachable();
+        SM_UNREACHABLE();
     }
     smFatalV(fmt, args);
 }
@@ -245,7 +245,7 @@ void smTokStreamFini(SmTokStream *ts) {
     case SM_TOK_STREAM_FMT:
         return;
     default:
-        smUnreachable();
+        SM_UNREACHABLE();
     }
 }
 
@@ -667,6 +667,7 @@ static U32 peekMacro(SmTokStream *ts) {
     case SM_MACRO_TOK_ID:
         return SM_TOK_ID;
     case SM_MACRO_TOK_NUM:
+    case SM_MACRO_TOK_UNIQUE:
         return SM_TOK_NUM;
     case SM_MACRO_TOK_STR:
         return SM_TOK_STR;
@@ -685,7 +686,7 @@ static U32 peekMacro(SmTokStream *ts) {
         case SM_MACRO_TOK_STR:
             return SM_TOK_STR;
         default:
-            smUnreachable();
+            SM_UNREACHABLE();
         }
     case SM_MACRO_TOK_NARG:
         return SM_TOK_NUM;
@@ -694,10 +695,8 @@ static U32 peekMacro(SmTokStream *ts) {
             smTokStreamFatalPos(ts, tok->pos, "no arguments left to shift\n");
         }
         return '\n';
-    case SM_MACRO_TOK_UNIQUE:
-        smUnimplemented("@UNIQUE token in macro");
     default:
-        smUnreachable();
+        SM_UNREACHABLE();
     }
 }
 
@@ -718,7 +717,7 @@ static U32 peekRepeat(SmTokStream *ts) {
     case SM_REPEAT_TOK_ITER:
         return SM_TOK_NUM;
     default:
-        smUnreachable();
+        SM_UNREACHABLE();
     }
 }
 
@@ -733,7 +732,7 @@ U32 smTokStreamPeek(SmTokStream *ts) {
     case SM_TOK_STREAM_FMT:
         return ts->fmt.tok;
     default:
-        smUnreachable();
+        SM_UNREACHABLE();
     }
 }
 
@@ -773,7 +772,7 @@ void smTokStreamEat(SmTokStream *ts) {
         ts->fmt.tok = SM_TOK_EOF;
         return;
     default:
-        smUnreachable();
+        SM_UNREACHABLE();
     }
 }
 
@@ -811,12 +810,10 @@ SmBuf smTokStreamBuf(SmTokStream *ts) {
             case SM_MACRO_TOK_ID:
                 return tok->buf;
             default:
-                smUnreachable();
+                SM_UNREACHABLE();
             }
-        case SM_MACRO_TOK_UNIQUE:
-            smUnimplemented("@UNIQUE token in macro");
         default:
-            smUnreachable();
+            SM_UNREACHABLE();
         }
     }
     case SM_TOK_STREAM_REPEAT: {
@@ -826,13 +823,13 @@ SmBuf smTokStreamBuf(SmTokStream *ts) {
         case SM_REPEAT_TOK_ID:
             return tok->buf;
         default:
-            smUnreachable();
+            SM_UNREACHABLE();
         }
     }
     case SM_TOK_STREAM_FMT:
         return ts->fmt.buf;
     default:
-        smUnreachable();
+        SM_UNREACHABLE();
     }
 }
 
@@ -851,12 +848,14 @@ I32 smTokStreamNum(SmTokStream *ts) {
             case SM_MACRO_TOK_NUM:
                 return tok->num;
             default:
-                smUnreachable();
+                SM_UNREACHABLE();
             }
         case SM_MACRO_TOK_NARG:
             return ts->macro.argi;
+        case SM_MACRO_TOK_UNIQUE:
+            return ts->macro.nonce;
         default:
-            smUnreachable();
+            SM_UNREACHABLE();
         }
     }
     case SM_TOK_STREAM_REPEAT: {
@@ -867,12 +866,12 @@ I32 smTokStreamNum(SmTokStream *ts) {
         case SM_REPEAT_TOK_ITER:
             return ts->repeat.idx;
         default:
-            smUnreachable();
+            SM_UNREACHABLE();
         }
     }
     case SM_TOK_STREAM_FMT:
     default:
-        smUnreachable();
+        SM_UNREACHABLE();
     }
 }
 
@@ -888,6 +887,6 @@ SmPos smTokStreamPos(SmTokStream *ts) {
     case SM_TOK_STREAM_FMT:
         return ts->pos;
     default:
-        smUnreachable();
+        SM_UNREACHABLE();
     }
 }

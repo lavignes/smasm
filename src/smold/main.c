@@ -511,7 +511,7 @@ static Bool solve(SmExprBuf buf, SmBuf unit, I32 *num) {
                     smI32GBufAdd(&stack, ((U32)rhs & 0xFF0000) >> 16);
                     break;
                 default:
-                    smUnreachable();
+                    SM_UNREACHABLE();
                 }
             } else {
                 --stack.inner.len;
@@ -575,7 +575,7 @@ static Bool solve(SmExprBuf buf, SmBuf unit, I32 *num) {
                     smI32GBufAdd(&stack, lhs || rhs);
                     break;
                 default:
-                    smUnreachable();
+                    SM_UNREACHABLE();
                 }
             }
             break;
@@ -588,7 +588,7 @@ static Bool solve(SmExprBuf buf, SmBuf unit, I32 *num) {
             break;
         }
         default:
-            smUnreachable();
+            SM_UNREACHABLE();
         }
     }
     assert(stack.inner.len == 1);
@@ -652,25 +652,23 @@ static void link(SmSect *sect) {
         case 1:
             if (!canReprU8(num)) {
                 Bool legal = false;
-                if (!(reloc->flags & SM_RELOC_HI)) {
-                    goto done;
-                }
-                for (UInt j = 0; j < SECTS.inner.len; ++j) {
-                    SmSect  *sect    = SECTS.inner.items + j;
-                    CfgSect *cfgsect = findCfgSect(sect->name);
-                    if (!cfgsect) {
-                        continue;
-                    }
-                    if (cfgsect->kind != CFG_SECT_HIGHPAGE) {
+                if (reloc->flags & SM_RELOC_HI) {
+                    for (UInt j = 0; j < SECTS.inner.len; ++j) {
+                        SmSect  *sect    = SECTS.inner.items + j;
+                        CfgSect *cfgsect = findCfgSect(sect->name);
+                        if (!cfgsect) {
+                            continue;
+                        }
+                        if (cfgsect->kind != CFG_SECT_HIGHPAGE) {
+                            break;
+                        }
+                        if ((num >= (I32)(sect->pc)) &&
+                            (num < (I32)(sect->pc + sect->data.inner.len))) {
+                            legal = true;
+                        }
                         break;
                     }
-                    if ((num >= (I32)(sect->pc)) &&
-                        (num < (I32)(sect->pc + sect->data.inner.len))) {
-                        legal = true;
-                    }
-                    break;
                 }
-            done:
                 if (!legal) {
                     smFatal("expression does not fit in a byte: $%08X\n"
                             "\treferenced at %.*s:%zu:%zu\n",
@@ -731,7 +729,7 @@ static void link(SmSect *sect) {
             sect->data.inner.bytes[reloc->offset + 1] = (U8)((num >> 8) & 0xFF);
             break;
         default:
-            smUnreachable();
+            SM_UNREACHABLE();
         }
     }
 }
@@ -1124,7 +1122,7 @@ static void parseCfg() {
         case CFG_MEM_READWRITE:
             continue;
         default:
-            smUnreachable();
+            SM_UNREACHABLE();
         }
     }
 }
@@ -1210,9 +1208,19 @@ static void writeSyms() {
 }
 
 static void writeTags() {
-    FILE   *hnd = openFileCstr(tagfile_name, "wb+");
-    SmSerde ser = {hnd, {(U8 *)tagfile_name, strlen(tagfile_name)}};
-    (void)ser;
-    smUnimplemented("writing CTAG files");
+    FILE *hnd = openFileCstr(tagfile_name, "wb+");
+    for (UInt i = 0; i < SYMS.size; ++i) {
+        SmSym *sym = SYMS.syms + i;
+        if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
+            continue;
+        }
+        SmBuf name = fullLblName(sym->lbl);
+        if (fprintf(hnd, "%.*s\t%.*s\t%zu\n", (int)name.len, name.bytes,
+                    (int)sym->pos.file.len, sym->pos.file.bytes,
+                    sym->pos.line) < 0) {
+            smFatal("%s: failed to write file: %s\n", symfile_name,
+                    strerror(errno));
+        }
+    }
     closeFile(hnd);
 }

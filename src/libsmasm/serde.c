@@ -114,7 +114,7 @@ void smSerializeExprIntern(SmSerde *ser, SmExprIntern const *in,
                 writeBufRef(ser, strin, expr->tag.name);
                 break;
             default:
-                smUnreachable();
+                SM_UNREACHABLE();
             }
         }
     }
