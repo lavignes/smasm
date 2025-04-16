@@ -1358,14 +1358,31 @@ static void eatDirective() {
                     }
                     --depth;
                     break;
+                case SM_TOK_ELSE:
+                    if (depth == 0) {
+                        eat();
+                        goto ifdone;
+                    }
+                    break;
                 default:
                     break;
                 }
                 eat();
             }
+        } else {
+            // TODO need to handle ELSE case.
+            // probably need to change the way we handle the if_level stack
+            // because we need to keep track of whether we need to skip
+            // the ELSE part or not.
         }
     ifdone:
         ++if_level;
+        return;
+    case SM_TOK_ELSE:
+        if (if_level == 0) {
+            fatal("unexpected @ELSE\n");
+        }
+        eat();
         return;
     case SM_TOK_END:
         if (if_level == 0) {
