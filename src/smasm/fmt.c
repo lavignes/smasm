@@ -3,6 +3,7 @@
 #include "state.h"
 
 #include <smasm/fatal.h>
+#include <smasm/utf8.h>
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -241,8 +242,10 @@ void fmtInvoke(U32 tok) {
             eat();
             switch (c) {
             case 'c': {
-                U8 c = exprEatSolvedU8();
-                smGBufCat(&buf, (SmBuf){&c, 1});
+                U32 c = exprEatSolvedPos(&expr_pos);
+                U8 tmp[4];
+                UInt len = smUtf8Encode(SM_BUF(tmp), c);
+                smGBufCat(&buf, (SmBuf){tmp,len});
                 break;
             }
             case 'b':
