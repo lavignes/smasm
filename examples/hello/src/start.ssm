@@ -8,6 +8,12 @@ stackBase:
 
 @section "BANK0"
 
+@struct FOO
+    .TEST 1
+@end
+
+FOO: @create FOO
+
 Start::
     di
     ld sp, stackBase

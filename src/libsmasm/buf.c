@@ -10,6 +10,9 @@ Bool smBufEqual(SmBuf lhs, SmBuf rhs) {
     if (lhs.len != rhs.len) {
         return false;
     }
+    if (lhs.bytes == rhs.bytes) {
+        return true;
+    }
     return memcmp(lhs.bytes, rhs.bytes, lhs.len) == 0;
 }
 
@@ -17,12 +20,25 @@ Bool smBufEqualIgnoreAsciiCase(SmBuf lhs, SmBuf rhs) {
     if (lhs.len != rhs.len) {
         return false;
     }
+    if (lhs.bytes == rhs.bytes) {
+        return true;
+    }
     for (UInt i = 0; i < lhs.len; ++i) {
         if (tolower(lhs.bytes[i]) != tolower(rhs.bytes[i])) {
             return false;
         }
     }
     return true;
+}
+
+Bool smBufStartsWith(SmBuf buf, SmBuf prefix) {
+    if (buf.len < prefix.len) {
+        return false;
+    }
+    if (buf.bytes == prefix.bytes) {
+        return true;
+    }
+    return memcmp(buf.bytes, prefix.bytes, prefix.len) == 0;
 }
 
 UInt smBufHash(SmBuf buf) {

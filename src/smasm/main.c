@@ -3,6 +3,7 @@
 #include "macro.h"
 #include "mne.h"
 #include "state.h"
+#include "struct.h"
 
 #include <smasm/fatal.h>
 #include <smasm/serde.h>
@@ -1227,6 +1228,62 @@ static SmBuf findInclude(SmBuf path) {
     fatal("could not find include file: %.*s\n", (int)path.len, path.bytes);
 }
 
+static SmExprBuf addrExprBuf(SmBuf section, U16 offset) {
+    return smExprIntern(
+        &EXPRS,
+        (SmExprBuf){&(SmExpr){.kind = SM_EXPR_ADDR, .addr = {section, offset}},
+                    1});
+}
+
+static SmExprBuf constExprBuf(I32 num) {
+    return smExprIntern(
+        &EXPRS, (SmExprBuf){&(SmExpr){.kind = SM_EXPR_CONST, .num = num}, 1});
+}
+
+static void eatIfDirective() {
+    SmPos pos;
+    I32   num;
+    eat();
+    num = exprEatSolvedPos(&pos);
+    if (num == 0) {
+        UInt depth = 0;
+        while (true) {
+            switch (peek()) {
+            case SM_TOK_IF:
+            case SM_TOK_MACRO:
+            case SM_TOK_REPEAT:
+            case SM_TOK_STRUCT:
+                ++depth;
+                break;
+            case SM_TOK_END:
+                if (depth == 0) {
+                    eat();
+                    goto ifdone;
+                }
+                --depth;
+                break;
+            case SM_TOK_ELSE:
+                if (depth == 0) {
+                    eat();
+                    goto ifdone;
+                }
+                break;
+            default:
+                break;
+            }
+            eat();
+        }
+    } else {
+        // TODO need to handle ELSE case.
+        // probably need to change the way we handle the if_level stack
+        // because we need to keep track of whether we need to skip
+        // the ELSE part or not.
+        // TODO NAH. Make IF-ELSE a tok stream.
+    }
+ifdone:
+    ++if_level;
+}
+
 static void eatDirective() {
     SmPos     pos;
     SmExprBuf buf;
@@ -1319,6 +1376,7 @@ static void eatDirective() {
         expectEOL();
         eat();
         pushFile(path);
+        smPathSetAdd(&INCS, path);
         return;
     }
     case SM_TOK_INCBIN: {
@@ -1327,6 +1385,7 @@ static void eatDirective() {
         eat();
         expect(SM_TOK_STR);
         SmBuf path = findInclude(tokBuf());
+        eat();
         expectEOL();
         eat();
         FILE   *hnd = openFile(path, "rb");
@@ -1336,47 +1395,11 @@ static void eatDirective() {
             emitBuf(buf.inner);
         }
         addPC(buf.inner.len);
+        smPathSetAdd(&INCS, path);
         return;
     }
     case SM_TOK_IF:
-        eat();
-        num = exprEatSolvedPos(&pos);
-        if (num == 0) {
-            UInt depth = 0;
-            while (true) {
-                switch (peek()) {
-                case SM_TOK_IF:
-                case SM_TOK_MACRO:
-                case SM_TOK_REPEAT:
-                case SM_TOK_STRUCT:
-                    ++depth;
-                    break;
-                case SM_TOK_END:
-                    if (depth == 0) {
-                        eat();
-                        goto ifdone;
-                    }
-                    --depth;
-                    break;
-                case SM_TOK_ELSE:
-                    if (depth == 0) {
-                        eat();
-                        goto ifdone;
-                    }
-                    break;
-                default:
-                    break;
-                }
-                eat();
-            }
-        } else {
-            // TODO need to handle ELSE case.
-            // probably need to change the way we handle the if_level stack
-            // because we need to keep track of whether we need to skip
-            // the ELSE part or not.
-        }
-    ifdone:
-        ++if_level;
+        eatIfDirective();
         return;
     case SM_TOK_ELSE:
         if (if_level == 0) {
@@ -1567,6 +1590,127 @@ static void eatDirective() {
                               num);
         return;
     }
+    case SM_TOK_STRUCT: {
+        SmPos start = tokPos();
+        eat();
+        expect(SM_TOK_ID);
+        SmLbl lbl = tokLbl();
+        if (!smLblIsGlobal(lbl)) {
+            fatal("structure name must be global\n");
+        }
+        // TODO check if this struct is already defined
+        eat();
+        UInt      size   = 0;
+        SmBufGBuf fields = {0};
+        while (true) {
+            switch (peek()) {
+            case '\n':
+                eat();
+                continue;
+            case SM_TOK_END:
+                eat();
+                goto structdone;
+            case SM_TOK_IF:
+                // TODO: IF-ELSE directives be generic token streams.
+                eatIfDirective();
+                continue;
+            default:
+                break;
+            }
+            expect(SM_TOK_ID);
+            if (!smBufStartsWith(tokBuf(), SM_BUF("."))) {
+                fatal("structure field name must be local\n");
+            }
+            SmLbl fieldlbl = tokLbl();
+            if (smBufEqual(fieldlbl.name, SM_BUF("SIZE"))) {
+                fatal("structure field name cannot be `.SIZE`\n");
+            }
+            pos = tokPos();
+            eat();
+            fieldlbl.scope = lbl.name;
+            num            = exprEatSolvedU16();
+            if (!emit) {
+                // TODO should probably check for redefinition with different
+                // values
+                smBufGBufAdd(&fields, fieldlbl.name);
+                smSymTabAdd(&SYMS, (SmSym){.lbl     = fieldlbl,
+                                           .value   = constExprBuf(size),
+                                           .unit    = STATIC_UNIT,
+                                           .section = DEFINES_SECTION,
+                                           .pos     = pos,
+                                           .flags   = SM_SYM_EQU});
+            }
+            size += num;
+            expectEOL();
+            eat();
+        }
+    structdone:
+        if (!emit) {
+            SmLbl sizelbl = lblAbs(lbl.name, intern(SM_BUF("SIZE")));
+            structAdd(lbl.name, pos, fields);
+            smSymTabAdd(&SYMS, (SmSym){.lbl     = sizelbl,
+                                       .value   = constExprBuf(size),
+                                       .unit    = STATIC_UNIT,
+                                       .section = DEFINES_SECTION,
+                                       .pos     = start,
+                                       .flags   = SM_SYM_EQU});
+        }
+        expectEOL();
+        eat();
+        return;
+    }
+    case SM_TOK_CREATE: {
+        pos = tokPos();
+        eat();
+        if (smBufEqual(scope, SM_BUF_NULL)) {
+            fatal("@CREATE must be used under a global label\n");
+        }
+        SmSym *scopesym = smSymTabFind(&SYMS, lblGlobal(scope));
+        assert(scopesym);
+        assert(scopesym->value.len == 1);
+        SmExpr *scopeexpr = scopesym->value.items;
+        assert(scopeexpr->kind == SM_EXPR_ADDR);
+        I32 base = scopeexpr->addr.pc;
+        expect(SM_TOK_ID);
+        SmBuf   name  = intern(tokBuf());
+        Struct *strct = structFind(name);
+        if (!strct) {
+            fatal("structure %.*s not found\n", (int)name.len, name.bytes);
+        }
+        eat();
+        if (!emit) {
+            for (UInt i = 0; i < strct->fields.inner.len; ++i) {
+                SmBuf  field = strct->fields.inner.items[i];
+                SmLbl  lbl   = lblAbs(name, field);
+                SmSym *sym   = smSymTabFind(&SYMS, lbl);
+                assert(sym);
+                assert(exprSolve(sym->value, &num));
+                smSymTabAdd(&SYMS, (SmSym){.lbl   = lblAbs(scope, field),
+                                           .value = addrExprBuf(
+                                               scopesym->section, base + num),
+                                           .unit    = scopesym->unit,
+                                           .section = scopesym->section,
+                                           .pos     = pos,
+                                           .flags   = 0});
+            }
+        }
+        if (!emit) {
+            SmBuf  size = intern(SM_BUF("SIZE"));
+            SmLbl  lbl  = lblAbs(name, size);
+            SmSym *sym  = smSymTabFind(&SYMS, lbl);
+            assert(sym);
+            assert(exprSolve(sym->value, &num));
+            smSymTabAdd(&SYMS, (SmSym){.lbl     = lblAbs(scope, size),
+                                       .value   = sym->value,
+                                       .unit    = scopesym->unit,
+                                       .section = scopesym->section,
+                                       .pos     = pos,
+                                       .flags   = SM_SYM_EQU});
+        }
+        expectEOL();
+        eat();
+        return;
+    }
     case SM_TOK_FATAL:
         eat();
         expect(SM_TOK_STR);
@@ -1586,18 +1730,6 @@ static void eatDirective() {
         fatal("unexpected: %.*s\n", (int)name.len, name.bytes);
     }
     }
-}
-
-static SmExprBuf addrExprBuf(SmBuf section, U16 offset) {
-    return smExprIntern(
-        &EXPRS,
-        (SmExprBuf){&(SmExpr){.kind = SM_EXPR_ADDR, .addr = {section, offset}},
-                    1});
-}
-
-static SmExprBuf constExprBuf(I32 num) {
-    return smExprIntern(
-        &EXPRS, (SmExprBuf){&(SmExpr){.kind = SM_EXPR_CONST, .num = num}, 1});
 }
 
 static void pass() {
@@ -1716,7 +1848,7 @@ static void writeDepend() {
     for (UInt i = 0; i < INCS.bufs.inner.len; ++i) {
         smSerializeBuf(&ser, SM_BUF("  "));
         smSerializeBuf(&ser, INCS.bufs.inner.items[i]);
-        smSerializeBuf(&ser, SM_BUF("\\\n"));
+        smSerializeBuf(&ser, SM_BUF(" \\\n"));
     }
     closeFile(hnd);
 }

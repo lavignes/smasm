@@ -35,18 +35,21 @@ In order, they are:
 
 The string table is a contiguous block of memory that contains all the strings
 used in the object file. Later parts of the file will refer to strings in the
-string table by a 32-bit offset from the start of the string table and a 32-bit
+string table by a 32-bit offset from the start of the string table and a 16-bit
 length in bytes:
+
+The beginning of the string table is a 32-bit number representing the size of
+the string table in bytes. Following that is the contiguous string data itself.
 
 #### String Reference
 
 | Size | Description                        |
 |------|------------------------------------|
 | 4    | Offset from the start of the table |
-| 4    | Length of the string in bytes      |
+| 2    | Length of the string in bytes      |
 
-The beginning of the string table is a 32-bit number representing the size of
-the string table in bytes. Following that is the contiguous string data itself.
+As mentioned above. Strings in the string table are referred to by a 32-bit
+offset from the start of the string table and a 16-bit length in bytes.
 
 ### Expression Table
 
@@ -58,18 +61,22 @@ the string table in bytes. Following that is the contiguous string data itself.
 The expression table is a contiguous block of memory that contains all the
 expressions used in the object file. Later parts of the file will refer to
 expressions in the expression table by a 32-bit offset from the start of the
-expression table and a 32-bit length in "nodes":
+expression table and a 16-bit length in "nodes":
+
+The beginning of the expression table is a 32-bit number representing the size
+of the expression table as a count of expression nodes. Following that is the
+contiguous list of expression nodes themselves.
 
 #### Expression Reference
 
 | Size | Description                         |
 |------|-------------------------------------|
 | 4    | Offset from the start of the table  |
-| 4    | Length of the expression in "nodes" |
+| 2    | Length of the expression in "nodes" |
 
-The beginning of the expression table is a 32-bit number representing the size
-of the expression table as a count of expression nodes. Following that is the
-contiguous list of expression nodes themselves.
+As mentioned above. Expressions in the expression table are referred to by a
+32-bit offset from the start of the expression table and a 16-bit length in
+"nodes".
 
 #### Expression Nodes
 
@@ -102,15 +109,15 @@ expression. It is a 32-bit signed integer value.
 | Size | Description                     |
 |------|---------------------------------|
 | 1    | Kind ($01)                      |
-| 8    | Section name (String reference) |
-| 4    | Offset                          |
+| 6    | Section name (String reference) |
+| 2    | Offset                          |
 
 The address expression node is used to represent an address in the expression.
 It is made up of 2 parts:
 
 * A string reference to a section name. (A reference in the string table, 
-which is a 32-bit offset from the start of the string table and a 32-bit length)
-* A 32-bit unsigned integer offset from the start of that section.
+which is a 32-bit offset from the start of the string table and a 16-bit length)
+* A 16-bit unsigned integer offset from the start of that section.
 
 ##### Operator Expression Node
 
@@ -149,14 +156,14 @@ public use area to define additional multi-byte operators:
 |------|-------------------------------|
 | 1    | Kind ($03)                    |
 | 1    | Global (0)                    |
-| 8    | Scope name (String reference) |
-| 8    | Label name (String reference) |
+| 6    | Scope name (String reference) |
+| 6    | Label name (String reference) |
 
 | Size | Description                   |
 |------|-------------------------------|
 | 1    | Kind ($03)                    |
 | 1    | Local (1)                     |
-| 8    | Label name (String reference) |
+| 6    | Label name (String reference) |
 
 The label expression node is used to represent a label in the expression.
 
@@ -166,16 +173,16 @@ The label expression node is used to represent a label in the expression.
 |------|-------------------------------|
 | 1    | Kind ($04)                    |
 | 1    | Global (0)                    |
-| 8    | Scope name (String reference) |
-| 8    | Label name (String reference) |
-| 8    | Tag name (String reference)   |
+| 6    | Scope name (String reference) |
+| 6    | Label name (String reference) |
+| 6    | Tag name (String reference)   |
 
 | Size | Description                   |
 |------|-------------------------------|
 | 1    | Kind ($04)                    |
 | 1    | Local (1)                     |
-| 8    | Label name (String reference) |
-| 8    | Tag name (String reference)   |
+| 6    | Label name (String reference) |
+| 6    | Tag name (String reference)   |
 
 The tag expression node is used to represent a `@tag` directive in the
 expression.
@@ -205,11 +212,11 @@ of symbol nodes themselves.
 | Size | Description                       |
 |------|-----------------------------------|
 | 1    | Global (0)                        |
-| 8    | Scope name (String reference)     |
-| 8    | Label name (String reference)     |
-| 8    | Expression (Expression reference) |
-| 8    | Section name (String reference)   |
-| 8    | File name (String reference)      |
+| 6    | Scope name (String reference)     |
+| 6    | Label name (String reference)     |
+| 6    | Expression (Expression reference) |
+| 6    | Section name (String reference)   |
+| 6    | File name (String reference)      |
 | 4    | Line number                       |
 | 4    | Column number                     |
 | 1    | Flags                             |
@@ -217,11 +224,11 @@ of symbol nodes themselves.
 | Size | Description                              |
 |------|------------------------------------------|
 | 1    | Local (1)                                |
-| 8    | Label name (String reference)            |
-| 8    | Expression (Expression reference)        |
-| 8    | Translation unit name (String reference) |
-| 8    | Section name (String reference)          |
-| 8    | File name (String reference)             |
+| 6    | Label name (String reference)            |
+| 6    | Expression (Expression reference)        |
+| 6    | Translation unit name (String reference) |
+| 6    | Section name (String reference)          |
+| 6    | File name (String reference)             |
 | 4    | Line number                              |
 | 4    | Column number                            |
 | 1    | Flags                                    |
@@ -244,7 +251,7 @@ themselves.
 
 | Size | Description                            |
 |------|----------------------------------------|
-| 8    | Section name (String reference)        |
+| 6    | Section name (String reference)        |
 | 4    | Section data length in bytes           |
 | N    | Section data                           |
 | 4    | Number of "relocations" in the section |
@@ -254,11 +261,11 @@ themselves.
 
 | Size | Description                              |
 |------|------------------------------------------|
-| 4    | Offset from the start of the section     |
+| 2    | Offset from the start of the section     |
 | 1    | Length of the relocation in bytes        |
-| 8    | Expression (Expression reference)        |
-| 8    | Translation unit name (String reference) |
-| 8    | File name (String reference)             |
+| 6    | Expression (Expression reference)        |
+| 6    | Translation unit name (String reference) |
+| 6    | File name (String reference)             |
 | 4    | Line number                              |
 | 4    | Column number                            |
 | 1    | Flags                                    |

@@ -68,7 +68,7 @@ static UInt totalBufOffset(SmBufIntern const *in, SmBuf buf) {
 
 static void writeBufRef(SmSerde *ser, SmBufIntern const *in, SmBuf buf) {
     smSerializeU32(ser, totalBufOffset(in, buf));
-    smSerializeU32(ser, buf.len);
+    smSerializeU16(ser, buf.len);
 }
 
 static void writeLbl(SmSerde *ser, SmBufIntern const *in, SmLbl lbl) {
@@ -99,7 +99,7 @@ void smSerializeExprIntern(SmSerde *ser, SmExprIntern const *in,
                 break;
             case SM_EXPR_ADDR:
                 writeBufRef(ser, strin, expr->addr.sect);
-                smSerializeU32(ser, expr->addr.pc);
+                smSerializeU16(ser, expr->addr.pc);
                 break;
             case SM_EXPR_OP:
                 smSerializeU32(ser, expr->op.tok);
@@ -140,7 +140,7 @@ static UInt totalExprBufOffset(SmExprIntern const *in, SmExprBuf buf) {
 static void writeExprBufRef(SmSerde *ser, SmExprIntern const *in,
                             SmExprBuf buf) {
     smSerializeU32(ser, totalExprBufOffset(in, buf));
-    smSerializeU32(ser, buf.len);
+    smSerializeU16(ser, buf.len);
 }
 
 void smSerializeSymTab(SmSerde *ser, SmSymTab const *tab,
@@ -156,8 +156,8 @@ void smSerializeSymTab(SmSerde *ser, SmSymTab const *tab,
         writeBufRef(ser, strin, sym->unit);
         writeBufRef(ser, strin, sym->section);
         writeBufRef(ser, strin, sym->pos.file);
-        smSerializeU32(ser, sym->pos.line);
-        smSerializeU32(ser, sym->pos.col);
+        smSerializeU16(ser, sym->pos.line);
+        smSerializeU16(ser, sym->pos.col);
         smSerializeU8(ser, sym->flags);
     }
 }
@@ -185,13 +185,13 @@ void smSerializeSectBuf(SmSerde *ser, SmSectBuf buf, SmBufIntern const *strin,
         smSerializeU32(ser, sect->relocs.inner.len);
         for (UInt j = 0; j < sect->relocs.inner.len; ++j) {
             SmReloc *reloc = sect->relocs.inner.items + j;
-            smSerializeU32(ser, reloc->offset);
+            smSerializeU16(ser, reloc->offset);
             smSerializeU8(ser, reloc->width);
             writeExprBufRef(ser, exprin, reloc->value);
             writeBufRef(ser, strin, reloc->unit);
             writeBufRef(ser, strin, reloc->pos.file);
-            smSerializeU32(ser, reloc->pos.line);
-            smSerializeU32(ser, reloc->pos.col);
+            smSerializeU16(ser, reloc->pos.line);
+            smSerializeU16(ser, reloc->pos.col);
             smSerializeU8(ser, reloc->flags);
         }
     }
@@ -277,7 +277,7 @@ SmBufIntern smDeserializeBufIntern(SmSerde *ser) {
 
 static SmBuf readBufRef(SmSerde *ser, SmBufIntern const *in) {
     UInt offset = smDeserializeU32(ser);
-    UInt len    = smDeserializeU32(ser);
+    UInt len    = smDeserializeU16(ser);
     return (SmBuf){in->bufs[0].inner.bytes + offset, len};
 }
 
@@ -304,7 +304,7 @@ SmExprIntern smDeserializeExprIntern(SmSerde *ser, SmBufIntern const *strin) {
             break;
         case SM_EXPR_ADDR:
             expr.addr.sect = readBufRef(ser, strin);
-            expr.addr.pc   = smDeserializeU32(ser);
+            expr.addr.pc   = smDeserializeU16(ser);
             break;
         case SM_EXPR_OP:
             expr.op.tok   = smDeserializeU32(ser);
@@ -330,7 +330,7 @@ SmExprIntern smDeserializeExprIntern(SmSerde *ser, SmBufIntern const *strin) {
 
 static SmExprBuf readExprBufRef(SmSerde *ser, SmExprIntern const *in) {
     UInt offset = smDeserializeU32(ser);
-    UInt len    = smDeserializeU32(ser);
+    UInt len    = smDeserializeU16(ser);
     return (SmExprBuf){in->bufs[0].inner.items + offset, len};
 }
 
@@ -345,8 +345,8 @@ SmSymTab smDeserializeSymTab(SmSerde *ser, SmBufIntern const *strin,
         sym.unit     = readBufRef(ser, strin);
         sym.section  = readBufRef(ser, strin);
         sym.pos.file = readBufRef(ser, strin);
-        sym.pos.line = smDeserializeU32(ser);
-        sym.pos.col  = smDeserializeU32(ser);
+        sym.pos.line = smDeserializeU16(ser);
+        sym.pos.col  = smDeserializeU16(ser);
         sym.flags    = smDeserializeU8(ser);
         smSymTabAdd(&tab, sym);
     }
@@ -371,13 +371,13 @@ SmSectBuf smDeserializeSectBuf(SmSerde *ser, SmBufIntern const *strin,
         len = smDeserializeU32(ser);
         for (UInt j = 0; j < len; ++j) {
             SmReloc reloc  = {0};
-            reloc.offset   = smDeserializeU32(ser);
+            reloc.offset   = smDeserializeU16(ser);
             reloc.width    = smDeserializeU8(ser);
             reloc.value    = readExprBufRef(ser, exprin);
             reloc.unit     = readBufRef(ser, strin);
             reloc.pos.file = readBufRef(ser, strin);
-            reloc.pos.line = smDeserializeU32(ser);
-            reloc.pos.col  = smDeserializeU32(ser);
+            reloc.pos.line = smDeserializeU16(ser);
+            reloc.pos.col  = smDeserializeU16(ser);
             reloc.flags    = smDeserializeU8(ser);
             smRelocGBufAdd(&sect.relocs, reloc);
         }
