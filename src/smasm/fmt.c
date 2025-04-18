@@ -243,9 +243,7 @@ void fmtInvoke(U32 tok) {
             switch (c) {
             case 'c': {
                 U32 c = exprEatSolvedPos(&expr_pos);
-                U8 tmp[4];
-                UInt len = smUtf8Encode(SM_BUF(tmp), c);
-                smGBufCat(&buf, (SmBuf){tmp,len});
+                smUtf8Cat(&buf, c);
                 break;
             }
             case 'b':
