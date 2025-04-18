@@ -55,20 +55,20 @@ offset from the start of the string table and a 16-bit length in bytes.
 
 Many other parts of the object file refer to labels by name. A label name
 comes in 2 flavors:
-* Global labels, which start with a zero (0) byte followed by the scope name and
+* Local labels, which start with a zero (0) byte followed by the scope name and
 label name as string references.
-* Local labels, which start with a one (1) byte followed by the label name as a
+* Global labels, which start with a one (1) byte followed by the label name as a
 string reference.
 
 | Size | Description                   |
 |------|-------------------------------|
-| 1    | Global (0)                    |
+| 1    | Local (0)                     |
 | 6    | Scope name (String reference) |
 | 6    | Label name (String reference) |
 
 | Size | Description                   |
 |------|-------------------------------|
-| 1    | Local (1)                     |
+| 1    | Global (1)                    |
 | 6    | Label name (String reference) |
 
 ### Expression Table
