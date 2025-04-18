@@ -3,8 +3,10 @@
 
 #include <stdarg.h>
 
+#define SM_FORMAT(n)
 #ifdef __has_attribute
 #if __has_attribute(format)
+#undef SM_FORMAT
 #define SM_FORMAT(n) __attribute__((format(printf, (n), (n + 1))))
 #endif
 #endif

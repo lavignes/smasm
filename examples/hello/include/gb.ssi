@@ -5,4 +5,7 @@ GB_SSI = 1
 GB_SCY = $FF42
 GB_SCX = $FF43
 
+GB_STAT = $FF41
+GB_STAT_MASK_PPU_MODE = %11
+
 @end

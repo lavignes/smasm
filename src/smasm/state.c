@@ -20,7 +20,7 @@ SmBuf CODE_SECTION;
 SmBuf STATIC_UNIT;
 SmBuf EXPORT_UNIT;
 
-SmBuf scope    = SM_BUF_NULL;
+SmBuf scope    = {0};
 UInt  if_level = 0;
 UInt  nonce    = 0;
 Bool  emit     = false;
