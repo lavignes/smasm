@@ -51,6 +51,26 @@ the string table in bytes. Following that is the contiguous string data itself.
 As mentioned above. Strings in the string table are referred to by a 32-bit
 offset from the start of the string table and a 16-bit length in bytes.
 
+#### Labels
+
+Many other parts of the object file refer to labels by name. A label name
+comes in 2 flavors:
+* Global labels, which start with a zero (0) byte followed by the scope name and
+label name as string references.
+* Local labels, which start with a one (1) byte followed by the label name as a
+string reference.
+
+| Size | Description                   |
+|------|-------------------------------|
+| 1    | Global (0)                    |
+| 6    | Scope name (String reference) |
+| 6    | Label name (String reference) |
+
+| Size | Description                   |
+|------|-------------------------------|
+| 1    | Local (1)                     |
+| 6    | Label name (String reference) |
+
 ### Expression Table
 
 | Size | Description                             |
@@ -155,15 +175,7 @@ public use area to define additional multi-byte operators:
 | Size | Description                   |
 |------|-------------------------------|
 | 1    | Kind ($03)                    |
-| 1    | Global (0)                    |
-| 6    | Scope name (String reference) |
-| 6    | Label name (String reference) |
-
-| Size | Description                   |
-|------|-------------------------------|
-| 1    | Kind ($03)                    |
-| 1    | Local (1)                     |
-| 6    | Label name (String reference) |
+| ???  | Label (See above)             |
 
 The label expression node is used to represent a label in the expression.
 
@@ -172,16 +184,7 @@ The label expression node is used to represent a label in the expression.
 | Size | Description                   |
 |------|-------------------------------|
 | 1    | Kind ($04)                    |
-| 1    | Global (0)                    |
-| 6    | Scope name (String reference) |
-| 6    | Label name (String reference) |
-| 6    | Tag name (String reference)   |
-
-| Size | Description                   |
-|------|-------------------------------|
-| 1    | Kind ($04)                    |
-| 1    | Local (1)                     |
-| 6    | Label name (String reference) |
+| ???  | Label (See above)             |
 | 6    | Tag name (String reference)   |
 
 The tag expression node is used to represent a `@tag` directive in the
@@ -211,27 +214,13 @@ of symbol nodes themselves.
 
 | Size | Description                       |
 |------|-----------------------------------|
-| 1    | Global (0)                        |
-| 6    | Scope name (String reference)     |
-| 6    | Label name (String reference)     |
+| ???  | Label (See above)                 |
 | 6    | Expression (Expression reference) |
 | 6    | Section name (String reference)   |
 | 6    | File name (String reference)      |
 | 2    | Line number                       |
 | 2    | Column number                     |
 | 1    | Flags                             |
-
-| Size | Description                              |
-|------|------------------------------------------|
-| 1    | Local (1)                                |
-| 6    | Label name (String reference)            |
-| 6    | Expression (Expression reference)        |
-| 6    | Translation unit name (String reference) |
-| 6    | Section name (String reference)          |
-| 6    | File name (String reference)             |
-| 2    | Line number                              |
-| 2    | Column number                            |
-| 1    | Flags                                    |
 
 ### Section Table
 
