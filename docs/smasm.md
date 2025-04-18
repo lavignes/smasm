@@ -42,9 +42,10 @@ prefix (e.g. `$dadcafe`).
 (modulus or percent-sign) prefix (e.g. `%01101001`).
   * All numbers can contain `_` (underscores) for better readability
 (e.g. `%0001_1001_0101_1111`).
-  * Single ASCII characters can be used to represent numbers as well. Enclose
+  * Single characters can be used to represent numbers as well. Enclose
 any character or single character escape sequence in `'` (single-quotes)
-and it will be treated by the assembler as an 8-bit number (e.g. `'Q'`).
+and it will be treated by the assembler as an 32-bit unicode codepoint
+(e.g. `'Q'`).
 * Directives: Any identifier that starts with `@` (asperand or at-sign).
 Directives are generally reserved for use by the assembler:
   * `@include`
@@ -364,6 +365,7 @@ some modifications:
 These are extraneous as all arguments are 32-bit integers or strings.
 * The `%s` (string) conversion accepts both strings and identifiers.
 * No `%o` octal (base-8) conversion. _This is a hill the author will die on._
+* The `%c` (character) conversion accepts any 32-bit unicode codepoint.
 * No floating-point conversion (e.g. `%f`, `%g`, `%e`). No floats to print.
 * No string length output conversion (`%n`). It could be done, but seems
 esoteric.
