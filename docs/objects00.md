@@ -217,8 +217,8 @@ of symbol nodes themselves.
 | 6    | Expression (Expression reference) |
 | 6    | Section name (String reference)   |
 | 6    | File name (String reference)      |
-| 4    | Line number                       |
-| 4    | Column number                     |
+| 2    | Line number                       |
+| 2    | Column number                     |
 | 1    | Flags                             |
 
 | Size | Description                              |
@@ -229,8 +229,8 @@ of symbol nodes themselves.
 | 6    | Translation unit name (String reference) |
 | 6    | Section name (String reference)          |
 | 6    | File name (String reference)             |
-| 4    | Line number                              |
-| 4    | Column number                            |
+| 2    | Line number                              |
+| 2    | Column number                            |
 | 1    | Flags                                    |
 
 ### Section Table
@@ -251,7 +251,7 @@ themselves.
 
 | Size | Description                            |
 |------|----------------------------------------|
-| 6    | Section name (String reference)        |
+| 4    | Section name (String reference)        |
 | 4    | Section data length in bytes           |
 | N    | Section data                           |
 | 4    | Number of "relocations" in the section |
@@ -266,7 +266,7 @@ themselves.
 | 6    | Expression (Expression reference)        |
 | 6    | Translation unit name (String reference) |
 | 6    | File name (String reference)             |
-| 4    | Line number                              |
-| 4    | Column number                            |
+| 2    | Line number                              |
+| 2    | Column number                            |
 | 1    | Flags                                    |
 
