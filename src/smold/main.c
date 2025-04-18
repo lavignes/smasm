@@ -21,13 +21,12 @@ static void help() {
         "  [OBJECTS]...  Object files\n"
         "\n"
         "Options:\n"
-        "  -c, --config <CONFIG>          Config file\n"
-        "  -o, --output <OUTPUT>          Output file (default: stdout)\n"
-        "  -g, --debug <DEBUG>            Output file for `SYM` debug symbols\n"
-        "      --tags <TAGS>              Output file for ctags\n"
-        "  -D, --define <KEY1=val>        Pre-defined symbols (repeatable)\n"
-        "      --ignore-missing-sections  Ignore missing sections\n"
-        "  -h, --help                     Print help\n");
+        "  -c, --config <CONFIG>        Config file\n"
+        "  -o, --output <OUTPUT>        Output file (default: stdout)\n"
+        "  -g, --debug <DEBUG>          Output file for `SYM` debug symbols\n"
+        "      --tags <TAGS>            Output file for ctags\n"
+        "  -D, --define <KEY1=val>      Pre-defined symbols (repeatable)\n"
+        "  -h, --help                   Print help\n");
 }
 
 static FILE     *openFileCstr(char const *path, char const *modes);
