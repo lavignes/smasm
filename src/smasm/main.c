@@ -387,6 +387,7 @@ static void aluReg8(U8 base, U8 imm) {
             reloc(1, 1, buf, pos, 0);
         }
     }
+    addPC(2);
 }
 
 static void doAluReg8Cb(U8 base) {
