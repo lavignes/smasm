@@ -1222,7 +1222,14 @@ static void writeSyms() {
         if (tag) {
             bank = tag->num;
         }
-        if (fprintf(hnd, "%02X:%04X %.*s\n", bank, sym->value.items[0].num,
+        if (bank <= 0xFF) {
+            if (fprintf(hnd, "%02X:%04X %.*s\n", bank, sym->value.items[0].num,
+                        (int)name.len, name.bytes) < 0) {
+                smFatal("%s: failed to write file: %s\n", symfile_name,
+                        strerror(errno));
+            }
+        }
+        if (fprintf(hnd, "%X:%04X %.*s\n", bank, sym->value.items[0].num,
                     (int)name.len, name.bytes) < 0) {
             smFatal("%s: failed to write file: %s\n", symfile_name,
                     strerror(errno));
