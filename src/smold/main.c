@@ -269,7 +269,6 @@ static void loadObj(SmBuf path) {
     if (magic != *(U32 *)"SM00") {
         objFatal(path, "bad magic: $%04x\n", magic);
     }
-    // TODO free mem
     SmBufIntern  tmpstrs  = smDeserializeBufIntern(&ser);
     SmExprIntern tmpexprs = smDeserializeExprIntern(&ser, &tmpstrs);
     // Fixup addresses to be absolute

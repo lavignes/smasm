@@ -47,7 +47,7 @@ syn match smasmComment ";.*" contains=smasmTodo
 syn match smasmDocComment ";;.*" contains=smasmTodo
 syn keyword smasmTodo contained todo fixme xxx warning danger note notice bug
 syn match smasmEscape contained "\\."
-syn match smasmFmt contained "%[\-+ #0]*\*\?\(\.\(\*\|[0-9]\+\)\?\)\?[%cbdiuXxs]"
+syn match smasmFmt contained "%[\-+ #0]*\*\?\.\?\(\*\|[0-9]\+\)\?[%cbdiuXxs]"
 syn region smasmString start=+"+ end=+"+ contains=smasmEscape,smasmFmt
 syn region smasmChar start=+'+ end=+'+ contains=smasmEscape
 
