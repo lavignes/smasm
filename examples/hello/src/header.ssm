@@ -27,10 +27,10 @@ Header:
 
     TITLE "HELLO"
     @db "SMSM"
-    @db $00     ; GB ROM
+    @db $00     ; GB Only ROM
     @dw $0000   ; No Manufacturer
     @db $00     ; No SGB
-    @db $00     ; ROM Only
+    @db $00     ; MBC Type: ROM Only
     @db $00     ; 32 KiB ROM
     @db $00     ; 0 KiB SRAM
-    @db $00     ; Not Japan
+    @db $01     ; Not Japan
