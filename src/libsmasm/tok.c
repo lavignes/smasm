@@ -155,8 +155,8 @@ _Noreturn void smTokStreamFatalV(SmTokStream *ts, char const *fmt,
     case SM_TOK_STREAM_REPEAT:
         smTokStreamFatalPosV(ts, ts->repeat.buf.inner.items[ts->repeat.pos].pos,
                              fmt, args);
-    case SM_TOK_STREAM_NESTED:
-        smTokStreamFatalPosV(ts, ts->nested.buf.inner.items[ts->nested.pos].pos,
+    case SM_TOK_STREAM_IFELSE:
+        smTokStreamFatalPosV(ts, ts->ifelse.buf.inner.items[ts->ifelse.pos].pos,
                              fmt, args);
     default:
         SM_UNREACHABLE();
@@ -169,7 +169,7 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
     case SM_TOK_STREAM_FMT:
-    case SM_TOK_STREAM_NESTED:
+    case SM_TOK_STREAM_IFELSE:
         fprintf(stderr, "%.*s:%zu:%zu: ", (int)pos.file.len, pos.file.bytes,
                 pos.line, pos.col);
         break;
@@ -235,11 +235,11 @@ void smTokStreamFmtInit(SmTokStream *ts, SmPos pos, SmBuf buf, U32 tok) {
     ts->fmt.tok = tok;
 }
 
-void smTokStreamNestedInit(SmTokStream *ts, SmPos pos, SmPosTokGBuf buf) {
+void smTokStreamIfElseInit(SmTokStream *ts, SmPos pos, SmPosTokGBuf buf) {
     memset(ts, 0, sizeof(SmTokStream));
-    ts->kind       = SM_TOK_STREAM_NESTED;
+    ts->kind       = SM_TOK_STREAM_IFELSE;
     ts->pos        = pos;
-    ts->nested.buf = buf;
+    ts->ifelse.buf = buf;
 }
 
 void smTokStreamFini(SmTokStream *ts) {
@@ -251,6 +251,7 @@ void smTokStreamFini(SmTokStream *ts) {
                     ts->pos.file.bytes, ts->pos.line, ts->pos.col);
             smFatal("failed to close file: %s\n", strerror(err));
         }
+        smGBufFini(&ts->file.buf);
         return;
     case SM_TOK_STREAM_MACRO:
         smMacroArgQueueFini(&ts->macro.args);
@@ -260,8 +261,8 @@ void smTokStreamFini(SmTokStream *ts) {
         return;
     case SM_TOK_STREAM_FMT:
         return;
-    case SM_TOK_STREAM_NESTED:
-        smPosTokGBufFini(&ts->nested.buf);
+    case SM_TOK_STREAM_IFELSE:
+        smPosTokGBufFini(&ts->ifelse.buf);
         return;
     default:
         SM_UNREACHABLE();
@@ -692,10 +693,10 @@ static U32 peekMacro(SmTokStream *ts) {
     case SM_MACRO_TOK_STR:
         return SM_TOK_STR;
     case SM_MACRO_TOK_ARG:
-        if (tok->arg >= ts->macro.args.len) {
+        if (((UInt)tok->num) >= ts->macro.args.len) {
             smTokStreamFatalPos(ts, tok->pos, "argument is undefined\n");
         }
-        tok = ts->macro.args.buf[tok->arg].items + ts->macro.argi;
+        tok = ts->macro.args.buf[tok->num].items + ts->macro.argi;
         switch (tok->kind) {
         case SM_MACRO_TOK_TOK:
             return tok->tok;
@@ -741,11 +742,11 @@ static U32 peekRepeat(SmTokStream *ts) {
     }
 }
 
-static U32 peekNested(SmTokStream *ts) {
-    if (ts->nested.pos >= ts->nested.buf.inner.len) {
+static U32 peekIfElse(SmTokStream *ts) {
+    if (ts->ifelse.pos >= ts->ifelse.buf.inner.len) {
         return SM_TOK_EOF;
     }
-    return ts->nested.buf.inner.items[ts->nested.pos].tok;
+    return ts->ifelse.buf.inner.items[ts->ifelse.pos].tok;
 }
 
 U32 smTokStreamPeek(SmTokStream *ts) {
@@ -758,8 +759,8 @@ U32 smTokStreamPeek(SmTokStream *ts) {
         return peekRepeat(ts);
     case SM_TOK_STREAM_FMT:
         return ts->fmt.tok;
-    case SM_TOK_STREAM_NESTED:
-        return peekNested(ts);
+    case SM_TOK_STREAM_IFELSE:
+        return peekIfElse(ts);
     default:
         SM_UNREACHABLE();
     }
@@ -800,8 +801,8 @@ void smTokStreamEat(SmTokStream *ts) {
     case SM_TOK_STREAM_FMT:
         ts->fmt.tok = SM_TOK_EOF;
         return;
-    case SM_TOK_STREAM_NESTED:
-        ++ts->nested.pos;
+    case SM_TOK_STREAM_IFELSE:
+        ++ts->ifelse.pos;
         return;
     default:
         SM_UNREACHABLE();
@@ -836,7 +837,7 @@ SmBuf smTokStreamBuf(SmTokStream *ts) {
         case SM_MACRO_TOK_ID:
             return tok->buf;
         case SM_MACRO_TOK_ARG:
-            tok = ts->macro.args.buf[tok->arg].items + ts->macro.argi;
+            tok = ts->macro.args.buf[tok->num].items + ts->macro.argi;
             switch (tok->kind) {
             case SM_MACRO_TOK_STR:
             case SM_MACRO_TOK_ID:
@@ -860,8 +861,8 @@ SmBuf smTokStreamBuf(SmTokStream *ts) {
     }
     case SM_TOK_STREAM_FMT:
         return ts->fmt.buf;
-    case SM_TOK_STREAM_NESTED:
-        return ts->nested.buf.inner.items[ts->nested.pos].buf;
+    case SM_TOK_STREAM_IFELSE:
+        return ts->ifelse.buf.inner.items[ts->ifelse.pos].buf;
     default:
         SM_UNREACHABLE();
     }
@@ -877,7 +878,7 @@ I32 smTokStreamNum(SmTokStream *ts) {
         case SM_MACRO_TOK_NUM:
             return tok->num;
         case SM_MACRO_TOK_ARG:
-            tok = ts->macro.args.buf[tok->arg].items + ts->macro.argi;
+            tok = ts->macro.args.buf[tok->num].items + ts->macro.argi;
             switch (tok->kind) {
             case SM_MACRO_TOK_NUM:
                 return tok->num;
@@ -903,8 +904,8 @@ I32 smTokStreamNum(SmTokStream *ts) {
             SM_UNREACHABLE();
         }
     }
-    case SM_TOK_STREAM_NESTED:
-        return ts->nested.buf.inner.items[ts->nested.pos].num;
+    case SM_TOK_STREAM_IFELSE:
+        return ts->ifelse.buf.inner.items[ts->ifelse.pos].num;
     case SM_TOK_STREAM_FMT:
     default:
         SM_UNREACHABLE();
@@ -922,8 +923,8 @@ SmPos smTokStreamPos(SmTokStream *ts) {
         return ts->repeat.buf.inner.items[ts->repeat.pos].pos;
     case SM_TOK_STREAM_FMT:
         return ts->pos;
-    case SM_TOK_STREAM_NESTED:
-        return ts->nested.buf.inner.items[ts->nested.pos].pos;
+    case SM_TOK_STREAM_IFELSE:
+        return ts->ifelse.buf.inner.items[ts->ifelse.pos].pos;
     default:
         SM_UNREACHABLE();
     }

@@ -90,7 +90,6 @@ struct SmMacroTok {
         U32   tok;
         SmBuf buf;
         I32   num;
-        UInt  arg;
     };
 };
 typedef struct SmMacroTok SmMacroTok;
@@ -166,8 +165,8 @@ void smRepeatTokGBufAdd(SmRepeatTokGBuf *buf, SmRepeatTok tok);
 void smRepeatTokGBufFini(SmRepeatTokGBuf *buf);
 
 struct SmPosTok {
-    SmPos pos;
     U32   tok;
+    SmPos pos;
     union {
         SmBuf buf;
         I32   num;
@@ -195,7 +194,7 @@ enum SmTokStreamKind {
     SM_TOK_STREAM_MACRO,
     SM_TOK_STREAM_REPEAT,
     SM_TOK_STREAM_FMT,
-    SM_TOK_STREAM_NESTED,
+    SM_TOK_STREAM_IFELSE,
 };
 
 struct SmTokStream {
@@ -240,7 +239,7 @@ struct SmTokStream {
         struct {
             SmPosTokGBuf buf;
             UInt         pos;
-        } nested;
+        } ifelse;
     };
 };
 typedef struct SmTokStream SmTokStream;
@@ -262,7 +261,7 @@ void smTokStreamMacroInit(SmTokStream *ts, SmBuf name, SmPos pos,
 void smTokStreamRepeatInit(SmTokStream *ts, SmPos pos, SmRepeatTokGBuf buf,
                            UInt cnt);
 void smTokStreamFmtInit(SmTokStream *ts, SmPos pos, SmBuf buf, U32 tok);
-void smTokStreamNestedInit(SmTokStream *ts, SmPos pos, SmPosTokGBuf buf);
+void smTokStreamIfElseInit(SmTokStream *ts, SmPos pos, SmPosTokGBuf buf);
 void smTokStreamFini(SmTokStream *ts);
 
 U32  smTokStreamPeek(SmTokStream *ts);

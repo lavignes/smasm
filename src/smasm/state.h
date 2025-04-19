@@ -18,10 +18,9 @@ extern SmBuf STATIC_UNIT;
 extern SmBuf EXPORT_UNIT;
 
 extern SmBuf scope;
-extern UInt  if_level;
 extern UInt  nonce;
 extern Bool  emit;
-extern Bool  macrodef;
+extern Bool  streamdef;
 
 SmLbl lblGlobal(SmBuf name);
 SmLbl lblLocal(SmBuf name);

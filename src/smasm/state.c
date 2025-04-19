@@ -19,11 +19,10 @@ SmBuf CODE_SECTION;
 SmBuf STATIC_UNIT;
 SmBuf EXPORT_UNIT;
 
-SmBuf scope    = {0};
-UInt  if_level = 0;
-UInt  nonce    = 0;
-Bool  emit     = false;
-Bool  macrodef = false;
+SmBuf scope     = {0};
+UInt  nonce     = 0;
+Bool  emit      = false;
+Bool  streamdef = false;
 
 SmLbl lblLocal(SmBuf name) { return (SmLbl){scope, name}; }
 SmLbl lblGlobal(SmBuf name) { return (SmLbl){{0}, name}; }
@@ -60,7 +59,7 @@ U32 peek() {
         return peek(); // yuck
     }
     // if we're in a macro definition, don't evaluate other meta-programming
-    if (macrodef) {
+    if (streamdef) {
         return tok;
     }
     switch (tok) {

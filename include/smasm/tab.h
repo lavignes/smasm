@@ -5,12 +5,11 @@
 // and infer them like we do for the GBuf macros
 #define SM_TAB_WHENCE_IMPL(Type, EntryType)                                    \
     static EntryType *Type##Whence(Type *tab, SmBuf name) {                    \
-        static SmBuf const NULL_BUF = {0};                                     \
-        UInt               hash     = smBufHash(name);                         \
-        UInt               i        = hash % tab->size;                        \
-        EntryType         *entry    = tab->entries + i;                        \
+        UInt       hash  = smBufHash(name);                                    \
+        UInt       i     = hash % tab->size;                                   \
+        EntryType *entry = tab->entries + i;                                   \
         while (hash != smBufHash(entry->name)) {                               \
-            if (smBufEqual(entry->name, NULL_BUF)) {                           \
+            if (smBufEqual(entry->name, SM_BUF_NULL)) {                        \
                 break;                                                         \
             }                                                                  \
             if (smBufEqual(entry->name, name)) {                               \
@@ -24,7 +23,6 @@
 
 #define SM_TAB_TRYGROW_IMPL(Type, EntryType)                                   \
     static void Type##TryGrow(Type *tab) {                                     \
-        static SmBuf const NULL_BUF = {0};                                     \
         if (!tab->entries) {                                                   \
             tab->entries = calloc(16, sizeof(EntryType));                      \
             if (!tab->entries) {                                               \
@@ -44,7 +42,7 @@
             }                                                                  \
             for (UInt i = 0; i < old_size; ++i) {                              \
                 EntryType *entry = old_entries + i;                            \
-                if (smBufEqual(entry->name, NULL_BUF)) {                       \
+                if (smBufEqual(entry->name, SM_BUF_NULL)) {                    \
                     continue;                                                  \
                 }                                                              \
                 *Type##Whence(tab, entry->name) = *entry;                      \
@@ -61,12 +59,11 @@
     return whence;
 
 #define SM_TAB_FIND_IMPL(Type, EntryType)                                      \
-    static SmBuf const NULL_BUF = {0};                                         \
     if (!tab->entries) {                                                       \
         return NULL;                                                           \
     }                                                                          \
     EntryType *whence = Type##Whence(tab, name);                               \
-    if (smBufEqual(whence->name, NULL_BUF)) {                                  \
+    if (smBufEqual(whence->name, SM_BUF_NULL)) {                               \
         return NULL;                                                           \
     }                                                                          \
     return whence;

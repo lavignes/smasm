@@ -156,11 +156,10 @@ static void rewindPass() {
     smTokStreamRewind(ts);
     sectRewind();
     macroTabFini();
-    scope    = SM_BUF_NULL;
-    if_level = 0;
-    nonce    = 0;
-    emit     = true;
-    macrodef = false;
+    scope     = SM_BUF_NULL;
+    nonce     = 0;
+    emit      = true;
+    streamdef = false;
 }
 
 static void expectEOL() {
@@ -1241,50 +1240,6 @@ static SmExprBuf constExprBuf(I32 num) {
         &EXPRS, (SmExprBuf){&(SmExpr){.kind = SM_EXPR_CONST, .num = num}, 1});
 }
 
-static void eatIfDirective() {
-    SmPos pos;
-    I32   num;
-    eat();
-    num = exprEatSolvedPos(&pos);
-    if (num == 0) {
-        UInt depth = 0;
-        while (true) {
-            switch (peek()) {
-            case SM_TOK_IF:
-            case SM_TOK_MACRO:
-            case SM_TOK_REPEAT:
-            case SM_TOK_STRUCT:
-                ++depth;
-                break;
-            case SM_TOK_END:
-                if (depth == 0) {
-                    eat();
-                    goto ifdone;
-                }
-                --depth;
-                break;
-            case SM_TOK_ELSE:
-                if (depth == 0) {
-                    eat();
-                    goto ifdone;
-                }
-                break;
-            default:
-                break;
-            }
-            eat();
-        }
-    } else {
-        // TODO need to handle ELSE case.
-        // probably need to change the way we handle the if_level stack
-        // because we need to keep track of whether we need to skip
-        // the ELSE part or not.
-        // TODO NAH. Make IF-ELSE a tok stream.
-    }
-ifdone:
-    ++if_level;
-}
-
 static void eatDirective() {
     SmPos     pos;
     SmExprBuf buf;
@@ -1399,28 +1354,80 @@ static void eatDirective() {
         smPathSetAdd(&INCS, path);
         return;
     }
-    case SM_TOK_IF:
-        eatIfDirective();
-        return;
-    case SM_TOK_ELSE:
-        if (if_level == 0) {
-            fatal("unexpected @ELSE\n");
-        }
+    case SM_TOK_IF: {
+        pos = tokPos();
         eat();
-        return;
-    case SM_TOK_END:
-        if (if_level == 0) {
-            fatal("unexpected @END\n");
+        streamdef           = true;
+        Bool         ignore = (exprEatSolvedPos(&pos) == 0);
+        UInt         depth  = 0;
+        SmPosTokGBuf buf    = {0};
+        while (true) {
+            switch (peek()) {
+            case SM_TOK_IF:
+            case SM_TOK_MACRO:
+            case SM_TOK_REPEAT:
+            case SM_TOK_STRUCT:
+                ++depth;
+                break;
+            case SM_TOK_END:
+                if (depth == 0) {
+                    eat();
+                    goto ifdone;
+                }
+                --depth;
+                break;
+            case SM_TOK_ELSE:
+                if (depth == 0) {
+                    eat();
+                    ignore = !ignore;
+                }
+                break;
+            default:
+                break;
+            }
+            switch (peek()) {
+            case SM_TOK_EOF:
+                fatal("unexpected end of file\n");
+            case SM_TOK_ID:
+            case SM_TOK_STR:
+                if (!ignore) {
+                    smPosTokGBufAdd(&buf, (SmPosTok){.tok = peek(),
+                                                     .pos = tokPos(),
+                                                     .buf = intern(tokBuf())});
+                }
+                break;
+            case SM_TOK_NUM:
+            case SM_TOK_ARG:
+                if (!ignore) {
+                    smPosTokGBufAdd(&buf, (SmPosTok){.tok = peek(),
+                                                     .pos = tokPos(),
+                                                     .num = tokNum()});
+                }
+                break;
+            default:
+                if (!ignore) {
+                    smPosTokGBufAdd(&buf,
+                                    (SmPosTok){.tok = peek(), .pos = tokPos()});
+                }
+                break;
+            }
+            eat();
         }
-        eat();
-        --if_level;
+    ifdone:
+        streamdef = false;
+        ++ts;
+        if (ts >= (STACK + STACK_SIZE)) {
+            smFatal("too many open files\n");
+        }
+        smTokStreamIfElseInit(ts, pos, buf);
         return;
+    }
     case SM_TOK_MACRO: {
         pos                       = tokPos();
         static SmMacroTokGBuf buf = {0};
         buf.inner.len             = 0;
         eat();
-        macrodef = true;
+        streamdef = true;
         expect(SM_TOK_ID);
         SmLbl lbl = tokLbl();
         if (!smLblIsGlobal(lbl)) {
@@ -1474,7 +1481,7 @@ static void eatDirective() {
             case SM_TOK_ARG:
                 smMacroTokGBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_ARG,
                                                      .pos  = tokPos(),
-                                                     .arg  = tokNum()});
+                                                     .num  = tokNum()});
                 break;
             case SM_TOK_NARG:
                 smMacroTokGBufAdd(&buf, (SmMacroTok){
@@ -1503,7 +1510,7 @@ static void eatDirective() {
             eat();
         }
     macdone:
-        macrodef = false;
+        streamdef = false;
         macroAdd(lbl.name, pos, buf.inner);
         return;
     }
@@ -1609,10 +1616,6 @@ static void eatDirective() {
             case SM_TOK_END:
                 eat();
                 goto structdone;
-            case SM_TOK_IF:
-                // TODO: IF-ELSE directives be generic token streams.
-                eatIfDirective();
-                continue;
             default:
                 break;
             }
