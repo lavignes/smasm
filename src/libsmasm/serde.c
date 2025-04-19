@@ -353,8 +353,8 @@ SmSymTab smDeserializeSymTab(SmSerde *ser, SmBufIntern const *strin,
     return tab;
 }
 
-SmSectBuf smDeserializeSectBuf(SmSerde *ser, SmBufIntern const *strin,
-                               SmExprIntern const *exprin) {
+SmSectGBuf smDeserializeSectBuf(SmSerde *ser, SmBufIntern const *strin,
+                                SmExprIntern const *exprin) {
     SmSectGBuf buf = {0};
     UInt       len = smDeserializeU32(ser);
     for (UInt i = 0; i < len; ++i) {
@@ -383,7 +383,7 @@ SmSectBuf smDeserializeSectBuf(SmSerde *ser, SmBufIntern const *strin,
         }
         smSectGBufAdd(&buf, sect);
     }
-    return buf.inner;
+    return buf;
 }
 
 void smDeserializeToEnd(SmSerde *ser, SmGBuf *buf) {

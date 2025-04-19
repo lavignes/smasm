@@ -296,7 +296,7 @@ void fmtInvoke(U32 tok) {
     switch (tok) {
     case SM_TOK_STR:
     case SM_TOK_ID:
-        smTokStreamFmtInit(ts, intern(buf.inner), pos, tok);
+        smTokStreamFmtInit(ts, pos, intern(buf.inner), tok);
         return;
     default:
         SM_UNREACHABLE();

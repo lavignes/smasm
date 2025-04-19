@@ -1508,9 +1508,7 @@ static void eatDirective() {
         return;
     }
     case SM_TOK_REPEAT: {
-        SmPos                  start = tokPos();
-        static SmRepeatTokGBuf buf   = {0};
-        buf.inner.len                = 0;
+        SmPos start = tokPos();
         eat();
         num = exprEatSolvedPos(&pos);
         if (num < 0) {
@@ -1526,7 +1524,8 @@ static void eatDirective() {
             // TODO should I check if this shadows an existing label?
             eat();
         }
-        UInt depth = 0;
+        UInt            depth = 0;
+        SmRepeatTokGBuf buf   = {0};
         while (true) {
             switch (peek()) {
             case SM_TOK_IF:
@@ -1587,8 +1586,7 @@ static void eatDirective() {
         if (ts >= (STACK + STACK_SIZE)) {
             smFatal("too many open files\n");
         }
-        smTokStreamRepeatInit(ts, start, smRepeatTokIntern(&REPEATS, buf.inner),
-                              num);
+        smTokStreamRepeatInit(ts, start, buf, num);
         return;
     }
     case SM_TOK_STRUCT: {

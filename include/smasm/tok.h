@@ -128,6 +128,7 @@ typedef struct SmMacroArgQueue SmMacroArgQueue;
 
 void smMacroArgEnqueue(SmMacroArgQueue *q, SmMacroTokBuf toks);
 void smMacroArgDequeue(SmMacroArgQueue *q);
+void smMacroArgQueueFini(SmMacroArgQueue *q);
 
 enum SmRepeatTokKind {
     SM_REPEAT_TOK_TOK,
@@ -162,21 +163,39 @@ struct SmRepeatTokGBuf {
 typedef struct SmRepeatTokGBuf SmRepeatTokGBuf;
 
 void smRepeatTokGBufAdd(SmRepeatTokGBuf *buf, SmRepeatTok tok);
+void smRepeatTokGBufFini(SmRepeatTokGBuf *buf);
 
-struct SmRepeatTokIntern {
-    SmRepeatTokGBuf *bufs;
-    UInt             len;
-    UInt             size;
+struct SmPosTok {
+    SmPos pos;
+    U32   tok;
+    union {
+        SmBuf buf;
+        I32   num;
+    };
 };
-typedef struct SmRepeatTokIntern SmRepeatTokIntern;
+typedef struct SmPosTok SmPosTok;
 
-SmRepeatTokBuf smRepeatTokIntern(SmRepeatTokIntern *in, SmRepeatTokBuf buf);
+struct SmPosTokBuf {
+    SmPosTok *items;
+    UInt      len;
+};
+typedef struct SmPosTokBuf SmPosTokBuf;
+
+struct SmPosTokGBuf {
+    SmPosTokBuf inner;
+    UInt        size;
+};
+typedef struct SmPosTokGBuf SmPosTokGBuf;
+
+void smPosTokGBufAdd(SmPosTokGBuf *buf, SmPosTok tok);
+void smPosTokGBufFini(SmPosTokGBuf *buf);
 
 enum SmTokStreamKind {
     SM_TOK_STREAM_FILE,
     SM_TOK_STREAM_MACRO,
     SM_TOK_STREAM_REPEAT,
     SM_TOK_STREAM_FMT,
+    SM_TOK_STREAM_NESTED,
 };
 
 struct SmTokStream {
@@ -207,16 +226,21 @@ struct SmTokStream {
         } macro;
 
         struct {
-            SmRepeatTokBuf buf;
-            UInt           pos;
-            UInt           idx;
-            UInt           cnt;
+            SmRepeatTokGBuf buf;
+            UInt            pos;
+            UInt            idx;
+            UInt            cnt;
         } repeat;
 
         struct {
             SmBuf buf;
             U32   tok;
         } fmt;
+
+        struct {
+            SmPosTokGBuf buf;
+            UInt         pos;
+        } nested;
     };
 };
 typedef struct SmTokStream SmTokStream;
@@ -235,9 +259,10 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
 void smTokStreamFileInit(SmTokStream *ts, SmBuf name, FILE *hnd);
 void smTokStreamMacroInit(SmTokStream *ts, SmBuf name, SmPos pos,
                           SmMacroTokBuf buf, SmMacroArgQueue args, UInt nonce);
-void smTokStreamRepeatInit(SmTokStream *ts, SmPos pos, SmRepeatTokBuf buf,
+void smTokStreamRepeatInit(SmTokStream *ts, SmPos pos, SmRepeatTokGBuf buf,
                            UInt cnt);
-void smTokStreamFmtInit(SmTokStream *ts, SmBuf buf, SmPos pos, U32 tok);
+void smTokStreamFmtInit(SmTokStream *ts, SmPos pos, SmBuf buf, U32 tok);
+void smTokStreamNestedInit(SmTokStream *ts, SmPos pos, SmPosTokGBuf buf);
 void smTokStreamFini(SmTokStream *ts);
 
 U32  smTokStreamPeek(SmTokStream *ts);

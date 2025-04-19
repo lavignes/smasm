@@ -10,25 +10,32 @@ Bool smLblEqual(SmLbl lhs, SmLbl rhs) {
 
 Bool smLblIsGlobal(SmLbl lbl) { return smBufEqual(lbl.scope, SM_BUF_NULL); }
 
-void smOpGBufAdd(SmOpGBuf *buf, SmOp item) { SM_GBUF_ADD_IMPL(SmOp); }
-
-void smExprGBufAdd(SmExprGBuf *buf, SmExpr item) { SM_GBUF_ADD_IMPL(SmExpr); }
-
-SmExprBuf smExprIntern(SmExprIntern *in, SmExprBuf buf) {
-    SM_INTERN_IMPL(SmExpr, SmExprBuf, SmExprGBuf);
-}
-
-void smI32GBufAdd(SmI32GBuf *buf, I32 item) { SM_GBUF_ADD_IMPL(I32); }
-
-void smI32GBufFini(SmI32GBuf *buf) {
-    if (!buf->inner.items) {
-        return;
+SmBuf smLblFullName(SmLbl lbl, SmBufIntern *in) {
+    static SmGBuf buf = {0};
+    buf.inner.len     = 0;
+    if (!smBufEqual(lbl.scope, SM_BUF_NULL)) {
+        smGBufCat(&buf, lbl.scope);
+        smGBufCat(&buf, SM_BUF("."));
     }
-    free(buf->inner.items);
-    memset(buf, 0, sizeof(SmI32GBuf));
+    smGBufCat(&buf, lbl.name);
+    return smBufIntern(in, buf.inner);
 }
 
-static UInt hashLabel(SmLbl lbl) {
+void smOpGBufAdd(SmOpGBuf *buf, SmOp item) { SM_GBUF_ADD_IMPL(); }
+
+void smExprGBufAdd(SmExprGBuf *buf, SmExpr item) { SM_GBUF_ADD_IMPL(); }
+
+void smExprGBufFini(SmExprGBuf *buf) { SM_GBUF_FINI_IMPL(); }
+
+SmExprBuf smExprIntern(SmExprIntern *in, SmExprBuf buf) { SM_INTERN_IMPL(); }
+
+void smExprInternFini(SmExprIntern *in) { SM_INTERN_FINI_IMPL(smExprGBufFini); }
+
+void smI32GBufAdd(SmI32GBuf *buf, I32 item) { SM_GBUF_ADD_IMPL(); }
+
+void smI32GBufFini(SmI32GBuf *buf) { SM_GBUF_FINI_IMPL(); }
+
+static UInt hashLbl(SmLbl lbl) {
     UInt hash = 5381;
     for (UInt i = 0; i < lbl.scope.len; ++i) {
         hash = ((hash << 5) + hash) + lbl.scope.bytes[i];
@@ -41,10 +48,10 @@ static UInt hashLabel(SmLbl lbl) {
 }
 
 static SmSym *whence(SmSymTab *tab, SmLbl lbl) {
-    UInt   hash = hashLabel(lbl);
+    UInt   hash = hashLbl(lbl);
     UInt   i    = hash % tab->size;
     SmSym *sym  = tab->syms + i;
-    while (hash != hashLabel(sym->lbl)) {
+    while (hash != hashLbl(sym->lbl)) {
         if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
             break;
         }
@@ -103,4 +110,12 @@ SmSym *smSymTabFind(SmSymTab *tab, SmLbl lbl) {
         return NULL;
     }
     return wh;
+}
+
+void smSymTabFini(SmSymTab *tab) {
+    if (!tab->syms) {
+        return;
+    }
+    free(tab->syms);
+    memset(tab, 0, sizeof(SmSymTab));
 }

@@ -6,12 +6,11 @@
 #include <stdarg.h>
 #include <string.h>
 
-SmBufIntern       STRS    = {0};
-SmSymTab          SYMS    = {0};
-SmExprIntern      EXPRS   = {0};
-SmPathSet         IPATHS  = {0};
-SmPathSet         INCS    = {0};
-SmRepeatTokIntern REPEATS = {0};
+SmBufIntern  STRS   = {0};
+SmSymTab     SYMS   = {0};
+SmExprIntern EXPRS  = {0};
+SmPathSet    IPATHS = {0};
+SmPathSet    INCS   = {0};
 
 SmBuf intern(SmBuf buf) { return smBufIntern(&STRS, buf); }
 

@@ -11,8 +11,9 @@ typedef struct SmLbl SmLbl;
 
 static SmLbl const SM_LBL_NULL = {0};
 
-Bool smLblEqual(SmLbl lhs, SmLbl rhs);
-Bool smLblIsGlobal(SmLbl lbl);
+Bool  smLblEqual(SmLbl lhs, SmLbl rhs);
+Bool  smLblIsGlobal(SmLbl lbl);
+SmBuf smLblFullName(SmLbl lbl, SmBufIntern *in);
 
 struct SmOp {
     U32  tok;
@@ -76,6 +77,7 @@ struct SmExprGBuf {
 typedef struct SmExprGBuf SmExprGBuf;
 
 void smExprGBufAdd(SmExprGBuf *buf, SmExpr expr);
+void smExprGBufFini(SmExprGBuf *buf);
 
 struct SmExprIntern {
     SmExprGBuf *bufs;
@@ -85,6 +87,7 @@ struct SmExprIntern {
 typedef struct SmExprIntern SmExprIntern;
 
 SmExprBuf smExprIntern(SmExprIntern *in, SmExprBuf buf);
+void      smExprInternFini(SmExprIntern *in);
 
 struct SmI32Buf {
     I32 *items;
@@ -122,5 +125,6 @@ typedef struct SmSymTab SmSymTab;
 
 SmSym *smSymTabAdd(SmSymTab *tab, SmSym sym);
 SmSym *smSymTabFind(SmSymTab *tab, SmLbl lbl);
+void   smSymTabFini(SmSymTab *tab);
 
 #endif // SMASM_SYM_H

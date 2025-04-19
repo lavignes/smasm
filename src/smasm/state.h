@@ -4,12 +4,11 @@
 #include <smasm/path.h>
 #include <smasm/sect.h>
 
-extern SmBufIntern       STRS;
-extern SmSymTab          SYMS;
-extern SmExprIntern      EXPRS;
-extern SmPathSet         IPATHS;
-extern SmPathSet         INCS;
-extern SmRepeatTokIntern REPEATS;
+extern SmBufIntern  STRS;
+extern SmSymTab     SYMS;
+extern SmExprIntern EXPRS;
+extern SmPathSet    IPATHS;
+extern SmPathSet    INCS;
 
 SmBuf intern(SmBuf buf);
 

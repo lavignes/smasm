@@ -1,6 +1,8 @@
 #ifndef SMASM_TAB_H
 #define SMASM_TAB_H
 
+// TODO delete parems from all the macros
+// and infer them like we do for the GBuf macros
 #define SM_TAB_WHENCE_IMPL(Type, EntryType)                                    \
     static EntryType *Type##Whence(Type *tab, SmBuf name) {                    \
         static SmBuf const NULL_BUF = {0};                                     \

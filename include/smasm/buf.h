@@ -26,6 +26,7 @@ struct SmGBuf {
 typedef struct SmGBuf SmGBuf;
 
 void smGBufCat(SmGBuf *buf, SmBuf bytes);
+void smGBufFini(SmGBuf *buf);
 
 struct SmBufBuf {
     SmBuf *items;
@@ -41,9 +42,9 @@ typedef struct SmBufGBuf SmBufGBuf;
 
 void smBufGBufAdd(SmBufGBuf *buf, SmBuf item);
 
-#define SM_GBUF_ADD_IMPL(Type)                                                 \
+#define SM_GBUF_ADD_IMPL()                                                     \
     if (!buf->inner.items) {                                                   \
-        buf->inner.items = malloc(sizeof(Type) * 16);                          \
+        buf->inner.items = malloc(sizeof(*buf->inner.items) * 16);             \
         if (!buf->inner.items) {                                               \
             smFatal("out of memory\n");                                        \
         }                                                                      \
@@ -51,8 +52,8 @@ void smBufGBufAdd(SmBufGBuf *buf, SmBuf item);
         buf->size      = 16;                                                   \
     }                                                                          \
     if ((buf->size - buf->inner.len) == 0) {                                   \
-        buf->inner.items =                                                     \
-            realloc(buf->inner.items, sizeof(Type) * buf->size * 2);           \
+        buf->inner.items = realloc(buf->inner.items,                           \
+                                   sizeof(*buf->inner.items) * buf->size * 2); \
         if (!buf->inner.items) {                                               \
             smFatal("out of memory\n");                                        \
         }                                                                      \
@@ -60,6 +61,13 @@ void smBufGBufAdd(SmBufGBuf *buf, SmBuf item);
     }                                                                          \
     buf->inner.items[buf->inner.len] = item;                                   \
     ++buf->inner.len;
+
+#define SM_GBUF_FINI_IMPL()                                                    \
+    if (!buf->inner.items) {                                                   \
+        return;                                                                \
+    }                                                                          \
+    free(buf->inner.items);                                                    \
+    memset(buf, 0, sizeof(*buf));
 
 struct SmBufIntern {
     SmGBuf *bufs;
@@ -69,24 +77,29 @@ struct SmBufIntern {
 typedef struct SmBufIntern SmBufIntern;
 
 SmBuf smBufIntern(SmBufIntern *in, SmBuf buf);
+void  smBufInternFini(SmBufIntern *in);
 
-#define SM_INTERN_IMPL(Type, BufType, GrowType)                                \
+#ifndef typeof
+#define typeof __typeof__
+#endif
+
+#define SM_INTERN_IMPL()                                                       \
     if (!in->bufs) {                                                           \
-        in->bufs = malloc(sizeof(GrowType) * 16);                              \
+        in->bufs = malloc(sizeof(*in->bufs) * 16);                             \
         if (!in->bufs) {                                                       \
             smFatal("out of memory\n");                                        \
         }                                                                      \
         in->len  = 0;                                                          \
         in->size = 16;                                                         \
     }                                                                          \
-    GrowType *has_space = NULL;                                                \
+    typeof(*in->bufs) *has_space = NULL;                                       \
     for (UInt i = 0; i < in->len; ++i) {                                       \
-        GrowType *gbuf = in->bufs + i;                                         \
-        Type     *items =                                                      \
-            memmem(gbuf->inner.items, sizeof(Type) * gbuf->inner.len,          \
-                   buf.items, sizeof(Type) * buf.len);                         \
+        typeof(*in->bufs)          *gbuf  = in->bufs + i;                      \
+        typeof(*gbuf->inner.items) *items = memmem(                            \
+            gbuf->inner.items, sizeof(*gbuf->inner.items) * gbuf->inner.len,   \
+            buf.items, sizeof(*gbuf->inner.items) * buf.len);                  \
         if (items) {                                                           \
-            return (BufType){items, buf.len};                                  \
+            return (typeof(gbuf->inner)){items, buf.len};                      \
         }                                                                      \
         if (!has_space) {                                                      \
             if ((gbuf->size - gbuf->inner.len) >= buf.len) {                   \
@@ -96,24 +109,36 @@ SmBuf smBufIntern(SmBufIntern *in, SmBuf buf);
     }                                                                          \
     if (!has_space) {                                                          \
         if ((in->size - in->len) == 0) {                                       \
-            in->bufs = realloc(in->bufs, sizeof(GrowType) * in->size * 2);     \
+            in->bufs = realloc(in->bufs, sizeof(*in->bufs) * in->size * 2);    \
             if (!in->bufs) {                                                   \
                 smFatal("out of memory\n");                                    \
             }                                                                  \
             in->size *= 2;                                                     \
         }                                                                      \
-        has_space              = in->bufs + in->len;                           \
-        has_space->inner.items = malloc(sizeof(Type) * buf.len);               \
-        has_space->inner.len   = 0;                                            \
-        has_space->size        = buf.len;                                      \
+        has_space = in->bufs + in->len;                                        \
+        has_space->inner.items =                                               \
+            malloc(sizeof(*has_space->inner.items) * buf.len);                 \
+        has_space->inner.len = 0;                                              \
+        has_space->size      = buf.len;                                        \
         if (!has_space->inner.items) {                                         \
             smFatal("out of memory\n");                                        \
         }                                                                      \
         ++in->len;                                                             \
     }                                                                          \
-    Type *items = has_space->inner.items + has_space->inner.len;               \
-    memcpy(items, buf.items, sizeof(Type) * buf.len);                          \
+    typeof(*has_space->inner.items) *items =                                   \
+        has_space->inner.items + has_space->inner.len;                         \
+    memcpy(items, buf.items, sizeof(*has_space->inner.items) * buf.len);       \
     has_space->inner.len += buf.len;                                           \
-    return (BufType){items, buf.len};
+    return (typeof(has_space->inner)){items, buf.len};
+
+#define SM_INTERN_FINI_IMPL(GBufFiniFn)                                        \
+    if (!in->bufs) {                                                           \
+        return;                                                                \
+    }                                                                          \
+    for (UInt i = 0; i < in->len; ++i) {                                       \
+        (GBufFiniFn)(in->bufs + i);                                            \
+    }                                                                          \
+    free(in->bufs);                                                            \
+    memset(in, 0, sizeof(*in));
 
 #endif // SMASM_BUF_H

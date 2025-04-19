@@ -208,16 +208,7 @@ static SmLbl internLbl(SmLbl lbl) {
     return (SmLbl){intern(lbl.scope), intern(lbl.name)};
 }
 
-static SmBuf fullLblName(SmLbl lbl) {
-    static SmGBuf buf = {0};
-    buf.inner.len     = 0;
-    if (!smBufEqual(lbl.scope, SM_BUF_NULL)) {
-        smGBufCat(&buf, lbl.scope);
-        smGBufCat(&buf, SM_BUF("."));
-    }
-    smGBufCat(&buf, lbl.name);
-    return intern(buf.inner);
-}
+static SmBuf fullLblName(SmLbl lbl) { return smLblFullName(lbl, &STRS); }
 
 static SmSect *findSect(SmBuf name) {
     for (UInt i = 0; i < SECTS.inner.len; ++i) {
@@ -247,6 +238,28 @@ static CfgMem *findCfgMem(SmBuf name) {
         }
     }
     return NULL;
+}
+
+static SmExprBuf internExpr(SmExprBuf buf) {
+    for (UInt i = 0; i < buf.len; ++i) {
+        SmExpr *expr = buf.items + i;
+        switch (expr->kind) {
+        case SM_EXPR_ADDR:
+            expr->addr.sect = intern(expr->addr.sect);
+            break;
+        case SM_EXPR_TAG:
+            expr->tag.name = intern(expr->tag.name);
+            // fall through
+        case SM_EXPR_LABEL:
+        case SM_EXPR_REL:
+            expr->lbl.scope = intern(expr->lbl.scope);
+            expr->lbl.name  = intern(expr->lbl.name);
+            break;
+        default:
+            break;
+        }
+    }
+    return smExprIntern(&EXPRS, buf);
 }
 
 static void loadObj(SmBuf path) {
@@ -306,7 +319,7 @@ static void loadObj(SmBuf path) {
         }
         smSymTabAdd(&SYMS, (SmSym){
                                .lbl     = internLbl(sym->lbl),
-                               .value   = smExprIntern(&EXPRS, sym->value),
+                               .value   = internExpr(sym->value),
                                .unit    = intern(unit),
                                .section = intern(sym->section),
                                .pos =
@@ -318,11 +331,10 @@ static void loadObj(SmBuf path) {
                                .flags = sym->flags,
                            });
     }
-    // TODO free mem
-    SmSectBuf tmpsects = smDeserializeSectBuf(&ser, &tmpstrs, &tmpexprs);
+    SmSectGBuf tmpsects = smDeserializeSectBuf(&ser, &tmpstrs, &tmpexprs);
     closeFile(hnd);
-    for (UInt i = 0; i < tmpsects.len; ++i) {
-        SmSect *sect    = tmpsects.items + i;
+    for (UInt i = 0; i < tmpsects.inner.len; ++i) {
+        SmSect *sect    = tmpsects.inner.items + i;
         SmSect *dstsect = findSect(sect->name);
         if (!dstsect) {
             objFatal(path, "section %.*s is not defined in config\n",
@@ -344,7 +356,7 @@ static void loadObj(SmBuf path) {
                     // adjust relocations relative to destination section
                     .offset = dstsect->pc + reloc->offset,
                     .width  = reloc->width,
-                    .value  = smExprIntern(&EXPRS, reloc->value),
+                    .value  = internExpr(reloc->value),
                     .unit   = intern(unit),
                     .pos =
                         {
@@ -358,7 +370,14 @@ static void loadObj(SmBuf path) {
         // extend destination section
         smGBufCat(&dstsect->data, sect->data.inner);
         dstsect->pc += sect->data.inner.len;
+        // free up
+        smRelocGBufFini(&sect->relocs);
+        smGBufFini(&sect->data);
     }
+    smSectGBufFini(&tmpsects);
+    smSymTabFini(&tmpsyms);
+    smExprInternFini(&tmpexprs);
+    smBufInternFini(&tmpstrs);
 }
 
 struct Mem {
@@ -384,7 +403,7 @@ static MemGBuf MEMS = {0};
 
 static void memGBufAdd(Mem item) {
     MemGBuf *buf = &MEMS;
-    SM_GBUF_ADD_IMPL(Mem);
+    SM_GBUF_ADD_IMPL();
 }
 
 static Mem *findMem(SmBuf name) {

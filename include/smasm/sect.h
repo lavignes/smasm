@@ -32,6 +32,7 @@ struct SmRelocGBuf {
 typedef struct SmRelocGBuf SmRelocGBuf;
 
 void smRelocGBufAdd(SmRelocGBuf *buf, SmReloc reloc);
+void smRelocGBufFini(SmRelocGBuf *buf);
 
 struct SmSect {
     SmBuf       name;
@@ -54,5 +55,6 @@ struct SmSectGBuf {
 typedef struct SmSectGBuf SmSectGBuf;
 
 void smSectGBufAdd(SmSectGBuf *buf, SmSect sect);
+void smSectGBufFini(SmSectGBuf *buf);
 
 #endif // SMASM_SECT_H

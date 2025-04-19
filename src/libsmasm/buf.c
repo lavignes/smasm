@@ -106,7 +106,15 @@ void smGBufCat(SmGBuf *buf, SmBuf bytes) {
     buf->inner.len += bytes.len;
 }
 
-void smBufGBufAdd(SmBufGBuf *buf, SmBuf item) { SM_GBUF_ADD_IMPL(SmBuf); }
+void smGBufFini(SmGBuf *buf) {
+    if (!buf->inner.bytes) {
+        return;
+    }
+    free(buf->inner.bytes);
+    memset(buf, 0, sizeof(SmGBuf));
+}
+
+void smBufGBufAdd(SmBufGBuf *buf, SmBuf item) { SM_GBUF_ADD_IMPL(); }
 
 static UInt roundUp(UInt num) {
     num--;
@@ -168,3 +176,5 @@ SmBuf smBufIntern(SmBufIntern *in, SmBuf buf) {
     has_space->inner.len += buf.len;
     return (SmBuf){bytes, buf.len};
 }
+
+void smBufInternFini(SmBufIntern *in) { SM_INTERN_FINI_IMPL(smGBufFini); }

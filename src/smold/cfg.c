@@ -16,8 +16,6 @@ CfgI32Entry *cfgI32TabFind(CfgI32Tab *tab, SmBuf name) {
     SM_TAB_FIND_IMPL(CfgI32Tab, CfgI32Entry);
 }
 
-void cfgMemGBufAdd(CfgMemGBuf *buf, CfgMem item) { SM_GBUF_ADD_IMPL(CfgMem); }
+void cfgMemGBufAdd(CfgMemGBuf *buf, CfgMem item) { SM_GBUF_ADD_IMPL(); }
 
-void cfgSectGBufAdd(CfgSectGBuf *buf, CfgSect item) {
-    SM_GBUF_ADD_IMPL(CfgSect);
-}
+void cfgSectGBufAdd(CfgSectGBuf *buf, CfgSect item) { SM_GBUF_ADD_IMPL(); }

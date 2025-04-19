@@ -73,19 +73,13 @@ SmBuf smTokName(U32 c) {
 }
 
 void smMacroTokGBufAdd(SmMacroTokGBuf *buf, SmMacroTok item) {
-    SM_GBUF_ADD_IMPL(SmMacroTok);
+    SM_GBUF_ADD_IMPL();
 }
 
-void smMacroTokGBufFini(SmMacroTokGBuf *buf) {
-    if (!buf->inner.items) {
-        return;
-    }
-    free(buf->inner.items);
-    memset(buf, 0, sizeof(SmMacroTokGBuf));
-}
+void smMacroTokGBufFini(SmMacroTokGBuf *buf) { SM_GBUF_FINI_IMPL(); }
 
 SmMacroTokBuf smMacroTokIntern(SmMacroTokIntern *in, SmMacroTokBuf buf) {
-    SM_INTERN_IMPL(SmMacroTok, SmMacroTokBuf, SmMacroTokGBuf);
+    SM_INTERN_IMPL();
 }
 
 void smMacroArgEnqueue(SmMacroArgQueue *q, SmMacroTokBuf toks) {
@@ -115,13 +109,23 @@ void smMacroArgDequeue(SmMacroArgQueue *q) {
     }
 }
 
-void smRepeatTokGBufAdd(SmRepeatTokGBuf *buf, SmRepeatTok item) {
-    SM_GBUF_ADD_IMPL(SmRepeatTok);
+void smMacroArgQueueFini(SmMacroArgQueue *q) {
+    if (!q->buf) {
+        return;
+    }
+    free(q->buf);
+    memset(q, 0, sizeof(SmMacroArgQueue));
 }
 
-SmRepeatTokBuf smRepeatTokIntern(SmRepeatTokIntern *in, SmRepeatTokBuf buf) {
-    SM_INTERN_IMPL(SmRepeatTok, SmRepeatTokBuf, SmRepeatTokGBuf);
+void smRepeatTokGBufAdd(SmRepeatTokGBuf *buf, SmRepeatTok item) {
+    SM_GBUF_ADD_IMPL();
 }
+
+void smRepeatTokGBufFini(SmRepeatTokGBuf *buf) { SM_GBUF_FINI_IMPL(); }
+
+void smPosTokGBufAdd(SmPosTokGBuf *buf, SmPosTok item) { SM_GBUF_ADD_IMPL(); }
+
+void smPosTokGBufFini(SmPosTokGBuf *buf) { SM_GBUF_FINI_IMPL(); }
 
 _Noreturn void smTokStreamFatal(SmTokStream *ts, char const *fmt, ...) {
     va_list args;
@@ -149,8 +153,11 @@ _Noreturn void smTokStreamFatalV(SmTokStream *ts, char const *fmt,
         smTokStreamFatalPosV(ts, ts->macro.buf.items[ts->macro.pos].pos, fmt,
                              args);
     case SM_TOK_STREAM_REPEAT:
-        smTokStreamFatalPosV(ts, ts->repeat.buf.items[ts->repeat.pos].pos, fmt,
-                             args);
+        smTokStreamFatalPosV(ts, ts->repeat.buf.inner.items[ts->repeat.pos].pos,
+                             fmt, args);
+    case SM_TOK_STREAM_NESTED:
+        smTokStreamFatalPosV(ts, ts->nested.buf.inner.items[ts->nested.pos].pos,
+                             fmt, args);
     default:
         SM_UNREACHABLE();
     }
@@ -162,6 +169,7 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
     case SM_TOK_STREAM_FMT:
+    case SM_TOK_STREAM_NESTED:
         fprintf(stderr, "%.*s:%zu:%zu: ", (int)pos.file.len, pos.file.bytes,
                 pos.line, pos.col);
         break;
@@ -210,7 +218,7 @@ void smTokStreamMacroInit(SmTokStream *ts, SmBuf name, SmPos pos,
     ts->macro.nonce = nonce;
 }
 
-void smTokStreamRepeatInit(SmTokStream *ts, SmPos pos, SmRepeatTokBuf buf,
+void smTokStreamRepeatInit(SmTokStream *ts, SmPos pos, SmRepeatTokGBuf buf,
                            UInt cnt) {
     memset(ts, 0, sizeof(SmTokStream));
     ts->kind       = SM_TOK_STREAM_REPEAT;
@@ -219,12 +227,19 @@ void smTokStreamRepeatInit(SmTokStream *ts, SmPos pos, SmRepeatTokBuf buf,
     ts->repeat.cnt = cnt;
 }
 
-void smTokStreamFmtInit(SmTokStream *ts, SmBuf buf, SmPos pos, U32 tok) {
+void smTokStreamFmtInit(SmTokStream *ts, SmPos pos, SmBuf buf, U32 tok) {
     memset(ts, 0, sizeof(SmTokStream));
     ts->kind    = SM_TOK_STREAM_FMT;
     ts->pos     = pos;
     ts->fmt.buf = buf;
     ts->fmt.tok = tok;
+}
+
+void smTokStreamNestedInit(SmTokStream *ts, SmPos pos, SmPosTokGBuf buf) {
+    memset(ts, 0, sizeof(SmTokStream));
+    ts->kind       = SM_TOK_STREAM_NESTED;
+    ts->pos        = pos;
+    ts->nested.buf = buf;
 }
 
 void smTokStreamFini(SmTokStream *ts) {
@@ -238,12 +253,15 @@ void smTokStreamFini(SmTokStream *ts) {
         }
         return;
     case SM_TOK_STREAM_MACRO:
-        if (ts->macro.args.buf->items) {
-            free(ts->macro.args.buf->items);
-        }
+        smMacroArgQueueFini(&ts->macro.args);
         return;
     case SM_TOK_STREAM_REPEAT:
+        smRepeatTokGBufFini(&ts->repeat.buf);
+        return;
     case SM_TOK_STREAM_FMT:
+        return;
+    case SM_TOK_STREAM_NESTED:
+        smPosTokGBufFini(&ts->nested.buf);
         return;
     default:
         SM_UNREACHABLE();
@@ -706,7 +724,7 @@ static U32 peekRepeat(SmTokStream *ts) {
     if (ts->repeat.idx >= ts->repeat.cnt) {
         return SM_TOK_EOF;
     }
-    SmRepeatTok *tok = ts->repeat.buf.items + ts->repeat.pos;
+    SmRepeatTok *tok = ts->repeat.buf.inner.items + ts->repeat.pos;
     switch (tok->kind) {
     case SM_REPEAT_TOK_TOK:
         return tok->tok;
@@ -723,6 +741,13 @@ static U32 peekRepeat(SmTokStream *ts) {
     }
 }
 
+static U32 peekNested(SmTokStream *ts) {
+    if (ts->nested.pos >= ts->nested.buf.inner.len) {
+        return SM_TOK_EOF;
+    }
+    return ts->nested.buf.inner.items[ts->nested.pos].tok;
+}
+
 U32 smTokStreamPeek(SmTokStream *ts) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
@@ -733,6 +758,8 @@ U32 smTokStreamPeek(SmTokStream *ts) {
         return peekRepeat(ts);
     case SM_TOK_STREAM_FMT:
         return ts->fmt.tok;
+    case SM_TOK_STREAM_NESTED:
+        return peekNested(ts);
     default:
         SM_UNREACHABLE();
     }
@@ -765,13 +792,16 @@ void smTokStreamEat(SmTokStream *ts) {
     }
     case SM_TOK_STREAM_REPEAT:
         ++ts->repeat.pos;
-        if (ts->repeat.pos >= ts->repeat.buf.len) {
+        if (ts->repeat.pos >= ts->repeat.buf.inner.len) {
             ts->repeat.pos = 0;
             ++ts->repeat.idx;
         }
         return;
     case SM_TOK_STREAM_FMT:
         ts->fmt.tok = SM_TOK_EOF;
+        return;
+    case SM_TOK_STREAM_NESTED:
+        ++ts->nested.pos;
         return;
     default:
         SM_UNREACHABLE();
@@ -819,7 +849,7 @@ SmBuf smTokStreamBuf(SmTokStream *ts) {
         }
     }
     case SM_TOK_STREAM_REPEAT: {
-        SmRepeatTok *tok = ts->repeat.buf.items + ts->repeat.pos;
+        SmRepeatTok *tok = ts->repeat.buf.inner.items + ts->repeat.pos;
         switch (tok->kind) {
         case SM_REPEAT_TOK_STR:
         case SM_REPEAT_TOK_ID:
@@ -830,6 +860,8 @@ SmBuf smTokStreamBuf(SmTokStream *ts) {
     }
     case SM_TOK_STREAM_FMT:
         return ts->fmt.buf;
+    case SM_TOK_STREAM_NESTED:
+        return ts->nested.buf.inner.items[ts->nested.pos].buf;
     default:
         SM_UNREACHABLE();
     }
@@ -861,7 +893,7 @@ I32 smTokStreamNum(SmTokStream *ts) {
         }
     }
     case SM_TOK_STREAM_REPEAT: {
-        SmRepeatTok *tok = ts->repeat.buf.items + ts->repeat.pos;
+        SmRepeatTok *tok = ts->repeat.buf.inner.items + ts->repeat.pos;
         switch (tok->kind) {
         case SM_REPEAT_TOK_NUM:
             return tok->num;
@@ -871,6 +903,8 @@ I32 smTokStreamNum(SmTokStream *ts) {
             SM_UNREACHABLE();
         }
     }
+    case SM_TOK_STREAM_NESTED:
+        return ts->nested.buf.inner.items[ts->nested.pos].num;
     case SM_TOK_STREAM_FMT:
     default:
         SM_UNREACHABLE();
@@ -885,9 +919,11 @@ SmPos smTokStreamPos(SmTokStream *ts) {
         // TODO macro arg pos
         return ts->macro.buf.items[ts->macro.pos].pos;
     case SM_TOK_STREAM_REPEAT:
-        return ts->repeat.buf.items[ts->repeat.pos].pos;
+        return ts->repeat.buf.inner.items[ts->repeat.pos].pos;
     case SM_TOK_STREAM_FMT:
         return ts->pos;
+    case SM_TOK_STREAM_NESTED:
+        return ts->nested.buf.inner.items[ts->nested.pos].pos;
     default:
         SM_UNREACHABLE();
     }

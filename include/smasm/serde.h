@@ -31,7 +31,7 @@ SmBufIntern  smDeserializeBufIntern(SmSerde *ser);
 SmExprIntern smDeserializeExprIntern(SmSerde *ser, SmBufIntern const *strin);
 SmSymTab     smDeserializeSymTab(SmSerde *ser, SmBufIntern const *strin,
                                  SmExprIntern const *exprin);
-SmSectBuf    smDeserializeSectBuf(SmSerde *ser, SmBufIntern const *strin,
+SmSectGBuf   smDeserializeSectBuf(SmSerde *ser, SmBufIntern const *strin,
                                   SmExprIntern const *exprin);
 void         smDeserializeToEnd(SmSerde *ser, SmGBuf *buf);
 
