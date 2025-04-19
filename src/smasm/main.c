@@ -647,6 +647,7 @@ static void eatMne(U8 mne) {
     case MNE_LDH:
         eat();
         if (peek() == 'A') {
+            eat();
             expect(',');
             eat();
             expect('[');
