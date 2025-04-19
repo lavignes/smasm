@@ -67,6 +67,7 @@ hi def link smasmRegister     SpecialChar
 hi def link smasmConditions   SpecialChar
 hi def link smasmOpcode       Keyword
 hi def link smasmEscape       SpecialChar
+hi def link smasmFmt          SpecialChar
 hi def link smasmDirective    PreProc
 hi def link smasmGlobalLabel  Function
 hi def link smasmLocalLabel   Function
