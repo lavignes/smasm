@@ -680,17 +680,15 @@ static void link(SmSect *sect) {
                     for (UInt j = 0; j < SECTS.inner.len; ++j) {
                         SmSect  *sect    = SECTS.inner.items + j;
                         CfgSect *cfgsect = findCfgSect(sect->name);
-                        if (!cfgsect) {
-                            continue;
-                        }
+                        assert(cfgsect);
                         if (cfgsect->kind != CFG_SECT_HIGHPAGE) {
-                            break;
+                            continue;
                         }
                         if ((num >= (I32)(sect->pc)) &&
                             (num < (I32)(sect->pc + sect->data.inner.len))) {
                             legal = true;
+                            break;
                         }
-                        break;
                     }
                 }
                 if (!legal) {

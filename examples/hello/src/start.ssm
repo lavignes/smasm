@@ -6,7 +6,7 @@
 stackTop: @ds 128
 stackBase:
 
-@section "BANK0"
+@section "ROM0"
 
 Start::
     di
