@@ -443,7 +443,7 @@ static void doBitCb(U8 base) {
         if ((num < 0) || (num > 7)) {
             fatalPos(pos, "bit number must be between 0 and 7\n");
         }
-        emit8(op + ((U8)num << 8));
+        emit8(op + (((U8)num) * 8));
     }
     addPC(2);
 }
