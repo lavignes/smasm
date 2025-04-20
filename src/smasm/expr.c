@@ -62,7 +62,7 @@ static void pushApply(SmOp op) {
             smOpGBufAdd(&op_stack, top);
             break;
         }
-        pushExpr((SmExpr){.kind = SM_EXPR_OP, .op = op});
+        pushExpr((SmExpr){.kind = SM_EXPR_OP, .op = top});
     }
     smOpGBufAdd(&op_stack, op);
 }
