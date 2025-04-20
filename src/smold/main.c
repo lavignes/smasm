@@ -1198,8 +1198,38 @@ static void closeFile(FILE *hnd) {
     }
 }
 
+static int cmpSym(SmSym const *lhs, SmSym const *rhs) {
+    if (smLblEqual(lhs->lbl, SM_LBL_NULL)) {
+        return 1;
+    }
+    if (smLblEqual(rhs->lbl, SM_LBL_NULL)) {
+        return 0;
+    }
+    SmBuf lname = fullLblName(lhs->lbl);
+    SmBuf rname = fullLblName(rhs->lbl);
+    if (lname.len != rname.len) {
+        return lname.len - rname.len;
+    }
+    return memcmp(lname.bytes, rname.bytes, lname.len);
+}
+
+static SmSymTab sortSyms() {
+    // Clone and sort the symbol table
+    SmSymTab tab = {0};
+    for (UInt i = 0; i < SYMS.size; ++i) {
+        SmSym *sym = SYMS.syms + i;
+        if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
+            continue;
+        }
+        smSymTabAdd(&tab, *sym);
+    }
+    qsort(tab.syms, tab.size, sizeof(SmSym), (void *)cmpSym);
+    return tab;
+}
+
 static void writeSyms() {
-    FILE *hnd = openFileCstr(symfile_name, "wb+");
+    FILE    *hnd = openFileCstr(symfile_name, "wb+");
+    SmSymTab tab = sortSyms();
     for (UInt i = 0; i < SYMS.size; ++i) {
         SmSym *sym = SYMS.syms + i;
         if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
@@ -1230,36 +1260,13 @@ static void writeSyms() {
                     strerror(errno));
         }
     }
+    smSymTabFini(&tab);
     closeFile(hnd);
-}
-
-static int cmpSym(SmSym const *lhs, SmSym const *rhs) {
-    if (smLblEqual(lhs->lbl, SM_LBL_NULL)) {
-        return 1;
-    }
-    if (smLblEqual(rhs->lbl, SM_LBL_NULL)) {
-        return 0;
-    }
-    SmBuf lname = fullLblName(lhs->lbl);
-    SmBuf rname = fullLblName(rhs->lbl);
-    if (lname.len != rname.len) {
-        return lname.len - rname.len;
-    }
-    return memcmp(lname.bytes, rname.bytes, lname.len);
 }
 
 static void writeTags() {
     FILE    *hnd = openFileCstr(tagfile_name, "wb+");
-    // Clone and sort the symbol table
-    SmSymTab tab = {0};
-    for (UInt i = 0; i < SYMS.size; ++i) {
-        SmSym *sym = SYMS.syms + i;
-        if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
-            continue;
-        }
-        smSymTabAdd(&tab, *sym);
-    }
-    qsort(tab.syms, tab.size, sizeof(SmSym), (void *)cmpSym);
+    SmSymTab tab = sortSyms();
     for (UInt i = 0; i < tab.size; ++i) {
         SmSym *sym = tab.syms + i;
         if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
