@@ -1138,8 +1138,6 @@ static void eatMne(U8 mne) {
         eat();
         if (flag(peek(), 0xC0, &op)) {
             eat();
-            expect(',');
-            eat();
             if (emit) {
                 emit8(op);
             }
