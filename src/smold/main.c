@@ -1242,8 +1242,8 @@ static int cmpSym(SmSym const *lhs, SmSym const *rhs) {
     }
     SmBuf lname = fullLblName(lhs->lbl);
     SmBuf rname = fullLblName(rhs->lbl);
-    if (lname.len < rname.len) {
-        return -1;
+    if (lname.len != rname.len) {
+        return lname.len - rname.len;
     }
     return memcmp(lname.bytes, rname.bytes, lname.len);
 }
