@@ -1520,6 +1520,7 @@ static void eatDirective() {
         SmLbl lbl = SM_LBL_NULL;
         if (peek() == ',') {
             eat();
+            expect(SM_TOK_ID);
             lbl = tokLbl();
             if (!smLblIsGlobal(lbl)) {
                 fatal("variable name must be global\n");
