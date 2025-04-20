@@ -16,63 +16,63 @@ typedef struct CfgI32Tab CfgI32Tab;
 CfgI32Entry *cfgI32TabAdd(CfgI32Tab *tab, CfgI32Entry entry);
 CfgI32Entry *cfgI32TabFind(CfgI32Tab *tab, SmBuf name);
 
-enum CfgMemKind {
-    CFG_MEM_READONLY,
-    CFG_MEM_READWRITE,
+enum CfgInKind {
+    CFG_IN_CODE,
+    CFG_IN_DATA,
+    CFG_IN_UNINIT,
+    CFG_IN_HIGHPAGE,
 };
 
-struct CfgMem {
-    SmBuf name;
-    U32   start;
-    U32   size;
-    Bool  fill;
-    U8    fillval;
-    U8    kind;
-};
-typedef struct CfgMem CfgMem;
-
-struct CfgMemBuf {
-    CfgMem *items;
-    UInt    len;
-};
-typedef struct CfgMemBuf CfgMemBuf;
-
-struct CfgMemGBuf {
-    CfgMemBuf inner;
-    UInt      size;
-};
-typedef struct CfgMemGBuf CfgMemGBuf;
-
-void cfgMemGBufAdd(CfgMemGBuf *buf, CfgMem item);
-
-enum CfgSectKind {
-    CFG_SECT_CODE,
-    CFG_SECT_DATA,
-    CFG_SECT_UNINIT,
-    CFG_SECT_HIGHPAGE,
-};
-
-struct CfgSect {
+struct CfgIn {
     SmBuf     name;
-    SmBuf     load;
     U8        kind;
     U32       align;
     Bool      define;
     CfgI32Tab tags;
-    SmBufGBuf files;
+    SmBufBuf  files;
 };
-typedef struct CfgSect CfgSect;
+typedef struct CfgIn CfgIn;
 
-struct CfgSectBuf {
-    CfgSect *items;
-    UInt     len;
+struct CfgInBuf {
+    CfgIn *items;
+    UInt   len;
 };
-typedef struct CfgSectBuf CfgSectBuf;
+typedef struct CfgInBuf CfgInBuf;
 
-struct CfgSectGBuf {
-    CfgSectBuf inner;
-    UInt       size;
+struct CfgInGBuf {
+    CfgInBuf inner;
+    UInt     size;
 };
-typedef struct CfgSectGBuf CfgSectGBuf;
+typedef struct CfgInGBuf CfgInGBuf;
 
-void cfgSectGBufAdd(CfgSectGBuf *buf, CfgSect item);
+void cfgInGBufAdd(CfgInGBuf *buf, CfgIn item);
+
+enum CfgOutKind {
+    CFG_OUT_READONLY,
+    CFG_OUT_READWRITE,
+};
+
+struct CfgOut {
+    SmBuf    name;
+    U32      start;
+    U32      size;
+    Bool     fill;
+    U8       fillval;
+    U8       kind;
+    CfgInBuf ins;
+};
+typedef struct CfgOut CfgOut;
+
+struct CfgOutBuf {
+    CfgOut *items;
+    UInt    len;
+};
+typedef struct CfgOutBuf CfgOutBuf;
+
+struct CfgOutGBuf {
+    CfgOutBuf inner;
+    UInt      size;
+};
+typedef struct CfgOutGBuf CfgOutGBuf;
+
+void cfgOutGBufAdd(CfgOutGBuf *buf, CfgOut item);

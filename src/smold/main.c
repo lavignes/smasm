@@ -43,21 +43,20 @@ static void      serialize();
 static void      writeSyms();
 static void      writeTags();
 
-static FILE *cfgfile        = NULL;
-static char *cfgfile_name   = NULL;
-static FILE *outfile        = NULL;
-static char *outfile_name   = NULL;
-static char *symfile_name   = NULL;
-static char *tagfile_name   = NULL;
+static FILE *cfgfile      = NULL;
+static char *cfgfile_name = NULL;
+static FILE *outfile      = NULL;
+static char *outfile_name = NULL;
+static char *symfile_name = NULL;
+static char *tagfile_name = NULL;
 
-static SmBufIntern  STRS    = {0};
-static SmSymTab     SYMS    = {0};
-static SmExprIntern EXPRS   = {0};
-static SmPathSet    OBJS    = {0};
-static SmSectGBuf   SECTS   = {0};
+static SmBufIntern  STRS  = {0};
+static SmSymTab     SYMS  = {0};
+static SmExprIntern EXPRS = {0};
+static SmPathSet    OBJS  = {0};
+static SmSectGBuf   SECTS = {0};
 
-static CfgMemGBuf  CFGMEMS  = {0};
-static CfgSectGBuf CFGSECTS = {0};
+static CfgOutGBuf CFGS    = {0};
 
 static SmBuf DEFINES_SECTION;
 static SmBuf STATIC_UNIT;
@@ -220,26 +219,6 @@ static SmSect *findSect(SmBuf name) {
     return NULL;
 }
 
-static CfgSect *findCfgSect(SmBuf name) {
-    for (UInt i = 0; i < CFGSECTS.inner.len; ++i) {
-        CfgSect *sect = CFGSECTS.inner.items + i;
-        if (smBufEqual(sect->name, name)) {
-            return sect;
-        }
-    }
-    return NULL;
-}
-
-static CfgMem *findCfgMem(SmBuf name) {
-    for (UInt i = 0; i < CFGMEMS.inner.len; ++i) {
-        CfgMem *mem = CFGMEMS.inner.items + i;
-        if (smBufEqual(mem->name, name)) {
-            return mem;
-        }
-    }
-    return NULL;
-}
-
 static SmExprBuf internExpr(SmExprBuf buf) {
     for (UInt i = 0; i < buf.len; ++i) {
         SmExpr *expr = buf.items + i;
@@ -282,7 +261,7 @@ static void loadObj(SmBuf path) {
             SmSect *sect = findSect(expr->addr.sect);
             if (!sect) {
                 objFatal(path,
-                         "section %.*s is not defined in config\n"
+                         "output section %.*s is not defined in config\n"
                          "\tyou may have forgot to add a @SECTION directive "
                          "before a label\n",
                          (int)expr->addr.sect.len, expr->addr.sect.bytes);
@@ -336,7 +315,7 @@ static void loadObj(SmBuf path) {
         SmSect *sect    = tmpsects.inner.items + i;
         SmSect *dstsect = findSect(sect->name);
         if (!dstsect) {
-            objFatal(path, "section %.*s is not defined in config\n",
+            objFatal(path, "output section %.*s is not defined in config\n",
                      (int)sect->name.len, sect->name.bytes);
         }
         // copy relocations
@@ -379,66 +358,81 @@ static void loadObj(SmBuf path) {
     smBufInternFini(&tmpstrs);
 }
 
-struct Mem {
+struct Out {
     SmBuf name;
     U32   pc;
     U32   end;
 };
-typedef struct Mem Mem;
+typedef struct Out Out;
 
-struct MemBuf {
-    Mem *items;
+struct OutBuf {
+    Out *items;
     UInt len;
 };
-typedef struct MemBuf MemBuf;
+typedef struct OutBuf OutBuf;
 
-struct MemGBuf {
-    MemBuf inner;
+struct OutGBuf {
+    OutBuf inner;
     UInt   size;
 };
-typedef struct MemGBuf MemGBuf;
+typedef struct OutGBuf OutGBuf;
 
-static MemGBuf MEMS = {0};
+static OutGBuf OUTS = {0};
 
-static void memGBufAdd(Mem item) {
-    MemGBuf *buf = &MEMS;
+static void outGBufAdd(Out item) {
+    OutGBuf *buf = &OUTS;
     SM_GBUF_ADD_IMPL();
 }
 
-static Mem *findMem(SmBuf name) {
-    for (UInt i = 0; i < MEMS.inner.len; ++i) {
-        Mem *mem = MEMS.inner.items + i;
-        if (smBufEqual(mem->name, name)) {
-            return mem;
+static Out *findOut(SmBuf name) {
+    for (UInt i = 0; i < OUTS.inner.len; ++i) {
+        Out *out = OUTS.inner.items + i;
+        if (smBufEqual(out->name, name)) {
+            return out;
         }
     }
     return NULL;
 }
 
+static CfgIn *findCfgIn(SmBuf name, CfgOut **out) {
+    for (UInt i = 0; i < CFGS.inner.len; ++i) {
+        *out = CFGS.inner.items + i;
+        for (UInt j = 0; j < (*out)->ins.len; ++j) {
+            CfgIn *in = (*out)->ins.items + j;
+            if (smBufEqual(in->name, name)) {
+                return in;
+            }
+        }
+    }
+    *out = NULL;
+    return NULL;
+}
+
 static void allocate(SmSect *sect) {
-    CfgSect *cfgsect = findCfgSect(sect->name);
-    assert(cfgsect);
-    Mem *mem = findMem(cfgsect->load);
-    assert(mem);
-    U32 aligned =
-        ((mem->pc + cfgsect->align - 1) / cfgsect->align) * cfgsect->align;
-    sect->pc = aligned;
-    for (UInt i = 0; i < cfgsect->files.inner.len; ++i) {
-        SmBuf   path = cfgsect->files.inner.items[i];
+    CfgOut *cfgout = NULL;
+    CfgIn  *in     = findCfgIn(sect->name, &cfgout);
+    assert(cfgout);
+    assert(in);
+    Out *out     = findOut(cfgout->name);
+    U32  aligned = ((out->pc + in->align - 1) / in->align) * in->align;
+    sect->pc     = aligned;
+    for (UInt i = 0; i < in->files.len; ++i) {
+        SmBuf   path = in->files.items[i];
         FILE   *hnd  = openFile(path, "rb");
         SmSerde ser  = {hnd, path};
         smDeserializeToEnd(&ser, &sect->data);
     }
-    mem->pc = aligned + sect->data.inner.len;
-    if (mem->pc > mem->end) {
-        smFatal("no room in memory %.*s for section %.*s\n", (int)mem->name.len,
-                mem->name.bytes, (int)sect->name.len, sect->name.bytes);
+    out->pc = aligned + sect->data.inner.len;
+    if (out->pc > out->end) {
+        smFatal("no room in output section %.*s for input section %.*s\n",
+                (int)out->name.len, out->name.bytes, (int)sect->name.len,
+                sect->name.bytes);
     }
-    if (cfgsect->define) {
+    if (in->define) {
         static SmGBuf buf = {0};
         buf.inner.len     = 0;
         smGBufCat(&buf, SM_BUF("__"));
-        smGBufCat(&buf, cfgsect->name);
+        smGBufCat(&buf, in->name);
         smGBufCat(&buf, SM_BUF("_START__"));
         SmBuf start = intern(buf.inner);
         smSymTabAdd(&SYMS, (SmSym){
@@ -451,7 +445,7 @@ static void allocate(SmSect *sect) {
                            });
         buf.inner.len = 0;
         smGBufCat(&buf, SM_BUF("__"));
-        smGBufCat(&buf, cfgsect->name);
+        smGBufCat(&buf, in->name);
         smGBufCat(&buf, SM_BUF("_SIZE__"));
         SmBuf end = intern(buf.inner);
         smSymTabAdd(&SYMS, (SmSym){
@@ -499,9 +493,12 @@ static Bool solve(SmExprBuf buf, SmBuf unit, I32 *num) {
                 !smBufEqual(sym->unit, EXPORT_UNIT)) {
                 goto fail;
             }
-            CfgSect     *sect = findCfgSect(sym->section);
+            CfgOut *cfgout = NULL;
+            CfgIn  *in     = findCfgIn(sym->section, &cfgout);
+            assert(cfgout);
+            assert(in);
             // find the tag in the section
-            CfgI32Entry *tag  = cfgI32TabFind(&sect->tags, expr->tag.name);
+            CfgI32Entry *tag = cfgI32TabFind(&in->tags, expr->tag.name);
             if (!tag) {
                 goto fail;
             }
@@ -678,10 +675,12 @@ static void link(SmSect *sect) {
                 Bool legal = false;
                 if (reloc->flags & SM_RELOC_HI) {
                     for (UInt j = 0; j < SECTS.inner.len; ++j) {
-                        SmSect  *sect    = SECTS.inner.items + j;
-                        CfgSect *cfgsect = findCfgSect(sect->name);
-                        assert(cfgsect);
-                        if (cfgsect->kind != CFG_SECT_HIGHPAGE) {
+                        SmSect *sect   = SECTS.inner.items + j;
+                        CfgOut *cfgout = NULL;
+                        CfgIn  *in     = findCfgIn(sect->name, &cfgout);
+                        assert(cfgout);
+                        assert(in);
+                        if (in->kind != CFG_IN_HIGHPAGE) {
                             continue;
                         }
                         if ((num >= (I32)(sect->pc)) &&
@@ -818,138 +817,47 @@ static U16 eatU16() {
     return (U16)num;
 }
 
-static void parseMems() {
-    expect('{');
-    eat();
-    while (true) {
-        if (peek() == '\n') {
-            eat();
-            continue;
-        }
-        if (peek() == '}') {
-            break;
-        }
-        if ((peek() == SM_TOK_STR) || (peek() == SM_TOK_ID)) {
-            CfgMem mem = {0};
-            SmPos  pos = tokPos();
-            mem.name   = intern(tokBuf());
-            eat();
-            Bool start = false;
-            Bool size  = false;
-            Bool kind  = false;
-            while ((peek() == SM_TOK_STR) || (peek() == SM_TOK_ID)) {
-                if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("start"))) {
-                    eat();
-                    expect('=');
-                    eat();
-                    start     = true;
-                    mem.start = eatU16();
-                    continue;
-                }
-                if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("size"))) {
-                    eat();
-                    expect('=');
-                    eat();
-                    size     = true;
-                    mem.size = eatU16();
-                    continue;
-                }
-                if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("fill"))) {
-                    eat();
-                    expect('=');
-                    eat();
-                    mem.fill    = true;
-                    mem.fillval = eatU8();
-                    continue;
-                }
-                if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("kind"))) {
-                    eat();
-                    expect('=');
-                    eat();
-                    kind = true;
-                    switch (peek()) {
-                    case SM_TOK_STR:
-                    case SM_TOK_ID: {
-                        if (smBufEqualIgnoreAsciiCase(tokBuf(),
-                                                      SM_BUF("readonly"))) {
-                            eat();
-                            mem.kind = CFG_MEM_READONLY;
-                            continue;
-                        }
-                        if (smBufEqualIgnoreAsciiCase(tokBuf(),
-                                                      SM_BUF("readwrite"))) {
-                            eat();
-                            mem.kind = CFG_MEM_READWRITE;
-                            continue;
-                        }
-                        SmBuf buf = tokBuf();
-                        fatal("unrecognized memory kind: %.*s\n", (int)buf.len,
-                              buf.bytes);
-                    }
-                    default:
-                        expect(SM_TOK_STR);
-                    }
-                }
-                SmBuf buf = tokBuf();
-                fatal("unrecognized memory attribute: %.*s\n", (int)buf.len,
-                      buf.bytes);
-            }
-            if (!start) {
-                fatalPos(pos, "`start` attribute is required\n");
-            }
-            if (!size) {
-                fatalPos(pos, "`size` attribute is required\n");
-            }
-            if (!kind) {
-                fatalPos(pos, "`kind` attribute is required\n");
-            }
-            cfgMemGBufAdd(&CFGMEMS, mem);
-            if (peek() == '}') {
-                break;
-            }
-            expectEOL();
-            eat();
-        }
+static CfgI32Tab parseTags() {
+    CfgI32Tab tags = {0};
+    while ((peek() == SM_TOK_STR) || (peek() == SM_TOK_ID)) {
+        SmBuf name = intern(tokBuf());
+        eat();
+        expect('=');
+        eat();
+        expect(SM_TOK_NUM);
+        cfgI32TabAdd(&tags, (CfgI32Entry){name, tokNum()});
+        eat();
     }
-    expect('}');
-    if (CFGMEMS.inner.len == 0) {
-        fatal("at least 1 memory area is required for linking\n");
-    }
-    eat();
+    return tags;
 }
 
-static void parseSects() {
-    expect('{');
-    eat();
+static CfgInBuf parseInSects(CfgOut const *out) {
+    CfgInGBuf ins = {0};
     while (true) {
-        if (peek() == '\n') {
+        CfgIn in = {0};
+        switch (peek()) {
+        case '\n':
+            // skip newlines
             eat();
             continue;
-        }
-        if (peek() == '}') {
+        case '}':
+            goto endsects;
+        case '*':
+            in.name = out->name;
+            break;
+        case SM_TOK_STR:
+        case SM_TOK_ID:
+            in.name = intern(tokBuf());
             break;
         }
-        if ((peek() == SM_TOK_STR) || (peek() == SM_TOK_ID)) {
-            CfgSect sect = {0};
-            SmPos   pos  = tokPos();
-            sect.name    = intern(tokBuf());
-            sect.align   = 1;
-            eat();
-            Bool load = false;
-            Bool kind = false;
-            while ((peek() == SM_TOK_STR) || (peek() == SM_TOK_ID)) {
-                if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("load"))) {
-                    eat();
-                    expect('=');
-                    eat();
-                    load = true;
-                    if ((peek() == SM_TOK_STR) || (peek() == SM_TOK_ID)) {
-                        sect.load = intern(tokBuf());
-                        eat();
-                        continue;
-                    }
-                    expect(SM_TOK_STR);
-                }
+        SmPos pos = tokPos();
+        eat();
+        in.align  = 1;
+        Bool kind = false;
+        while (true) {
+            switch (peek()) {
+            case SM_TOK_STR:
+            case SM_TOK_ID: {
                 if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("kind"))) {
                     eat();
                     expect('=');
@@ -961,30 +869,30 @@ static void parseSects() {
                         if (smBufEqualIgnoreAsciiCase(tokBuf(),
                                                       SM_BUF("code"))) {
                             eat();
-                            sect.kind = CFG_SECT_CODE;
+                            in.kind = CFG_IN_CODE;
                             continue;
                         }
                         if (smBufEqualIgnoreAsciiCase(tokBuf(),
                                                       SM_BUF("data"))) {
                             eat();
-                            sect.kind = CFG_SECT_DATA;
+                            in.kind = CFG_IN_DATA;
                             continue;
                         }
                         if (smBufEqualIgnoreAsciiCase(tokBuf(),
                                                       SM_BUF("uninit"))) {
                             eat();
-                            sect.kind = CFG_SECT_UNINIT;
+                            in.kind = CFG_IN_UNINIT;
                             continue;
                         }
                         if (smBufEqualIgnoreAsciiCase(tokBuf(),
                                                       SM_BUF("highpage"))) {
                             eat();
-                            sect.kind = CFG_SECT_HIGHPAGE;
+                            in.kind = CFG_IN_HIGHPAGE;
                             continue;
                         }
                         SmBuf buf = tokBuf();
-                        fatal("unrecognized section kind: %.*s\n", (int)buf.len,
-                              buf.bytes);
+                        fatal("unrecognized input section kind: %.*s\n",
+                              (int)buf.len, buf.bytes);
                     }
                     default:
                         expect(SM_TOK_STR);
@@ -994,86 +902,171 @@ static void parseSects() {
                     eat();
                     expect('=');
                     eat();
-                    sect.align = eatU16();
-                    if (sect.align == 0) {
-                        fatal("section alignment must be greater than 0\n");
+                    in.align = eatU16();
+                    if (in.align == 0) {
+                        fatal(
+                            "input section alignment must be greater than 0\n");
                     }
                     continue;
                 }
                 if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("define"))) {
                     eat();
-                    sect.define = true;
+                    in.define = true;
                     continue;
                 }
                 SmBuf buf = tokBuf();
-                fatal("unrecognized section attribute: %.*s\n", (int)buf.len,
-                      buf.bytes);
+                fatal("unrecognized input section attribute: %.*s\n",
+                      (int)buf.len, buf.bytes);
+                continue;
             }
-            if (peek() == '{') {
+            case '{':
                 eat();
-                while (true) {
-                    if (peek() == '\n') {
-                        eat();
-                        continue;
-                    }
-                    if (peek() == '}') {
-                        break;
-                    }
-                    if ((peek() == SM_TOK_STR) || (peek() == SM_TOK_ID)) {
-                        if (smBufEqualIgnoreAsciiCase(tokBuf(),
-                                                      SM_BUF("tags"))) {
-                            eat();
-                            while ((peek() == SM_TOK_STR) ||
-                                   (peek() == SM_TOK_ID)) {
-                                SmBuf name = intern(tokBuf());
-                                eat();
-                                expect('=');
-                                eat();
-                                expect(SM_TOK_NUM);
-                                cfgI32TabAdd(&sect.tags,
-                                             (CfgI32Entry){name, tokNum()});
-                                eat();
-                            }
-                            continue;
-                        }
-                        SmBuf buf = tokBuf();
-                        fatal("unrecognized section sub-attribute: %.*s\n",
-                              (int)buf.len, buf.bytes);
-                    }
-                    if (peek() == '}') {
-                        break;
-                    }
-                    expectEOL();
-                    eat();
-                }
+                in.tags = parseTags();
                 expect('}');
                 eat();
+                goto endsect;
+            default:
+                goto endsect;
             }
-            if (!load) {
-                fatalPos(pos, "`load` attribute is required\n");
+        endsect:
+            break;
+        }
+        if (!kind) {
+            fatalPos(pos, "`kind` attribute is required\n");
+        }
+        cfgInGBufAdd(&ins, in);
+        expectEOL();
+        eat();
+        continue;
+    }
+endsects:
+    return ins.inner;
+}
+
+static void parseOutSects() {
+    expect('{');
+    eat();
+    while (true) {
+        switch (peek()) {
+        case '\n':
+            // skip newlines
+            eat();
+            continue;
+        case '}':
+            goto endsects;
+        case SM_TOK_STR:
+        case SM_TOK_ID: {
+            CfgOut out   = {0};
+            Bool   start = false;
+            Bool   size  = false;
+            Bool   kind  = false;
+            out.name     = intern(tokBuf());
+            SmPos pos    = tokPos();
+            eat();
+            while (true) {
+                switch (peek()) {
+                case SM_TOK_STR:
+                case SM_TOK_ID: {
+                    if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("start"))) {
+                        eat();
+                        expect('=');
+                        eat();
+                        start     = true;
+                        out.start = eatU16();
+                        continue;
+                    }
+                    if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("size"))) {
+                        eat();
+                        expect('=');
+                        eat();
+                        size     = true;
+                        out.size = eatU16();
+                        continue;
+                    }
+                    if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("fill"))) {
+                        eat();
+                        expect('=');
+                        eat();
+                        out.fill    = true;
+                        out.fillval = eatU8();
+                        continue;
+                    }
+                    if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("kind"))) {
+                        eat();
+                        expect('=');
+                        eat();
+                        kind = true;
+                        switch (peek()) {
+                        case SM_TOK_STR:
+                        case SM_TOK_ID: {
+                            if (smBufEqualIgnoreAsciiCase(tokBuf(),
+                                                          SM_BUF("readonly"))) {
+                                eat();
+                                out.kind = CFG_OUT_READONLY;
+                                continue;
+                            }
+                            if (smBufEqualIgnoreAsciiCase(
+                                    tokBuf(), SM_BUF("readwrite"))) {
+                                eat();
+                                out.kind = CFG_OUT_READWRITE;
+                                continue;
+                            }
+                            SmBuf buf = tokBuf();
+                            fatal("unrecognized ouput section kind: %.*s\n",
+                                  (int)buf.len, buf.bytes);
+                        }
+                        default:
+                            expect(SM_TOK_STR);
+                        }
+                    }
+                    SmBuf buf = tokBuf();
+                    fatal("unrecognized output section attribute: %.*s\n",
+                          (int)buf.len, buf.bytes);
+                    continue;
+                }
+                case '{':
+                    eat();
+                    out.ins = parseInSects(&out);
+                    expect('}');
+                    eat();
+                    goto endsect;
+                default:
+                    goto endsect;
+                }
+            endsect:
+                break;
+            }
+            if (!start) {
+                fatalPos(pos, "`start` attribute is required\n");
+            }
+            if (!size) {
+                fatalPos(pos, "`size` attribute is required\n");
             }
             if (!kind) {
                 fatalPos(pos, "`kind` attribute is required\n");
             }
-            cfgSectGBufAdd(&CFGSECTS, sect);
-            if (peek() == '}') {
-                break;
-            }
+            cfgOutGBufAdd(&CFGS, out);
             expectEOL();
             eat();
+            continue;
+        }
+        default: {
+            SmBuf name = smTokName(peek());
+            fatal("unexpected %.*s\n", (int)name.len, name.bytes);
+        }
         }
     }
+endsects:
     expect('}');
     eat();
-    if (CFGSECTS.inner.len == 0) {
-        fatal("at least 1 section is required for linking\n");
+    if (CFGS.inner.len == 0) {
+        fatal("at least 1 output section is required for linking\n");
     }
 }
 
 static void parseCfg() {
     smTokStreamFileInit(&TS, (SmBuf){(U8 *)cfgfile_name, strlen(cfgfile_name)},
                         cfgfile);
-    Bool memories = false;
     Bool sections = false;
     while (peek() != SM_TOK_EOF) {
         switch (peek()) {
@@ -1083,15 +1076,9 @@ static void parseCfg() {
             continue;
         case SM_TOK_STR:
         case SM_TOK_ID: {
-            if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("memories"))) {
-                eat();
-                parseMems();
-                memories = true;
-                continue;
-            }
             if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("sections"))) {
                 eat();
-                parseSects();
+                parseOutSects();
                 sections = true;
                 continue;
             }
@@ -1104,73 +1091,63 @@ static void parseCfg() {
         }
         }
     }
-    if (!memories) {
-        fatal("no `memories` config area was defined\n");
-    }
-    for (UInt i = 0; i < CFGMEMS.inner.len; ++i) {
-        CfgMem *mem = CFGMEMS.inner.items + i;
-        // Pre-add the memories defined in the cfg
-        memGBufAdd((Mem){
-            .name = mem->name,
-            .pc   = mem->start,
-            .end  = mem->start + mem->size,
-        });
-    }
     if (!sections) {
         fatal("no `sections` config area was defined\n");
     }
-    for (UInt i = 0; i < CFGSECTS.inner.len; ++i) {
-        CfgSect *sect = CFGSECTS.inner.items + i;
-        // Pre-add the sections defined in the cfg
-        smSectGBufAdd(&SECTS, (SmSect){
-                                  .name   = sect->name,
-                                  .pc     = 0,
-                                  .data   = {{0}, 0}, // GCC doesnt like {0}
-                                  .relocs = {{0}, 0},
-                              });
-        CfgMem *mem = findCfgMem(sect->load);
-        if (!mem) {
-            fatal("no memory found with name: %.*s\n", (int)sect->load.len,
-                  sect->load.bytes);
-        }
-        switch (mem->kind) {
-        case CFG_MEM_READONLY:
-            if (sect->kind != CFG_SECT_CODE) {
-                fatal("section %.*s is not kind-compatible "
-                      "with memory %.*s\n",
-                      (int)sect->name.len, sect->name.bytes, (int)mem->name.len,
-                      mem->name.bytes);
+    for (UInt i = 0; i < CFGS.inner.len; ++i) {
+        CfgOut *out = CFGS.inner.items + i;
+        // Pre-add the output sections defined in the cfg
+        outGBufAdd((Out){
+            .name = out->name,
+            .pc   = out->start,
+            .end  = out->start + out->size,
+        });
+        for (UInt j = 0; j < out->ins.len; ++j) {
+            CfgIn *in = out->ins.items + j;
+            // Pre-add the sections defined in the cfg
+            smSectGBufAdd(&SECTS, (SmSect){
+                                      .name   = in->name,
+                                      .pc     = 0,
+                                      .data   = {{0}, 0}, // GCC doesnt like {0}
+                                      .relocs = {{0}, 0},
+                                  });
+            switch (out->kind) {
+            case CFG_OUT_READONLY:
+                // TODO could check this while parsing
+                if (in->kind != CFG_IN_CODE) {
+                    fatal("input section %.*s is not kind-compatible "
+                          "with output section %.*s\n",
+                          (int)in->name.len, in->name.bytes, (int)out->name.len,
+                          out->name.bytes);
+                }
+            case CFG_OUT_READWRITE:
+                continue;
+            default:
+                SM_UNREACHABLE();
             }
-        case CFG_MEM_READWRITE:
-            continue;
-        default:
-            SM_UNREACHABLE();
         }
     }
 }
 
 static void serialize() {
     SmSerde ser = {outfile, {(U8 *)outfile_name, strlen(outfile_name)}};
-    for (UInt i = 0; i < CFGMEMS.inner.len; ++i) {
-        CfgMem *cfgmem = CFGMEMS.inner.items + i;
-        for (UInt j = 0; j < CFGSECTS.inner.len; ++j) {
-            CfgSect *cfgsect = CFGSECTS.inner.items + j;
-            if (!smBufEqual(cfgsect->load, cfgmem->name)) {
+
+    for (UInt i = 0; i < CFGS.inner.len; ++i) {
+        CfgOut *cfgout = CFGS.inner.items + i;
+        for (UInt j = 0; j < cfgout->ins.len; ++j) {
+            CfgIn *in = cfgout->ins.items + j;
+            if ((in->kind == CFG_IN_UNINIT) || (in->kind == CFG_IN_HIGHPAGE)) {
                 continue;
             }
-            if ((cfgsect->kind == CFG_SECT_UNINIT) ||
-                (cfgsect->kind == CFG_SECT_HIGHPAGE)) {
-                continue;
-            }
-            SmSect *sect = findSect(cfgsect->name);
+            SmSect *sect = findSect(in->name);
             assert(sect);
             smSerializeBuf(&ser, sect->data.inner);
         }
-        if (cfgmem->fill) {
-            Mem *mem = findMem(cfgmem->name);
-            assert(mem);
-            for (UInt k = mem->pc; k < mem->end; ++k) {
-                smSerializeU8(&ser, cfgmem->fillval);
+        if (cfgout->fill) {
+            Out *out = findOut(cfgout->name);
+            assert(out);
+            for (UInt j = out->pc; j < out->end; ++j) {
+                smSerializeU8(&ser, cfgout->fillval);
             }
         }
     }
@@ -1243,11 +1220,12 @@ static void writeSyms() {
             (sym->value.items[0].kind != SM_EXPR_CONST)) {
             continue;
         }
-        SmBuf    name    = fullLblName(sym->lbl);
-        CfgSect *cfgsect = findCfgSect(sym->section);
-        assert(cfgsect);
+        SmBuf   name   = fullLblName(sym->lbl);
+        CfgOut *cfgout = NULL;
+        CfgIn  *in     = findCfgIn(sym->section, &cfgout);
+        assert(in);
         I32          bank = 0;
-        CfgI32Entry *tag  = cfgI32TabFind(&cfgsect->tags, SM_BUF("bank"));
+        CfgI32Entry *tag  = cfgI32TabFind(&in->tags, SM_BUF("bank"));
         if (tag) {
             bank = tag->num;
         }
