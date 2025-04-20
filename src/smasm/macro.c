@@ -1,5 +1,4 @@
 #include "macro.h"
-#include "fmt.h"
 #include "state.h"
 
 #include <smasm/fatal.h>
@@ -63,6 +62,11 @@ void macroInvoke(Macro macro) {
             smMacroTokGBufAdd(&toks, (SmMacroTok){.kind = SM_MACRO_TOK_ID,
                                                   .pos  = tokPos(),
                                                   .buf  = intern(tokBuf())});
+            break;
+        case SM_TOK_NUM:
+            smMacroTokGBufAdd(&toks, (SmMacroTok){.kind = SM_MACRO_TOK_NUM,
+                                                  .pos  = tokPos(),
+                                                  .num  = tokNum()});
             break;
         case SM_TOK_STR:
             smMacroTokGBufAdd(&toks, (SmMacroTok){.kind = SM_MACRO_TOK_STR,

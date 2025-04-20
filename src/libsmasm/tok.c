@@ -786,13 +786,15 @@ void smTokStreamEat(SmTokStream *ts) {
         case SM_MACRO_TOK_SHIFT:
             smMacroArgDequeue(&ts->macro.args);
             break;
-        case SM_MACRO_TOK_ARG:
+        case SM_MACRO_TOK_ARG: {
+            SmMacroTokBuf *buf = ts->macro.args.buf + tok->num;
             ++ts->macro.argi;
-            if (ts->macro.argi < ts->macro.args.len) {
+            if (ts->macro.argi < buf->len) {
                 return;
             }
             ts->macro.argi = 0;
             break;
+        }
         default:
             break;
         }
@@ -894,7 +896,7 @@ I32 smTokStreamNum(SmTokStream *ts) {
                 SM_UNREACHABLE();
             }
         case SM_MACRO_TOK_NARG:
-            return ts->macro.argi;
+            return ts->macro.args.len;
         case SM_MACRO_TOK_UNIQUE:
             return ts->macro.nonce;
         default:
