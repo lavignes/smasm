@@ -1230,8 +1230,8 @@ static SmSymTab sortSyms() {
 static void writeSyms() {
     FILE    *hnd = openFileCstr(symfile_name, "wb+");
     SmSymTab tab = sortSyms();
-    for (UInt i = 0; i < SYMS.size; ++i) {
-        SmSym *sym = SYMS.syms + i;
+    for (UInt i = 0; i < tab.size; ++i) {
+        SmSym *sym = tab.syms + i;
         if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
             continue;
         }
