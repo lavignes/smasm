@@ -63,13 +63,21 @@ static struct {
     {SM_TOK_UNIQUE, SM_BUF("@UNIQUE")},
 };
 
+static SmBufIntern CHAR_NAMES = {0};
+
 SmBuf smTokName(U32 c) {
     for (size_t i = 0; i < (sizeof(TOK_NAMES) / sizeof(TOK_NAMES[0])); ++i) {
         if (c == TOK_NAMES[i].tok) {
             return TOK_NAMES[i].buf;
         }
     }
-    return SM_BUF("character");
+    SmGBuf buf = {0};
+    smGBufCat(&buf, SM_BUF("`"));
+    smUtf8Cat(&buf, c);
+    smGBufCat(&buf, SM_BUF("`"));
+    SmBuf name = smBufIntern(&CHAR_NAMES, buf.inner);
+    smGBufFini(&buf);
+    return name;
 }
 
 void smMacroTokGBufAdd(SmMacroTokGBuf *buf, SmMacroTok item) {
