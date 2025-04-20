@@ -1255,9 +1255,6 @@ static void eatDirective() {
                 addPC(tokBuf().len);
                 eat();
                 break;
-            case SM_TOK_STRFMT:
-                fmtInvoke(SM_TOK_STR);
-                continue;
             default: {
                 buf = exprEatPos(&pos);
                 if (emit) {
@@ -1712,12 +1709,17 @@ static void eatDirective() {
         eat();
         return;
     }
-    case SM_TOK_FATAL:
+    case SM_TOK_FATAL: {
+        SmPos pos = tokPos();
         eat();
+        fmtInvoke(SM_TOK_STR, pos);
         expect(SM_TOK_STR);
         fatal("explicit fatal error: %.*s", (int)tokBuf().len, tokBuf().bytes);
-    case SM_TOK_PRINT:
+    }
+    case SM_TOK_PRINT: {
+        SmPos pos = tokPos();
         eat();
+        fmtInvoke(SM_TOK_STR, pos);
         expect(SM_TOK_STR);
         if (emit) {
             fprintf(stderr, "%.*s", (int)tokBuf().len, tokBuf().bytes);
@@ -1726,6 +1728,7 @@ static void eatDirective() {
         expectEOL();
         eat();
         return;
+    }
     default: {
         SmBuf name = smTokName(peek());
         fatal("unexpected: %.*s\n", (int)name.len, name.bytes);

@@ -71,12 +71,18 @@ U32 peek() {
         }
         return tok;
     }
-    case SM_TOK_STRFMT:
-        fmtInvoke(SM_TOK_STR);
+    case SM_TOK_STRFMT: {
+        SmPos pos = tokPos();
+        eat();
+        fmtInvoke(SM_TOK_STR, pos);
         return peek(); // yuck
-    case SM_TOK_IDFMT:
-        fmtInvoke(SM_TOK_ID);
+    }
+    case SM_TOK_IDFMT: {
+        SmPos pos = tokPos();
+        eat();
+        fmtInvoke(SM_TOK_ID, pos);
         return peek(); // yuck
+    }
     default:
         return tok;
     }

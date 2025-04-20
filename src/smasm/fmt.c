@@ -139,9 +139,7 @@ static UInt scanDigits(SmBuf fmt, U16 *num) {
     return len;
 }
 
-void fmtInvoke(U32 tok) {
-    SmPos pos = tokPos();
-    eat();
+void fmtInvoke(U32 tok, SmPos pos) {
     Bool braced = false;
     if (peek() == '{') {
         eat();

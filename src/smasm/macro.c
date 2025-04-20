@@ -69,12 +69,6 @@ void macroInvoke(Macro macro) {
                                                   .pos  = tokPos(),
                                                   .buf  = intern(tokBuf())});
             break;
-        case SM_TOK_STRFMT:
-            fmtInvoke(SM_TOK_STR);
-            continue;
-        case SM_TOK_IDFMT:
-            fmtInvoke(SM_TOK_ID);
-            continue;
         default:
             if (depth > 0) {
                 if (peek() == '{') {
