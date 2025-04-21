@@ -131,7 +131,7 @@ static UInt totalExprBufOffset(SmExprIntern const *in, SmExprBuf buf) {
             total += gbuf->inner.len;
             continue;
         }
-        total += (offset - gbuf->inner.items) / sizeof(SmExpr);
+        total += offset - gbuf->inner.items;
         break;
     }
     return total;

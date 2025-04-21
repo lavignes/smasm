@@ -227,13 +227,14 @@ static SmExprBuf internExpr(SmExprBuf buf) {
             expr->addr.sect = intern(expr->addr.sect);
             break;
         case SM_EXPR_TAG:
+            expr->tag.lbl  = internLbl(expr->tag.lbl);
             expr->tag.name = intern(expr->tag.name);
-            // fall through
-        case SM_EXPR_LABEL:
-        case SM_EXPR_REL:
-            expr->lbl.scope = intern(expr->lbl.scope);
-            expr->lbl.name  = intern(expr->lbl.name);
             break;
+        case SM_EXPR_LABEL:
+        case SM_EXPR_REL: {
+            expr->lbl = internLbl(expr->lbl);
+            break;
+        }
         default:
             break;
         }
@@ -428,12 +429,11 @@ static void allocate(SmSect *sect) {
                 (int)out->name.len, out->name.bytes, (int)sect->name.len,
                 sect->name.bytes);
     }
-    if (in->define) {
+    if (!smBufEqual(in->define, SM_BUF_NULL)) {
         static SmGBuf buf = {0};
         buf.inner.len     = 0;
-        smGBufCat(&buf, SM_BUF("__"));
-        smGBufCat(&buf, in->name);
-        smGBufCat(&buf, SM_BUF("_START__"));
+        smGBufCat(&buf, in->define);
+        smGBufCat(&buf, SM_BUF("_START"));
         SmBuf start = intern(buf.inner);
         smSymTabAdd(&SYMS, (SmSym){
                                .lbl     = globalLbl(start),
@@ -444,12 +444,11 @@ static void allocate(SmSect *sect) {
                                .flags   = SM_SYM_EQU,
                            });
         buf.inner.len = 0;
-        smGBufCat(&buf, SM_BUF("__"));
-        smGBufCat(&buf, in->name);
-        smGBufCat(&buf, SM_BUF("_SIZE__"));
-        SmBuf end = intern(buf.inner);
+        smGBufCat(&buf, in->define);
+        smGBufCat(&buf, SM_BUF("_SIZE"));
+        SmBuf size = intern(buf.inner);
         smSymTabAdd(&SYMS, (SmSym){
-                               .lbl     = globalLbl(end),
+                               .lbl     = globalLbl(size),
                                .value   = constExprBuf(sect->data.inner.len),
                                .unit    = EXPORT_UNIT,
                                .section = DEFINES_SECTION,
@@ -884,8 +883,7 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                             in.kind = CFG_IN_UNINIT;
                             continue;
                         }
-                        if (smBufEqualIgnoreAsciiCase(tokBuf(),
-                                                      SM_BUF("highpage"))) {
+                        if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("hi"))) {
                             eat();
                             in.kind = CFG_IN_HIGHPAGE;
                             continue;
@@ -911,7 +909,16 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                 }
                 if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("define"))) {
                     eat();
-                    in.define = true;
+                    in.define = in.name;
+                    if (peek() == '=') {
+                        eat();
+                        if ((peek() == SM_TOK_STR) || (peek() == SM_TOK_ID)) {
+                            in.define = intern(tokBuf());
+                            eat();
+                        } else {
+                            expect(SM_TOK_STR);
+                        }
+                    }
                     continue;
                 }
                 SmBuf buf = tokBuf();
@@ -1000,13 +1007,13 @@ static void parseOutSects() {
                         case SM_TOK_STR:
                         case SM_TOK_ID: {
                             if (smBufEqualIgnoreAsciiCase(tokBuf(),
-                                                          SM_BUF("readonly"))) {
+                                                          SM_BUF("ro"))) {
                                 eat();
                                 out.kind = CFG_OUT_READONLY;
                                 continue;
                             }
-                            if (smBufEqualIgnoreAsciiCase(
-                                    tokBuf(), SM_BUF("readwrite"))) {
+                            if (smBufEqualIgnoreAsciiCase(tokBuf(),
+                                                          SM_BUF("rw"))) {
                                 eat();
                                 out.kind = CFG_OUT_READWRITE;
                                 continue;
@@ -1018,6 +1025,21 @@ static void parseOutSects() {
                         default:
                             expect(SM_TOK_STR);
                         }
+                    }
+                    if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("define"))) {
+                        eat();
+                        out.define = out.name;
+                        if (peek() == '=') {
+                            eat();
+                            if ((peek() == SM_TOK_STR) ||
+                                (peek() == SM_TOK_ID)) {
+                                out.define = intern(tokBuf());
+                                eat();
+                            } else {
+                                expect(SM_TOK_STR);
+                            }
+                        }
+                        continue;
                     }
                     SmBuf buf = tokBuf();
                     fatal("unrecognized output section attribute: %.*s\n",
@@ -1102,6 +1124,34 @@ static void parseCfg() {
             .pc   = out->start,
             .end  = out->start + out->size,
         });
+        if (!smBufEqual(out->define, SM_BUF_NULL)) {
+            static SmGBuf buf = {0};
+            buf.inner.len     = 0;
+            smGBufCat(&buf, out->define);
+            smGBufCat(&buf, SM_BUF("_START"));
+            SmBuf start = intern(buf.inner);
+            // TODO the position of these symbols could be set to the cfg
+            smSymTabAdd(&SYMS, (SmSym){
+                                   .lbl     = globalLbl(start),
+                                   .value   = constExprBuf(out->start),
+                                   .unit    = EXPORT_UNIT,
+                                   .section = DEFINES_SECTION,
+                                   .pos     = {DEFINES_SECTION, 1, 1},
+                                   .flags   = SM_SYM_EQU,
+                               });
+            buf.inner.len = 0;
+            smGBufCat(&buf, out->define);
+            smGBufCat(&buf, SM_BUF("_SIZE"));
+            SmBuf size = intern(buf.inner);
+            smSymTabAdd(&SYMS, (SmSym){
+                                   .lbl     = globalLbl(size),
+                                   .value   = constExprBuf(out->size),
+                                   .unit    = EXPORT_UNIT,
+                                   .section = DEFINES_SECTION,
+                                   .pos     = {DEFINES_SECTION, 1, 1},
+                                   .flags   = SM_SYM_EQU,
+                               });
+        }
         for (UInt j = 0; j < out->ins.len; ++j) {
             CfgIn *in = out->ins.items + j;
             // Pre-add the sections defined in the cfg
@@ -1131,7 +1181,6 @@ static void parseCfg() {
 
 static void serialize() {
     SmSerde ser = {outfile, {(U8 *)outfile_name, strlen(outfile_name)}};
-
     for (UInt i = 0; i < CFGS.inner.len; ++i) {
         CfgOut *cfgout = CFGS.inner.items + i;
         for (UInt j = 0; j < cfgout->ins.len; ++j) {
