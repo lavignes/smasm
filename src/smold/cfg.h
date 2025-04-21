@@ -15,6 +15,7 @@ typedef struct CfgI32Tab CfgI32Tab;
 
 CfgI32Entry *cfgI32TabAdd(CfgI32Tab *tab, CfgI32Entry entry);
 CfgI32Entry *cfgI32TabFind(CfgI32Tab *tab, SmBuf name);
+void         cfgI32TabFini(CfgI32Tab *tab);
 
 enum CfgInKind {
     CFG_IN_CODE,
@@ -53,14 +54,15 @@ enum CfgOutKind {
 };
 
 struct CfgOut {
-    SmBuf    name;
-    U32      start;
-    U32      size;
-    Bool     fill;
-    U8       fillval;
-    U8       kind;
-    SmBuf    define;
-    CfgInBuf ins;
+    SmBuf     name;
+    U32       start;
+    U32       size;
+    Bool      fill;
+    U8        fillval;
+    U8        kind;
+    SmBuf     define;
+    CfgInBuf  ins;
+    CfgI32Tab tags;
 };
 typedef struct CfgOut CfgOut;
 

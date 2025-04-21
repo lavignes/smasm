@@ -68,4 +68,18 @@
     }                                                                          \
     return whence;
 
+#define SM_TAB_FINI_IMPL(EntryFiniFn)                                          \
+    if (!tab->entries) {                                                       \
+        return;                                                                \
+    }                                                                          \
+    for (UInt i = 0; i < tab->size; ++i) {                                     \
+        typeof(*tab->entries) *entry = tab->entries + i;                       \
+        if (smBufEqual(entry->name, SM_BUF_NULL)) {                            \
+            continue;                                                          \
+        }                                                                      \
+        (EntryFiniFn)(entry);                                                  \
+    }                                                                          \
+    free(tab->entries);                                                        \
+    memset(tab, 0, sizeof(*tab));
+
 #endif // SMASM_TAB_H

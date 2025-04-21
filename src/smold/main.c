@@ -818,22 +818,33 @@ static U16 eatU16() {
 
 static CfgI32Tab parseTags() {
     CfgI32Tab tags = {0};
-    while ((peek() == SM_TOK_STR) || (peek() == SM_TOK_ID)) {
-        SmBuf name = intern(tokBuf());
-        eat();
-        expect('=');
-        eat();
-        expect(SM_TOK_NUM);
-        cfgI32TabAdd(&tags, (CfgI32Entry){name, tokNum()});
-        eat();
+    while (true) {
+        switch (peek()) {
+        case '\n':
+            // skip newlines
+            eat();
+            continue;
+        case SM_TOK_STR:
+        case SM_TOK_ID: {
+            SmBuf name = intern(tokBuf());
+            eat();
+            expect('=');
+            eat();
+            expect(SM_TOK_NUM);
+            cfgI32TabAdd(&tags, (CfgI32Entry){name, tokNum()});
+            eat();
+            break;
+        }
+        }
+        return tags;
     }
-    return tags;
 }
 
 static CfgInBuf parseInSects(CfgOut const *out) {
     CfgInGBuf ins = {0};
     while (true) {
         CfgIn in = {0};
+        in.tags  = out->tags;
         switch (peek()) {
         case '\n':
             // skip newlines
@@ -902,8 +913,8 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                     eat();
                     in.align = eatU16();
                     if (in.align == 0) {
-                        fatal(
-                            "input section alignment must be greater than 0\n");
+                        fatal("input section alignment must be greater "
+                              "than 0\n");
                     }
                     continue;
                 }
@@ -926,12 +937,27 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                       (int)buf.len, buf.bytes);
                 continue;
             }
-            case '{':
+            case '[': {
                 eat();
-                in.tags = parseTags();
-                expect('}');
+                CfgI32Tab oldtags = in.tags;
+                in.tags           = parseTags();
+                // copy base tags
+                for (UInt i = 0; i < oldtags.size; ++i) {
+                    CfgI32Entry *oldtag = oldtags.entries + i;
+                    if (smBufEqual(oldtag->name, SM_BUF_NULL)) {
+                        continue;
+                    }
+                    // only apply tag if the output section does not already
+                    // have it
+                    CfgI32Entry *newtag = cfgI32TabFind(&in.tags, oldtag->name);
+                    if (smBufEqual(newtag->name, SM_BUF_NULL)) {
+                        *newtag = *oldtag;
+                    }
+                }
+                expect(']');
                 eat();
                 goto endsect;
+            }
             default:
                 goto endsect;
             }
@@ -1046,6 +1072,12 @@ static void parseOutSects() {
                           (int)buf.len, buf.bytes);
                     continue;
                 }
+                case '[':
+                    eat();
+                    out.tags = parseTags();
+                    expect(']');
+                    eat();
+                    continue;
                 case '{':
                     eat();
                     out.ins = parseInSects(&out);
