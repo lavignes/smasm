@@ -28,6 +28,7 @@ struct CfgIn {
     SmBuf     name;
     U8        kind;
     U32       align;
+    SmPos     defpos;
     SmBuf     define;
     CfgI32Tab tags;
     SmBufBuf  files;
@@ -60,6 +61,7 @@ struct CfgOut {
     Bool      fill;
     U8        fillval;
     U8        kind;
+    SmPos     defpos;
     SmBuf     define;
     CfgInBuf  ins;
     CfgI32Tab tags;

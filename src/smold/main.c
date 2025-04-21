@@ -440,7 +440,7 @@ static void allocate(SmSect *sect) {
                                .value   = constExprBuf(sect->pc),
                                .unit    = EXPORT_UNIT,
                                .section = DEFINES_SECTION,
-                               .pos     = {DEFINES_SECTION, 1, 1},
+                               .pos     = in->defpos,
                                .flags   = SM_SYM_EQU,
                            });
         buf.inner.len = 0;
@@ -452,7 +452,7 @@ static void allocate(SmSect *sect) {
                                .value   = constExprBuf(sect->data.inner.len),
                                .unit    = EXPORT_UNIT,
                                .section = DEFINES_SECTION,
-                               .pos     = {DEFINES_SECTION, 1, 1},
+                               .pos     = in->defpos,
                                .flags   = SM_SYM_EQU,
                            });
     }
@@ -919,12 +919,14 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                     continue;
                 }
                 if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("define"))) {
+                    in.defpos = tokPos();
                     eat();
                     in.define = in.name;
                     if (peek() == '=') {
                         eat();
                         if ((peek() == SM_TOK_STR) || (peek() == SM_TOK_ID)) {
                             in.define = intern(tokBuf());
+                            in.defpos = tokPos();
                             eat();
                         } else {
                             expect(SM_TOK_STR);
@@ -1053,6 +1055,7 @@ static void parseOutSects() {
                         }
                     }
                     if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("define"))) {
+                        out.defpos = tokPos();
                         eat();
                         out.define = out.name;
                         if (peek() == '=') {
@@ -1060,6 +1063,7 @@ static void parseOutSects() {
                             if ((peek() == SM_TOK_STR) ||
                                 (peek() == SM_TOK_ID)) {
                                 out.define = intern(tokBuf());
+                                out.defpos = tokPos();
                                 eat();
                             } else {
                                 expect(SM_TOK_STR);
@@ -1119,8 +1123,9 @@ endsects:
 }
 
 static void parseCfg() {
-    smTokStreamFileInit(&TS, (SmBuf){(U8 *)cfgfile_name, strlen(cfgfile_name)},
-                        cfgfile);
+    SmBuf cfgname =
+        smPathIntern(&STRS, (SmBuf){(U8 *)cfgfile_name, strlen(cfgfile_name)});
+    smTokStreamFileInit(&TS, cfgname, cfgfile);
     Bool sections = false;
     while (peek() != SM_TOK_EOF) {
         switch (peek()) {
@@ -1162,13 +1167,12 @@ static void parseCfg() {
             smGBufCat(&buf, out->define);
             smGBufCat(&buf, SM_BUF("_START"));
             SmBuf start = intern(buf.inner);
-            // TODO the position of these symbols could be set to the cfg
             smSymTabAdd(&SYMS, (SmSym){
                                    .lbl     = globalLbl(start),
                                    .value   = constExprBuf(out->start),
                                    .unit    = EXPORT_UNIT,
                                    .section = DEFINES_SECTION,
-                                   .pos     = {DEFINES_SECTION, 1, 1},
+                                   .pos     = out->defpos,
                                    .flags   = SM_SYM_EQU,
                                });
             buf.inner.len = 0;
@@ -1180,7 +1184,7 @@ static void parseCfg() {
                                    .value   = constExprBuf(out->size),
                                    .unit    = EXPORT_UNIT,
                                    .section = DEFINES_SECTION,
-                                   .pos     = {DEFINES_SECTION, 1, 1},
+                                   .pos     = out->defpos,
                                    .flags   = SM_SYM_EQU,
                                });
         }
