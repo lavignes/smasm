@@ -1606,9 +1606,10 @@ static void eatDirective() {
         }
         // TODO check if this struct is already defined
         eat();
-        UInt      size    = 0;
-        SmBufGBuf fields  = {0};
-        Bool      inunion = false;
+        UInt      size      = 0;
+        SmBufGBuf fields    = {0};
+        Bool      inunion   = false;
+        UInt      unionsize = 0;
         while (true) {
             switch (peek()) {
             case '\n':
@@ -1618,13 +1619,15 @@ static void eatDirective() {
                 if (inunion) {
                     fatal("a @UNION is already being defined\n");
                 }
-                inunion = true;
+                inunion   = true;
+                unionsize = 0;
                 eat();
                 continue;
             case SM_TOK_END:
                 eat();
                 if (inunion) {
                     inunion = false;
+                    size += unionsize;
                     eat();
                     continue;
                 }
@@ -1657,6 +1660,8 @@ static void eatDirective() {
             }
             if (!inunion) {
                 size += num;
+            } else {
+                unionsize = uIntMax(unionsize, num);
             }
             expectEOL();
             eat();
