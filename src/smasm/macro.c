@@ -12,12 +12,11 @@ SM_TAB_TRYGROW_IMPL(MacroTab, Macro);
 
 static MacroTab MACS = {0};
 
+static void noop(Macro *entry) { (void)entry; }
+
 void macroTabFini() {
-    if (!MACS.entries) {
-        return;
-    }
-    free(MACS.entries);
-    memset(&MACS, 0, sizeof(MacroTab));
+    MacroTab *tab = &MACS;
+    SM_TAB_FINI_IMPL(noop);
 }
 
 Macro *macroFind(SmBuf name) {

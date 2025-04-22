@@ -27,6 +27,7 @@ syn match smasmDirective "@end"
 syn match smasmDirective "@macro"
 syn match smasmDirective "@repeat"
 syn match smasmDirective "@struct"
+syn match smasmDirective "@union"
 syn match smasmDirective "@strfmt"
 syn match smasmDirective "@idfmt"
 syn match smasmDirective "@create"
@@ -63,8 +64,8 @@ hi def link smasmNumber       Number
 hi def link smasmString	      String
 hi def link smasmChar         Character
 hi def link smasmIdentifier   Identifier
-hi def link smasmRegister     SpecialChar
-hi def link smasmConditions   SpecialChar
+hi def link smasmRegister     Constant
+hi def link smasmConditions   Constant
 hi def link smasmOpcode       Keyword
 hi def link smasmEscape       SpecialChar
 hi def link smasmFmt          SpecialChar
