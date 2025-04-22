@@ -28,6 +28,10 @@ struct CfgIn {
     SmBuf     name;
     U8        kind;
     U32       align;
+    Bool      size;
+    U32       sizeval;
+    Bool      fill;
+    U8        fillval;
     SmPos     defpos;
     SmBuf     define;
     CfgI32Tab tags;

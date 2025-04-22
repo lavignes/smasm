@@ -423,6 +423,19 @@ static void allocate(SmSect *sect) {
         SmSerde ser  = {hnd, path};
         smDeserializeToEnd(&ser, &sect->data);
     }
+    if (in->size) {
+        if (sect->data.inner.len > in->sizeval) {
+            smFatal("input section %.*s size ($%08zX) is larger than "
+                    "configured size: $%08zX\n",
+                    (int)sect->name.len, sect->name.bytes, sect->data.inner.len,
+                    (UInt)in->sizeval);
+        }
+        if (in->fill) {
+            while (sect->data.inner.len < in->sizeval) {
+                smGBufCat(&sect->data, (SmBuf){&in->fillval, 1});
+            }
+        }
+    }
     out->pc = aligned + sect->data.inner.len;
     if (out->pc > out->end) {
         smFatal("no room in output section %.*s for input section %.*s\n",
@@ -916,6 +929,22 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                         fatal("input section alignment must be greater "
                               "than 0\n");
                     }
+                    continue;
+                }
+                if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("size"))) {
+                    eat();
+                    expect('=');
+                    eat();
+                    in.size    = true;
+                    in.sizeval = eatU16();
+                    continue;
+                }
+                if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("fill"))) {
+                    eat();
+                    expect('=');
+                    eat();
+                    in.fill    = true;
+                    in.fillval = eatU8();
                     continue;
                 }
                 if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("define"))) {
