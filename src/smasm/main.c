@@ -1363,6 +1363,7 @@ static void eatDirective() {
             case SM_TOK_MACRO:
             case SM_TOK_REPEAT:
             case SM_TOK_STRUCT:
+            case SM_TOK_UNION:
                 ++depth;
                 break;
             case SM_TOK_END:
@@ -1444,6 +1445,7 @@ static void eatDirective() {
             case SM_TOK_MACRO:
             case SM_TOK_REPEAT:
             case SM_TOK_STRUCT:
+            case SM_TOK_UNION:
                 ++depth;
                 break;
             case SM_TOK_END:
@@ -1536,6 +1538,7 @@ static void eatDirective() {
             case SM_TOK_MACRO:
             case SM_TOK_REPEAT:
             case SM_TOK_STRUCT:
+            case SM_TOK_UNION:
                 ++depth;
                 break;
             case SM_TOK_END:
@@ -1603,15 +1606,28 @@ static void eatDirective() {
         }
         // TODO check if this struct is already defined
         eat();
-        UInt      size   = 0;
-        SmBufGBuf fields = {0};
+        UInt      size    = 0;
+        SmBufGBuf fields  = {0};
+        Bool      inunion = false;
         while (true) {
             switch (peek()) {
             case '\n':
                 eat();
                 continue;
+            case SM_TOK_UNION:
+                if (inunion) {
+                    fatal("a @UNION is already being defined\n");
+                }
+                inunion = true;
+                eat();
+                continue;
             case SM_TOK_END:
                 eat();
+                if (inunion) {
+                    inunion = false;
+                    eat();
+                    continue;
+                }
                 goto structdone;
             default:
                 break;
@@ -1639,7 +1655,9 @@ static void eatDirective() {
                                            .pos     = pos,
                                            .flags   = SM_SYM_EQU});
             }
-            size += num;
+            if (!inunion) {
+                size += num;
+            }
             expectEOL();
             eat();
         }
