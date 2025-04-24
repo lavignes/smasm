@@ -941,10 +941,12 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                 }
                 if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("fill"))) {
                     eat();
-                    expect('=');
-                    eat();
-                    in.fill    = true;
-                    in.fillval = eatU8();
+                    in.fill = true;
+                    if (peek() == '=') {
+                        expect('=');
+                        eat();
+                        in.fillval = eatU8();
+                    }
                     continue;
                 }
                 if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("define"))) {
@@ -1049,10 +1051,12 @@ static void parseOutSects() {
                     }
                     if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("fill"))) {
                         eat();
-                        expect('=');
-                        eat();
-                        out.fill    = true;
-                        out.fillval = eatU8();
+                        out.fill = true;
+                        if (peek() == '=') {
+                            expect('=');
+                            eat();
+                            out.fillval = eatU8();
+                        }
                         continue;
                     }
                     if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("kind"))) {
