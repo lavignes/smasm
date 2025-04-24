@@ -78,6 +78,7 @@ int main(int argc, char **argv) {
     SmSerde serout = {outfile, {(U8 *)outfile_name, strlen(outfile_name)}};
     smSerializeBuf(&serout, buf.inner);
     closeFile(outfile);
+    return EXIT_SUCCESS;
 }
 
 static FILE *openFileCstr(char const *name, char const *modes) {

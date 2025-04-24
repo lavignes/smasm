@@ -3,6 +3,6 @@
 
 #include <smasm/tok.h>
 
-void fmtInvoke(U32 tok, SmPos pos);
+void fmtInvoke(U32 tok);
 
 #endif // FMT_H

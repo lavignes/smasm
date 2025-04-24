@@ -79,6 +79,7 @@ void macroInvoke(Macro macro) {
                 } else if (peek() == '}') {
                     --depth;
                     if (depth == 0) {
+                        eat();
                         goto flush;
                     }
                 }

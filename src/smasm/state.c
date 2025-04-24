@@ -1,5 +1,6 @@
 #include "state.h"
 #include "fmt.h"
+#include "if.h"
 #include "macro.h"
 
 #include <assert.h>
@@ -58,7 +59,7 @@ U32 peek() {
         popStream();
         return peek(); // yuck
     }
-    // if we're in a macro definition, don't evaluate other meta-programming
+    // if we're in a macro/if definition, don't evaluate other meta-constructs
     if (streamdef) {
         return tok;
     }
@@ -71,18 +72,15 @@ U32 peek() {
         }
         return tok;
     }
-    case SM_TOK_STRFMT: {
-        SmPos pos = tokPos();
-        eat();
-        fmtInvoke(SM_TOK_STR, pos);
+    case SM_TOK_IF:
+        ifInvoke();
         return peek(); // yuck
-    }
-    case SM_TOK_IDFMT: {
-        SmPos pos = tokPos();
-        eat();
-        fmtInvoke(SM_TOK_ID, pos);
+    case SM_TOK_STRFMT:
+        fmtInvoke(SM_TOK_STR);
         return peek(); // yuck
-    }
+    case SM_TOK_IDFMT:
+        fmtInvoke(SM_TOK_ID);
+        return peek(); // yuck
     default:
         return tok;
     }

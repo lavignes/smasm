@@ -175,7 +175,7 @@ int main(int argc, char **argv) {
 
     serialize();
     closeFile(outfile);
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 static SmBuf intern(SmBuf buf) { return smBufIntern(&STRS, buf); }
