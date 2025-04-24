@@ -1,4 +1,4 @@
-# SMASM: An assembler for the SM83 (Gameboy) CPU
+# SMASM: An Assembler for the SM83 (Gameboy) CPU
 
 ```
 Usage: smasm [OPTIONS] <SOURCE>
@@ -484,7 +484,7 @@ The syntax for this is essentially the same as a C include guard:
 
 `example.ssi`:
 ```
-; If the symbol EXAMPLE_INC is not yet defined in this translation unit
+; If the symbol EXAMPLE_SSI is not yet defined in this translation unit
 ; define it to the value 1.
 ; If the symbol is already defined, the assembler will ignore all tokens in
 ; the file until it finds the matching @end. 
@@ -498,7 +498,7 @@ CONSTANT = $42
 
 `source.ssm`:
 ```
-@include "example.inc"
+@include "example.ssi"
 
 LoadConstant:
     ld a, CONSTANT
