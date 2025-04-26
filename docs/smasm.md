@@ -191,7 +191,7 @@ A few additional convenience operators are included:
     * `^$123456 == (($123456 & $FF0000) >> 16)`
 * `~>` (logical shift right):
   * Associativity: Left-to-right
-  * Precedence: Same as `>>` (arithmethic shift right).
+  * Precedence: Same as `>>` (arithmetic shift right).
   * Shifts a number right by a given number of bits, replacing the highest
 order bits with `0` (zeros).
   * Equivalence: `(%1111_1111 ~> 2) == %0011_1111`
@@ -238,7 +238,7 @@ any padding to the section (use `@ds` for that):
 ```
 
 Because `*` is a relative address from the start of the current section,
-you should not use it for absolute addressesing modes. It will result in a
+you should not use it for absolute addressing modes. It will result in a
 incorrect address unless you set it to the exact physical address that a
 section will be ultimately placed during linking.
 
@@ -345,9 +345,9 @@ identifiers.
 The `@strfmt` directive will take a C printf format string and list of arguments
 and can be used in any place a string could otherwise be used in the source
 file:
-* `@strfmt "test"` is equivlent to `"test"`.
-* `@strfmt "test%d", 42` is equivlent to `"test42"`.
-* `@strfmt "test%04x", $FF` is equivlent to `"test00ff"`.
+* `@strfmt "test"` is equivalent to `"test"`.
+* `@strfmt "test%d", 42` is equivalent to `"test42"`.
+* `@strfmt "test%04x", $FF` is equivalent to `"test00ff"`.
 
 The `@idfmt` directive performs identically, but yields an identifier.
 
@@ -416,7 +416,7 @@ Macros take a variable number of arguments. Arguments are delimited by ','
 (comma) and typically terminate at the end of the current line. 
 
 To disambiguate when a set of macro arguments start and stop on the same line
-you can wrap the macro aguments in `{` and `}` (left and right curly braces):
+you can wrap the macro arguments in `{` and `}` (left and right curly braces):
 
 ```
 @macro ADD

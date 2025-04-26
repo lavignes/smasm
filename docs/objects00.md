@@ -18,7 +18,7 @@ For example:
 
 ## Tables
 
-Immediately following the header is a contigious list of tables.
+Immediately following the header is a contiguous list of tables.
 In order, they are:
 
 * String Table
