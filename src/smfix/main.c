@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
     SmSerde serin = {infile, {(U8 *)infile_name, strlen(infile_name)}};
     smDeserializeToEnd(&serin, &buf);
 
-    if (buf.inner.len < 0x014C) {
+    if (buf.inner.len < 0x014E) {
         smFatal("ROM file too small\n");
     }
 
