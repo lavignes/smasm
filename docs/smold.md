@@ -28,6 +28,8 @@ At the top level of the configuration file, you can define "output" sections.
 These sections specify the addresses (both logical and physical) and sizes of
 chunks of data and code in the output binary.
 
+The sections you define in your source files are "input" sections.
+
 The most minimal form of a configuration file consists of a single output
 section:
 
@@ -41,7 +43,7 @@ SECTION {
 
         * kind=CODE
 
-        ; The above input section is equivalent to: CODE kine=CODE
+        ; The above input section is equivalent to: CODE kind=CODE
         ; More input sections can be defined here if desired
     }
 

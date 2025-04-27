@@ -120,8 +120,9 @@ SmLbl tokLbl() {
     return lblLocal(intern(name));
 }
 
-SmSectGBuf  SECTS = {0};
-static UInt sect;
+SmSectGBuf SECTS                  = {0};
+UInt       SECT_STACK[STACK_SIZE] = {0};
+UInt      *sect                   = SECT_STACK - 1;
 
 static UInt sectFind(SmBuf name) {
     for (UInt i = 0; i < SECTS.inner.len; ++i) {
@@ -132,19 +133,35 @@ static UInt sectFind(SmBuf name) {
     return UINT_MAX;
 }
 
-SmSect *sectGet() { return SECTS.inner.items + sect; }
+SmSect *sectGet() { return SECTS.inner.items + *sect; }
 
-void sectSet(SmBuf name) {
-    sect = sectFind(name);
-    if (sect == UINT_MAX) {
+static void sectSet(SmBuf name) {
+    UInt idx = sectFind(name);
+    if (idx == UINT_MAX) {
         smSectGBufAdd(&SECTS, (SmSect){
                                   .name   = name,
                                   .pc     = 0,
                                   .data   = {{0}, 0}, // GCC doesnt like {0}
                                   .relocs = {{0}, 0},
                               });
-        sect = SECTS.inner.len - 1;
+        idx = SECTS.inner.len - 1;
     }
+    *sect = idx;
+}
+
+void sectPush(SmBuf name) {
+    ++sect;
+    if (sect >= (SECT_STACK + STACK_SIZE)) {
+        fatal("@SECTION stack overflow\n");
+    }
+    sectSet(name);
+}
+
+void sectPop() {
+    if (sect <= SECT_STACK) {
+        fatal("@SECTION stack underflow\n");
+    }
+    --sect;
 }
 
 void sectRewind() {
@@ -152,10 +169,11 @@ void sectRewind() {
         SmSect *sect = SECTS.inner.items + i;
         sect->pc     = 0;
     }
+    sect = SECT_STACK - 1;
 }
 
-void setPC(U16 num) { SECTS.inner.items[sect].pc = num; }
-U16  getPC() { return SECTS.inner.items[sect].pc; }
+void setPC(U16 num) { SECTS.inner.items[*sect].pc = num; }
+U16  getPC() { return SECTS.inner.items[*sect].pc; }
 
 void addPC(U16 offset) {
     I32 cur = (U32)getPC();

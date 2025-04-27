@@ -1315,8 +1315,14 @@ static void eatDirective() {
     case SM_TOK_SECTION:
         eat();
         expect(SM_TOK_STR);
-        sectSet(intern(tokBuf()));
+        sectPush(intern(tokBuf()));
         eat();
+        expectEOL();
+        eat();
+        return;
+    case SM_TOK_SECTPOP:
+        eat();
+        sectPop();
         expectEOL();
         eat();
         return;
@@ -1686,7 +1692,7 @@ static void eatDirective() {
 }
 
 static void pass() {
-    sectSet(CODE_SECTION);
+    sectPush(CODE_SECTION);
     while (peek() != SM_TOK_EOF) {
         switch (peek()) {
         case '\n':
