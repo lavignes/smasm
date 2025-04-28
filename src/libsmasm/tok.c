@@ -21,6 +21,7 @@ static struct {
     {SM_TOK_DW, SM_BUF("@DW")},
     {SM_TOK_DS, SM_BUF("@DS")},
     {SM_TOK_SECTION, SM_BUF("@SECTION")},
+    {SM_TOK_SECTPUSH, SM_BUF("@SECTPUSH")},
     {SM_TOK_SECTPOP, SM_BUF("@SECTPOP")},
     {SM_TOK_INCLUDE, SM_BUF("@INCLUDE")},
     {SM_TOK_INCBIN, SM_BUF("@INCBIN")},
@@ -383,22 +384,36 @@ static struct {
     char const *name;
     U32         tok;
 } const DIRECTIVES[] = {
-    {"DB", SM_TOK_DB},           {"DW", SM_TOK_DW},
-    {"DS", SM_TOK_DS},           {"SECTION", SM_TOK_SECTION},
-    {"SECTPOP", SM_TOK_SECTPOP}, {"INCLUDE", SM_TOK_INCLUDE},
-    {"INCBIN", SM_TOK_INCBIN},   {"IF", SM_TOK_IF},
-    {"ELSE", SM_TOK_ELSE},       {"END", SM_TOK_END},
-    {"MACRO", SM_TOK_MACRO},     {"REPEAT", SM_TOK_REPEAT},
-    {"STRUCT", SM_TOK_STRUCT},   {"UNION", SM_TOK_UNION},
-    {"STRFMT", SM_TOK_STRFMT},   {"IDFMT", SM_TOK_IDFMT},
-    {"CREATE", SM_TOK_CREATE},   {"FATAL", SM_TOK_FATAL},
+    {"DB", SM_TOK_DB},
+    {"DW", SM_TOK_DW},
+    {"DS", SM_TOK_DS},
+    {"SECTION", SM_TOK_SECTION},
+    {"SECTPUSH", SM_TOK_SECTPUSH},
+    {"SECTPOP", SM_TOK_SECTPOP},
+    {"INCLUDE", SM_TOK_INCLUDE},
+    {"INCBIN", SM_TOK_INCBIN},
+    {"IF", SM_TOK_IF},
+    {"ELSE", SM_TOK_ELSE},
+    {"END", SM_TOK_END},
+    {"MACRO", SM_TOK_MACRO},
+    {"REPEAT", SM_TOK_REPEAT},
+    {"STRUCT", SM_TOK_STRUCT},
+    {"UNION", SM_TOK_UNION},
+    {"STRFMT", SM_TOK_STRFMT},
+    {"IDFMT", SM_TOK_IDFMT},
+    {"CREATE", SM_TOK_CREATE},
+    {"FATAL", SM_TOK_FATAL},
     {"PRINT", SM_TOK_PRINT},
 
-    {"DEFINED", SM_TOK_DEFINED}, {"STRLEN", SM_TOK_STRLEN},
-    {"TAG", SM_TOK_TAG},         {"REL", SM_TOK_REL},
+    {"DEFINED", SM_TOK_DEFINED},
+    {"STRLEN", SM_TOK_STRLEN},
+    {"TAG", SM_TOK_TAG},
+    {"REL", SM_TOK_REL},
 
-    {"ARG", SM_TOK_ARG},         {"NARG", SM_TOK_NARG},
-    {"SHIFT", SM_TOK_SHIFT},     {"UNIQUE", SM_TOK_UNIQUE},
+    {"ARG", SM_TOK_ARG},
+    {"NARG", SM_TOK_NARG},
+    {"SHIFT", SM_TOK_SHIFT},
+    {"UNIQUE", SM_TOK_UNIQUE},
 };
 
 static struct {
@@ -492,7 +507,7 @@ static U32 peekFile(SmTokStream *ts) {
                 return ts->file.stash;
             }
         }
-        smTokStreamFatal(ts, "unrecognized directive: %.*s\n", (int)buf->len,
+        smTokStreamFatal(ts, "unrecognized directive: @%.*s\n", (int)buf->len,
                          buf->bytes);
     }
     if (peek(ts) == '"') {

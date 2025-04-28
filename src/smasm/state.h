@@ -46,6 +46,7 @@ SmLbl tokLbl();
 extern SmSectGBuf SECTS;
 
 SmSect *sectGet();
+void    sectSet(SmBuf name);
 void    sectPush(SmBuf name);
 void    sectPop();
 void    sectRewind();

@@ -7,62 +7,63 @@
 #include <stdio.h>
 
 enum SmTok {
-    SM_TOK_EOF     = 26,
+    SM_TOK_EOF      = 26,
 
-    SM_TOK_ID      = 0xF0000,
-    SM_TOK_NUM     = 0xF0001,
-    SM_TOK_STR     = 0xF0002,
+    SM_TOK_ID       = 0xF0000,
+    SM_TOK_NUM      = 0xF0001,
+    SM_TOK_STR      = 0xF0002,
 
-    SM_TOK_DB      = 0xF000A,
-    SM_TOK_DW      = 0xF000B,
-    SM_TOK_DS      = 0xF000C,
-    SM_TOK_SECTION = 0xF000D,
-    SM_TOK_SECTPOP = 0xF000E,
-    SM_TOK_INCLUDE = 0xF000F,
-    SM_TOK_INCBIN  = 0xF0010,
-    SM_TOK_IF      = 0xF0011,
-    SM_TOK_ELSE    = 0xF0012,
-    SM_TOK_END     = 0xF0013,
-    SM_TOK_MACRO   = 0xF0014,
-    SM_TOK_REPEAT  = 0xF0015,
-    SM_TOK_STRUCT  = 0xF0016,
-    SM_TOK_UNION   = 0xF0017,
-    SM_TOK_STRFMT  = 0xF0018,
-    SM_TOK_IDFMT   = 0xF0019,
-    SM_TOK_CREATE  = 0xF001A,
-    SM_TOK_FATAL   = 0xF001B,
-    SM_TOK_PRINT   = 0xF001C,
+    SM_TOK_DB       = 0xF000A,
+    SM_TOK_DW       = 0xF000B,
+    SM_TOK_DS       = 0xF000C,
+    SM_TOK_SECTION  = 0xF000D,
+    SM_TOK_SECTPUSH = 0xF000E,
+    SM_TOK_SECTPOP  = 0xF000F,
+    SM_TOK_INCLUDE  = 0xF0010,
+    SM_TOK_INCBIN   = 0xF0011,
+    SM_TOK_IF       = 0xF0012,
+    SM_TOK_ELSE     = 0xF0013,
+    SM_TOK_END      = 0xF0014,
+    SM_TOK_MACRO    = 0xF0015,
+    SM_TOK_REPEAT   = 0xF0016,
+    SM_TOK_STRUCT   = 0xF0017,
+    SM_TOK_UNION    = 0xF0018,
+    SM_TOK_STRFMT   = 0xF0019,
+    SM_TOK_IDFMT    = 0xF001A,
+    SM_TOK_CREATE   = 0xF001B,
+    SM_TOK_FATAL    = 0xF001C,
+    SM_TOK_PRINT    = 0xF001D,
 
-    SM_TOK_DEFINED = 0xF0020,
-    SM_TOK_STRLEN  = 0xF0021,
-    SM_TOK_TAG     = 0xF0022,
-    SM_TOK_REL     = 0xF0023,
+    SM_TOK_DEFINED  = 0xF0020,
+    SM_TOK_STRLEN   = 0xF0021,
+    SM_TOK_TAG      = 0xF0022,
+    SM_TOK_REL      = 0xF0023,
 
-    SM_TOK_ASL     = 0xF0030, // <<
-    SM_TOK_ASR     = 0xF0031, // >>
-    SM_TOK_LSR     = 0xF0032, // ~>
-    SM_TOK_LTE     = 0xF0033, // <=
-    SM_TOK_GTE     = 0xF0034, // >=
-    SM_TOK_DEQ     = 0xF0035, // ==
-    SM_TOK_NEQ     = 0xF0036, // !=
-    SM_TOK_AND     = 0xF0037, // &&
-    SM_TOK_OR      = 0xF0038, // ||
-    SM_TOK_DCOLON  = 0xF0039, // ::
-    SM_TOK_EXPEQU  = 0xF003B, // =:
-    SM_TOK_DSTAR   = 0xF003C, // **
+    SM_TOK_ASL      = 0xF0030, // <<
+    SM_TOK_ASR      = 0xF0031, // >>
+    SM_TOK_LSR      = 0xF0032, // ~>
+    SM_TOK_LTE      = 0xF0033, // <=
+    SM_TOK_GTE      = 0xF0034, // >=
+    SM_TOK_DEQ      = 0xF0035, // ==
+    SM_TOK_NEQ      = 0xF0036, // !=
+    SM_TOK_AND      = 0xF0037, // &&
+    SM_TOK_OR       = 0xF0038, // ||
+    SM_TOK_DCOLON   = 0xF0039, // ::
+    SM_TOK_EXPEQU   = 0xF003B, // =:
+    SM_TOK_DSTAR    = 0xF003C, // **
 
-    SM_TOK_AF      = 0xF0040,
-    SM_TOK_BC      = 0xF0041,
-    SM_TOK_DE      = 0xF0042,
-    SM_TOK_HL      = 0xF0043,
-    SM_TOK_SP      = 0xF0044,
-    SM_TOK_NC      = 0xF0045,
-    SM_TOK_NZ      = 0xF0046,
+    SM_TOK_AF       = 0xF0040,
+    SM_TOK_BC       = 0xF0041,
+    SM_TOK_DE       = 0xF0042,
+    SM_TOK_HL       = 0xF0043,
+    SM_TOK_SP       = 0xF0044,
+    SM_TOK_NC       = 0xF0045,
+    SM_TOK_NZ       = 0xF0046,
 
-    SM_TOK_ARG     = 0xF0050,
-    SM_TOK_NARG    = 0xF0051,
-    SM_TOK_SHIFT   = 0xF0052,
-    SM_TOK_UNIQUE  = 0xF0053,
+    SM_TOK_ARG      = 0xF0050,
+    SM_TOK_NARG     = 0xF0051,
+    SM_TOK_SHIFT    = 0xF0052,
+    SM_TOK_UNIQUE   = 0xF0053,
 };
 
 SmBuf smTokName(U32 c);

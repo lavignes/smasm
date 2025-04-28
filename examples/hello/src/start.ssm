@@ -6,7 +6,7 @@
 stackTop: @ds 128
 stackBase:
 
-@section "ROM0"
+@section "ROM000"
 
 Start::
     di

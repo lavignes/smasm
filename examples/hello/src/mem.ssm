@@ -1,5 +1,5 @@
 ; vim: ft=smasm
-@section "ROM0"
+@section "ROM000"
 
 MemCopy::
     inc b

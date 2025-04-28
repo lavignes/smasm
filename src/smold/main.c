@@ -414,9 +414,9 @@ static void allocate(SmSect *sect) {
     CfgIn  *in     = findCfgIn(sect->name, &cfgout);
     assert(cfgout);
     assert(in);
-    Out *out     = findOut(cfgout->name);
-    U32  aligned = ((out->pc + in->align - 1) / in->align) * in->align;
-    sect->pc     = aligned;
+    Out *out = findOut(cfgout->name);
+    // TODO apply and adjust padding
+    sect->pc = ((out->pc + in->align - 1) / in->align) * in->align;
     for (UInt i = 0; i < in->files.len; ++i) {
         SmBuf   path = in->files.items[i];
         FILE   *hnd  = openFile(path, "rb");
@@ -436,7 +436,7 @@ static void allocate(SmSect *sect) {
             }
         }
     }
-    out->pc = aligned + sect->data.inner.len;
+    out->pc = sect->pc + sect->data.inner.len;
     if (out->pc > out->end) {
         smFatal("no room in output section %.*s for input section %.*s\n",
                 (int)out->name.len, out->name.bytes, (int)sect->name.len,
@@ -856,8 +856,10 @@ static CfgI32Tab parseTags() {
 static CfgInBuf parseInSects(CfgOut const *out) {
     CfgInGBuf ins = {0};
     while (true) {
-        CfgIn in = {0};
-        in.tags  = out->tags;
+        CfgIn in   = {0};
+        in.tags    = out->tags;
+        in.fill    = out->fill;
+        in.fillval = out->fillval;
         switch (peek()) {
         case '\n':
             // skip newlines
@@ -1298,7 +1300,7 @@ static int cmpSym(SmSym const *lhs, SmSym const *rhs) {
         return 1;
     }
     if (smLblEqual(rhs->lbl, SM_LBL_NULL)) {
-        return 0;
+        return -1;
     }
     SmBuf lname = fullLblName(lhs->lbl);
     SmBuf rname = fullLblName(rhs->lbl);

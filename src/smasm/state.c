@@ -135,7 +135,7 @@ static UInt sectFind(SmBuf name) {
 
 SmSect *sectGet() { return SECTS.inner.items + *sect; }
 
-static void sectSet(SmBuf name) {
+void sectSet(SmBuf name) {
     UInt idx = sectFind(name);
     if (idx == UINT_MAX) {
         smSectGBufAdd(&SECTS, (SmSect){
