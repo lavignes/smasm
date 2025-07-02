@@ -48,6 +48,7 @@ syn match smasmDirective "@unique"
 
 syn match smasmComment ";.*" contains=smasmTodo
 syn match smasmDocComment ";;.*" contains=smasmTodo
+syn region smasmIf0Comment start="@if 0" end="@end"
 syn keyword smasmTodo contained todo fixme xxx warning danger note notice bug
 syn match smasmEscape contained "\\."
 syn match smasmFmt contained "%[\-+ #0]*\*\?\.\?\(\*\|[0-9]\+\)\?[%cbdiuXxs]"
@@ -62,6 +63,7 @@ syn case match
 
 hi def link smasmComment      Comment
 hi def link smasmDocComment   SpecialComment
+hi def link smasmIf0Comment   Comment
 hi def link smasmNumber       Number
 hi def link smasmString	      String
 hi def link smasmChar         Character
