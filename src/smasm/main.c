@@ -1591,6 +1591,8 @@ static void eatDirective() {
             pos = tokPos();
             eat();
             fieldlbl.scope = lbl.name;
+            expect(':');
+            eat();
             num            = exprEatSolvedU16();
             if (!emit) {
                 // TODO should probably check for redefinition with different
