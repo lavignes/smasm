@@ -30,7 +30,7 @@ enum SmTok {
     SM_TOK_UNION    = 0xF0018,
     SM_TOK_STRFMT   = 0xF0019,
     SM_TOK_IDFMT    = 0xF001A,
-    SM_TOK_CREATE   = 0xF001B,
+    SM_TOK_ALLOC    = 0xF001B,
     SM_TOK_FATAL    = 0xF001C,
     SM_TOK_PRINT    = 0xF001D,
 

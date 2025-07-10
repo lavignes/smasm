@@ -1628,11 +1628,11 @@ static void eatDirective() {
         eat();
         return;
     }
-    case SM_TOK_CREATE: {
+    case SM_TOK_ALLOC: {
         pos = tokPos();
         eat();
         if (smBufEqual(scope, SM_BUF_NULL)) {
-            fatal("@CREATE must be used under a global label\n");
+            fatal("@ALLOC must be used under a global label\n");
         }
         SmSym *scopesym = smSymTabFind(&SYMS, lblGlobal(scope));
         assert(scopesym);

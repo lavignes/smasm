@@ -32,7 +32,7 @@ syn match smasmDirective "@struct"
 syn match smasmDirective "@union"
 syn match smasmDirective "@strfmt"
 syn match smasmDirective "@idfmt"
-syn match smasmDirective "@create"
+syn match smasmDirective "@alloc"
 syn match smasmDirective "@fatal"
 syn match smasmDirective "@print"
 

@@ -34,7 +34,7 @@ static struct {
     {SM_TOK_UNION, SM_BUF("@UNION")},
     {SM_TOK_STRFMT, SM_BUF("@STRFMT")},
     {SM_TOK_IDFMT, SM_BUF("@IDFMT")},
-    {SM_TOK_CREATE, SM_BUF("@CREATE")},
+    {SM_TOK_ALLOC, SM_BUF("@ALLOC")},
     {SM_TOK_FATAL, SM_BUF("@FATAL")},
     {SM_TOK_PRINT, SM_BUF("@PRINT")},
     {SM_TOK_DEFINED, SM_BUF("@DEFINED")},
@@ -401,7 +401,7 @@ static struct {
     {"UNION", SM_TOK_UNION},
     {"STRFMT", SM_TOK_STRFMT},
     {"IDFMT", SM_TOK_IDFMT},
-    {"CREATE", SM_TOK_CREATE},
+    {"ALLOC", SM_TOK_ALLOC},
     {"FATAL", SM_TOK_FATAL},
     {"PRINT", SM_TOK_PRINT},
 
