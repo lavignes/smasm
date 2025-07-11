@@ -603,6 +603,7 @@ static void eatMne(U8 mne) {
                 op = 0x08;
             } else {
                 expect('A');
+                eat();
                 op = 0xEA;
             }
             if (emit) {
@@ -1369,7 +1370,6 @@ static void eatDirective() {
         static SmMacroTokGBuf buf = {0};
         buf.inner.len             = 0;
         eat();
-        streamdef = true;
         expect(SM_TOK_ID);
         SmLbl lbl = tokLbl();
         if (!smLblIsGlobal(lbl)) {
@@ -1384,6 +1384,7 @@ static void eatDirective() {
         }
         eat();
         UInt depth = 0;
+        streamdef  = true;
         while (true) {
             switch (peek()) {
             case SM_TOK_IF:
@@ -1477,6 +1478,7 @@ static void eatDirective() {
         }
         UInt            depth = 0;
         SmRepeatTokGBuf buf   = {0};
+        streamdef             = true;
         while (true) {
             switch (peek()) {
             case SM_TOK_IF:
@@ -1534,6 +1536,7 @@ static void eatDirective() {
             eat();
         }
     rptdone:
+        streamdef = false;
         ++ts;
         if (ts >= (STACK + STACK_SIZE)) {
             smFatal("too many open files\n");
@@ -1646,6 +1649,7 @@ static void eatDirective() {
         if (!strct) {
             fatal("structure %.*s not found\n", (int)name.len, name.bytes);
         }
+
         eat();
         if (!emit) {
             for (UInt i = 0; i < strct->fields.inner.len; ++i) {
@@ -1663,12 +1667,13 @@ static void eatDirective() {
                                            .flags   = 0});
             }
         }
+        SmBuf  size = intern(SM_BUF("SIZE"));
+        SmLbl  lbl  = lblAbs(name, size);
+        SmSym *sym  = smSymTabFind(&SYMS, lbl);
+        assert(sym);
+        assert(exprSolve(sym->value, &num));
+        addPC(num);
         if (!emit) {
-            SmBuf  size = intern(SM_BUF("SIZE"));
-            SmLbl  lbl  = lblAbs(name, size);
-            SmSym *sym  = smSymTabFind(&SYMS, lbl);
-            assert(sym);
-            assert(exprSolve(sym->value, &num));
             smSymTabAdd(&SYMS, (SmSym){.lbl     = lblAbs(scope, size),
                                        .value   = sym->value,
                                        .unit    = scopesym->unit,
