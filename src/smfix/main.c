@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <unistd.h>
+
 static void help() {
     fprintf(stderr,
             "SMFIX: Corrects the header checksum for a Gameboy ROM\n"
@@ -64,7 +66,7 @@ int main(int argc, char **argv) {
     }
 
     U8 checksum = 0;
-    for (UInt i = 0x0134; i < 0x014C; ++i) {
+    for (UInt i = 0x0134; i < 0x014D; ++i) {
         checksum -= buf.inner.bytes[i];
         --checksum;
     }
@@ -77,6 +79,22 @@ int main(int argc, char **argv) {
     }
     SmSerde serout = {outfile, {(U8 *)outfile_name, strlen(outfile_name)}};
     smSerializeBuf(&serout, buf.inner);
+
+    UInt romsize = buf.inner.bytes[0x0148];
+    if (romsize > 0x08) {
+        smFatal("invalid ROM size: %02X\n", (U8)romsize);
+    }
+    UInt romsize_bytes = 0x8000 * (1 << romsize);
+    if (buf.inner.len < romsize_bytes) {
+        int fd = fileno(outfile);
+        if (fd < 0) {
+            smFatal("failed to get file descriptor: %s\n", strerror(errno));
+        }
+        if (ftruncate(fd, romsize_bytes) != 0) {
+            smFatal("failed to truncate file: %s\n", strerror(errno));
+        }
+    }
+
     closeFile(outfile);
     return EXIT_SUCCESS;
 }
