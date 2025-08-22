@@ -87,7 +87,7 @@ typedef I64 Int;
 
 #endif
 
-#define U32_MAX U32_C(4294967296)
+#define U32_MAX U32_C(4294967295)
 #define I32_MIN I32_C(-2147483648)
 #define I32_MAX I32_C(2147483647)
 
