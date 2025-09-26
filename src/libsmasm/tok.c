@@ -281,8 +281,8 @@ void smTokStreamFini(SmTokStream *ts) {
 }
 
 static _Noreturn void fatalChar(SmTokStream *ts, char const *fmt, ...) {
-    fprintf(stderr, "%.*s:%zu:%zu: ", (int)ts->file.buf.inner.len,
-            ts->file.buf.inner.bytes, ts->file.cline, ts->file.ccol);
+    fprintf(stderr, "%.*s:%zu:%zu: ", (int)ts->pos.file.len, ts->pos.file.bytes,
+            ts->file.cline, ts->file.ccol);
     va_list args;
     va_start(args, fmt);
     smFatalV(fmt, args);
