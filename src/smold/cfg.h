@@ -21,7 +21,7 @@ enum CfgInKind {
     CFG_IN_CODE,
     CFG_IN_DATA,
     CFG_IN_UNINIT,
-    CFG_IN_HIGHPAGE,
+    CFG_IN_GB_HRAM,
 };
 
 struct CfgIn {

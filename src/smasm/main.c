@@ -676,7 +676,7 @@ static void eatMne(U8 mne) {
                     emit8(num & 0x00FF);
                 } else {
                     emit8(0xFD);
-                    reloc(1, 1, buf, pos, SM_RELOC_HI);
+                    reloc(1, 1, buf, pos, SM_RELOC_HRAM);
                 }
             }
             addPC(2);
@@ -714,7 +714,7 @@ static void eatMne(U8 mne) {
                 emit8(num & 0x00FF);
             } else {
                 emit8(0xFD);
-                reloc(1, 1, buf, pos, SM_RELOC_HI);
+                reloc(1, 1, buf, pos, SM_RELOC_HRAM);
             }
         }
         addPC(2);

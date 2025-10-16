@@ -686,14 +686,14 @@ static void link(SmSect *sect) {
         case 1:
             if (!canReprU8(num)) {
                 Bool legal = false;
-                if (reloc->flags & SM_RELOC_HI) {
+                if (reloc->flags & SM_RELOC_HRAM) {
                     for (UInt j = 0; j < SECTS.inner.len; ++j) {
                         SmSect *sect   = SECTS.inner.items + j;
                         CfgOut *cfgout = NULL;
                         CfgIn  *in     = findCfgIn(sect->name, &cfgout);
                         assert(cfgout);
                         assert(in);
-                        if (in->kind != CFG_IN_HIGHPAGE) {
+                        if (in->kind != CFG_IN_GB_HRAM) {
                             continue;
                         }
                         if ((num >= (I32)(sect->pc)) &&
@@ -910,9 +910,10 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                             in.kind = CFG_IN_UNINIT;
                             continue;
                         }
-                        if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("hi"))) {
+                        if (smBufEqualIgnoreAsciiCase(tokBuf(),
+                                                      SM_BUF("gb_hram"))) {
                             eat();
-                            in.kind = CFG_IN_HIGHPAGE;
+                            in.kind = CFG_IN_GB_HRAM;
                             continue;
                         }
                         SmBuf buf = tokBuf();
@@ -1260,7 +1261,7 @@ static void serialize() {
         CfgOut *cfgout = CFGS.inner.items + i;
         for (UInt j = 0; j < cfgout->ins.len; ++j) {
             CfgIn *in = cfgout->ins.items + j;
-            if ((in->kind == CFG_IN_UNINIT) || (in->kind == CFG_IN_HIGHPAGE)) {
+            if ((in->kind == CFG_IN_UNINIT) || (in->kind == CFG_IN_GB_HRAM)) {
                 continue;
             }
             SmSect *sect = findSect(in->name);

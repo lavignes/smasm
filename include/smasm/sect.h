@@ -4,9 +4,9 @@
 #include <smasm/sym.h>
 
 enum SmRelocFlags {
-    SM_RELOC_HI  = 1 << 0,
-    SM_RELOC_RST = 1 << 1,
-    SM_RELOC_JP  = 1 << 2,
+    SM_RELOC_HRAM = 1 << 0,
+    SM_RELOC_RST  = 1 << 1,
+    SM_RELOC_JP   = 1 << 2,
 };
 
 struct SmReloc {
