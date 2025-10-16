@@ -189,7 +189,7 @@ static FILE *openFile(SmBuf path, char const *modes) {
 }
 
 static _Noreturn void objFatalV(SmBuf path, char const *fmt, va_list args) {
-    fprintf(stderr, "%.*s: ", (int)path.len, path.bytes);
+    fprintf(stderr, SM_BUF_FMT ": ", SM_BUF_FMT_ARG(path));
     smFatalV(fmt, args);
 }
 
@@ -262,10 +262,10 @@ static void loadObj(SmBuf path) {
             SmSect *sect = findSect(expr->addr.sect);
             if (!sect) {
                 objFatal(path,
-                         "output section %.*s is not defined in config\n"
-                         "\tyou may have forgot to add a @SECTION directive "
-                         "before a label\n",
-                         (int)expr->addr.sect.len, expr->addr.sect.bytes);
+                         "output section " SM_BUF_FMT
+                         " is not defined in config\n\tyou may have forgot to "
+                         "add a @SECTION directive before a label\n",
+                         SM_BUF_FMT_ARG(expr->addr.sect));
             }
             expr->addr.pc += sect->pc;
         }
@@ -288,12 +288,12 @@ static void loadObj(SmBuf path) {
         if (whence && smBufEqual(whence->unit, unit)) {
             SmBuf name = fullLblName(sym->lbl);
             objFatal(path,
-                     "duplicate exported symbol: %.*s\n"
-                     "\tdefined at %.*s:%zu:%zu\n"
-                     "\tagain at %.*s:%zu:%zu\n",
-                     (int)name.len, name.bytes, (int)whence->pos.file.len,
-                     whence->pos.file.bytes, whence->pos.line, whence->pos.col,
-                     (int)sym->pos.file.len, sym->pos.file.bytes, sym->pos.line,
+                     "duplicate exported symbol: " SM_BUF_FMT
+                     "\n\tdefined at " SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT
+                     "\n\tagain at " SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT "\n",
+                     SM_BUF_FMT_ARG(name), SM_BUF_FMT_ARG(whence->pos.file),
+                     whence->pos.line, whence->pos.col,
+                     SM_BUF_FMT_ARG(sym->pos.file), sym->pos.line,
                      sym->pos.col);
         }
         smSymTabAdd(&SYMS, (SmSym){
@@ -316,8 +316,9 @@ static void loadObj(SmBuf path) {
         SmSect *sect    = tmpsects.inner.items + i;
         SmSect *dstsect = findSect(sect->name);
         if (!dstsect) {
-            objFatal(path, "output section %.*s is not defined in config\n",
-                     (int)sect->name.len, sect->name.bytes);
+            objFatal(path,
+                     "output section " SM_BUF_FMT " is not defined in config\n",
+                     SM_BUF_FMT_ARG(sect->name));
         }
         // copy relocations
         for (UInt j = 0; j < sect->relocs.inner.len; ++j) {
@@ -425,9 +426,9 @@ static void allocate(SmSect *sect) {
     }
     if (in->size) {
         if (sect->data.inner.len > in->sizeval) {
-            smFatal("input section %.*s size ($%08zX) is larger than "
+            smFatal("input section " SM_BUF_FMT " size ($%08zX) is larger than "
                     "configured size: $%08zX\n",
-                    (int)sect->name.len, sect->name.bytes, sect->data.inner.len,
+                    SM_BUF_FMT_ARG(sect->name), sect->data.inner.len,
                     (UInt)in->sizeval);
         }
         if (in->fill) {
@@ -438,9 +439,9 @@ static void allocate(SmSect *sect) {
     }
     out->pc = sect->pc + sect->data.inner.len;
     if (out->pc > out->end) {
-        smFatal("no room in output section %.*s for input section %.*s\n",
-                (int)out->name.len, out->name.bytes, (int)sect->name.len,
-                sect->name.bytes);
+        smFatal("no room in output section " SM_BUF_FMT
+                " for input section " SM_BUF_FMT "\n",
+                SM_BUF_FMT_ARG(out->name), SM_BUF_FMT_ARG(sect->name));
     }
     if (!smBufEqual(in->define, SM_BUF_NULL)) {
         static SmGBuf buf = {0};
@@ -661,10 +662,10 @@ static void solveSyms() {
             continue;
         }
         SmBuf name = fullLblName(sym->lbl);
-        smFatal("undefined symbol: %.*s\n"
-                "\treferenced at %.*s:%zu:%zu\n",
-                (int)name.len, name.bytes, (int)sym->pos.file.len,
-                sym->pos.file.bytes, sym->pos.line, sym->pos.col);
+        smFatal("undefined symbol: " SM_BUF_FMT "\n\treferenced at " SM_BUF_FMT
+                ":" UINT_FMT ":" UINT_FMT "\n",
+                SM_BUF_FMT_ARG(name), SM_BUF_FMT_ARG(sym->pos.file),
+                sym->pos.line, sym->pos.col);
     }
 }
 
@@ -676,10 +677,10 @@ static void link(SmSect *sect) {
         SmReloc *reloc = sect->relocs.inner.items + i;
         I32      num;
         if (!solve(reloc->value, reloc->unit, &num)) {
-            smFatal("expression cannot be solved\n"
-                    "\treferenced at %.*s:%zu:%zu\n",
-                    (int)reloc->pos.file.len, reloc->pos.file.bytes,
-                    reloc->pos.line, reloc->pos.col);
+            smFatal("expression cannot be solved\n\treferenced at " SM_BUF_FMT
+                    ":" UINT_FMT ":" UINT_FMT "\n",
+                    SM_BUF_FMT_ARG(reloc->pos.file), reloc->pos.line,
+                    reloc->pos.col);
         }
         switch (reloc->width) {
         case 1:
@@ -703,11 +704,11 @@ static void link(SmSect *sect) {
                     }
                 }
                 if (!legal) {
-                    smFatal("expression does not fit in a byte: $%08X\n"
-                            "\treferenced at %.*s:%zu:%zu\n",
-                            num, (int)reloc->pos.file.len,
-                            reloc->pos.file.bytes, reloc->pos.line,
-                            reloc->pos.col);
+                    smFatal("expression does not fit in a byte: "
+                            "$%08X\n\treferenced at " SM_BUF_FMT ":" UINT_FMT
+                            ":" UINT_FMT "\n",
+                            num, SM_BUF_FMT_ARG(reloc->pos.file),
+                            reloc->pos.line, reloc->pos.col);
                 }
             }
             if (reloc->flags & SM_RELOC_RST) {
@@ -738,11 +739,10 @@ static void link(SmSect *sect) {
                     op = 0xFF;
                     break;
                 default:
-                    smFatal("illegal reset vector: $%08X\n"
-                            "\treferenced at %.*s:%zu:%zu\n",
-                            num, (int)reloc->pos.file.len,
-                            reloc->pos.file.bytes, reloc->pos.line,
-                            reloc->pos.col);
+                    smFatal("illegal reset vector: $%08X\n\treferenced "
+                            "at " SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT "\n",
+                            num, SM_BUF_FMT_ARG(reloc->pos.file),
+                            reloc->pos.line, reloc->pos.col);
                 }
                 sect->data.inner.bytes[reloc->offset] = op;
                 continue;
@@ -753,10 +753,11 @@ static void link(SmSect *sect) {
             // TODO check if src and dst banks are the same
             // also a JP within bank0 is always legal for GB
             if (!canReprU16(num)) {
-                smFatal("expression does not fit in a word: $%08X\n"
-                        "\treferenced at %.*s:%zu:%zu\n",
-                        num, (int)reloc->pos.file.len, reloc->pos.file.bytes,
-                        reloc->pos.line, reloc->pos.col);
+                smFatal("expression does not fit in a word: "
+                        "$%08X\n\treferenced at " SM_BUF_FMT ":" UINT_FMT
+                        ":" UINT_FMT "\n",
+                        num, SM_BUF_FMT_ARG(reloc->pos.file), reloc->pos.line,
+                        reloc->pos.col);
             }
             sect->data.inner.bytes[reloc->offset]     = (U8)(num & 0xFF);
             sect->data.inner.bytes[reloc->offset + 1] = (U8)((num >> 8) & 0xFF);
@@ -794,8 +795,8 @@ static void expect(U32 tok) {
     if (peeked != tok) {
         SmBuf expected = smTokName(tok);
         SmBuf found    = smTokName(peeked);
-        fatal("expected %.*s, got %.*s\n", (int)expected.len, expected.bytes,
-              (int)found.len, found.bytes);
+        fatal("expected " SM_BUF_FMT ", got " SM_BUF_FMT "\n",
+              SM_BUF_FMT_ARG(expected), SM_BUF_FMT_ARG(found));
     }
 }
 
@@ -915,8 +916,9 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                             continue;
                         }
                         SmBuf buf = tokBuf();
-                        fatal("unrecognized input section kind: %.*s\n",
-                              (int)buf.len, buf.bytes);
+                        fatal("unrecognized input section kind: " SM_BUF_FMT
+                              "\n",
+                              SM_BUF_FMT_ARG(buf));
                     }
                     default:
                         expect(SM_TOK_STR);
@@ -968,8 +970,8 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                     continue;
                 }
                 SmBuf buf = tokBuf();
-                fatal("unrecognized input section attribute: %.*s\n",
-                      (int)buf.len, buf.bytes);
+                fatal("unrecognized input section attribute: " SM_BUF_FMT "\n",
+                      SM_BUF_FMT_ARG(buf));
                 continue;
             }
             case '[': {
@@ -1082,8 +1084,9 @@ static void parseOutSects() {
                                 continue;
                             }
                             SmBuf buf = tokBuf();
-                            fatal("unrecognized ouput section kind: %.*s\n",
-                                  (int)buf.len, buf.bytes);
+                            fatal("unrecognized ouput section kind: " SM_BUF_FMT
+                                  "\n",
+                                  SM_BUF_FMT_ARG(buf));
                         }
                         default:
                             expect(SM_TOK_STR);
@@ -1107,8 +1110,9 @@ static void parseOutSects() {
                         continue;
                     }
                     SmBuf buf = tokBuf();
-                    fatal("unrecognized output section attribute: %.*s\n",
-                          (int)buf.len, buf.bytes);
+                    fatal("unrecognized output section attribute: " SM_BUF_FMT
+                          "\n",
+                          SM_BUF_FMT_ARG(buf));
                     continue;
                 }
                 case '[':
@@ -1145,7 +1149,7 @@ static void parseOutSects() {
         }
         default: {
             SmBuf name = smTokName(peek());
-            fatal("unexpected %.*s\n", (int)name.len, name.bytes);
+            fatal("unexpected " SM_BUF_FMT "\n", SM_BUF_FMT_ARG(name));
         }
         }
     }
@@ -1177,11 +1181,12 @@ static void parseCfg() {
                 continue;
             }
             SmBuf buf = tokBuf();
-            fatal("unrecognized config area: %.*s\n", (int)buf.len, buf.bytes);
+            fatal("unrecognized config area: " SM_BUF_FMT "\n",
+                  SM_BUF_FMT_ARG(buf));
         }
         default: {
             SmBuf name = smTokName(peek());
-            fatal("unexpected %.*s\n", (int)name.len, name.bytes);
+            fatal("unexpected " SM_BUF_FMT "\n", SM_BUF_FMT_ARG(name));
         }
         }
     }
@@ -1236,10 +1241,9 @@ static void parseCfg() {
             case CFG_OUT_READONLY:
                 // TODO could check this while parsing
                 if (in->kind != CFG_IN_CODE) {
-                    fatal("input section %.*s is not kind-compatible "
-                          "with output section %.*s\n",
-                          (int)in->name.len, in->name.bytes, (int)out->name.len,
-                          out->name.bytes);
+                    fatal("input section " SM_BUF_FMT " is not kind-compatible "
+                          "with output section " SM_BUF_FMT "\n",
+                          SM_BUF_FMT_ARG(in->name), SM_BUF_FMT_ARG(out->name));
                 }
             case CFG_OUT_READWRITE:
                 continue;
@@ -1349,12 +1353,12 @@ static void writeSyms() {
         if (tag) {
             bank = tag->num;
         }
-        char const *fmt = "%02X:%04X %.*s\n";
+        char const *fmt = "%02X:%04X " SM_BUF_FMT "\n";
         if (bank > 0xFF) {
-            fmt = "%04X:%04X %.*s\n";
+            fmt = "%04X:%04X " SM_BUF_FMT "\n";
         }
-        if (fprintf(hnd, fmt, bank, sym->value.items[0].num, (int)name.len,
-                    name.bytes) < 0) {
+        if (fprintf(hnd, fmt, bank, sym->value.items[0].num,
+                    SM_BUF_FMT_ARG(name)) < 0) {
             smFatal("%s: failed to write file: %s\n", symfile_name,
                     strerror(errno));
         }
@@ -1372,8 +1376,8 @@ static void writeTags() {
             continue;
         }
         SmBuf name = fullLblName(sym->lbl);
-        if (fprintf(hnd, "%.*s\t%.*s\t%zu\n", (int)name.len, name.bytes,
-                    (int)sym->pos.file.len, sym->pos.file.bytes,
+        if (fprintf(hnd, SM_BUF_FMT "\t" SM_BUF_FMT "\t" UINT_FMT " \n",
+                    SM_BUF_FMT_ARG(name), SM_BUF_FMT_ARG(sym->pos.file),
                     sym->pos.line) < 0) {
             smFatal("%s: failed to write file: %s\n", symfile_name,
                     strerror(errno));

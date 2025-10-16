@@ -93,8 +93,8 @@ void expect(U32 tok) {
     if (peeked != tok) {
         SmBuf expected = smTokName(tok);
         SmBuf found    = smTokName(peeked);
-        fatal("expected %.*s, got %.*s\n", (int)expected.len, expected.bytes,
-              (int)found.len, found.bytes);
+        fatal("expected " SM_BUF_FMT ", got " SM_BUF_FMT "\n",
+              SM_BUF_FMT_ARG(expected), SM_BUF_FMT_ARG(found));
     }
 }
 
@@ -111,7 +111,7 @@ SmLbl tokLbl() {
     UInt scope_len = offset - buf.bytes;
     UInt name_len  = buf.len - scope_len - 1;
     if (name_len == 0) {
-        fatal("label is malformed: %.*s\n", (int)buf.len, buf.bytes);
+        fatal("label is malformed: " SM_BUF_FMT "\n", SM_BUF_FMT_ARG(buf));
     }
     SmBuf name = {.bytes = buf.bytes + scope_len + 1, .len = name_len};
     if (scope_len > 0) {

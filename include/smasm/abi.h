@@ -1,99 +1,56 @@
 #ifndef SMASM_ABI_H
 #define SMASM_ABI_H
 
-typedef _Bool Bool;
-#ifndef true
-#define true 1
-#endif
-#ifndef false
-#define false 0
-#endif
+#include <inttypes.h>
+#include <stdbool.h>
+#include <stdint.h>
 
-typedef unsigned char U8;
-typedef signed char   I8;
+typedef bool Bool;
 
-#define U8_C(value) ((U8)value##U)
-#define I8_C(value) ((I8)value)
-#define U8_MAX      U8_C(255)
-#define I8_MIN      I8_C(-128)
-#define I8_MAX      I8_C(127)
+typedef uint8_t U8;
+typedef int8_t  I8;
 
-typedef unsigned short U16;
-typedef signed short   I16;
+#define U8_MAX UINT8_MAX
+#define I8_MAX INT8_MAX
+#define I8_MIN INT8_MIN
+#define U8_FMT "%" PRIu8
+#define I8_FMT "%" PRId8
 
-#define U16_C(value) ((U16)value##U)
-#define I16_C(value) ((I16)value)
-#define U16_MAX      U16_C(65535)
-#define I16_MIN      I16_C(-32768)
-#define I16_MAX      I16_C(32767)
+typedef uint16_t U16;
+typedef int16_t  I16;
 
-#ifdef SMASM_ABI32
-typedef unsigned long U32;
-typedef signed long   I32;
+#define U16_MAX UINT16_MAX
+#define I16_MAX INT16_MAX
+#define I16_MIN INT16_MIN
+#define U16_FMT "%" PRIu16
+#define I16_FMT "%" PRIi16
 
-#define U32_C(value) ((U32)value##UL)
-#define I32_C(value) ((I32)value##L)
+typedef uint32_t U32;
+typedef int32_t  I32;
 
-_Static_assert(sizeof(U32) == 4, "unsigned long must be 32-bit");
-_Static_assert(sizeof(void *) == sizeof(U32), "pointers must be 32-bit");
+#define U32_MAX UINT32_MAX
+#define I32_MAX INT32_MAX
+#define I32_MIN INT32_MIN
+#define U32_FMT "%" PRIu32
+#define I32_FMT "%" PRIi32
 
-typedef unsigned long long U64;
-typedef signed long long   I64;
+typedef uint64_t U64;
+typedef int64_t  I64;
 
-#define U64_C(value) ((U64)value##ULL)
-#define I64_C(value) ((I64)value##LL)
+#define U64_MAX UINT64_MAX
+#define I64_MAX INT64_MAX
+#define I64_MIN INT64_MIN
+#define U64_FMT "%" PRIu64
+#define I64_FMT "%" PRIi64
 
-_Static_assert(sizeof(U64) == 8, "unsigned long long must be 64-bit");
+typedef uintptr_t UInt;
+typedef intptr_t  Int;
 
-typedef U32 UInt;
-typedef I32 Int;
-
-#define UINT_C   U32_C
-#define INT_C    I32_C
-
-#define UINT_MAX U32_MAX
-#define INT_MIN  I32_MIN
-#define INT_MAX  I32_MAX
-
-#endif
-
-#ifdef SMASM_ABI64
-typedef unsigned int U32;
-typedef signed int   I32;
-
-#define U32_C(value) ((U32)value##U)
-#define I32_C(value) ((I32)value)
-
-_Static_assert(sizeof(U32) == 4, "unsigned int must be 32-bit");
-
-typedef unsigned long U64;
-typedef signed long   I64;
-
-#define U64_C(value) ((U64)value##UL)
-#define I64_C(value) ((I64)value##L)
-
-_Static_assert(sizeof(U64) == 8, "unsigned long must be 64-bit");
-_Static_assert(sizeof(void *) == sizeof(U64), "pointers must be 64-bit");
-
-typedef U64 UInt;
-typedef I64 Int;
-
-#define UINT_C   U64_C
-#define INT_C    I64_C
-
-#define UINT_MAX U64_MAX
-#define INT_MIN  I64_MIN
-#define INT_MAX  I64_MAX
-
-#endif
-
-#define U32_MAX U32_C(4294967295)
-#define I32_MIN I32_C(-2147483648)
-#define I32_MAX I32_C(2147483647)
-
-#define U64_MAX U64_C(18446744073709551615)
-#define I64_MIN I64_C(-9223372036854775808)
-#define I64_MAX I64_C(9223372036854775807)
+#define UINT_MAX UINTPTR_MAX
+#define INT_MAX  INTPTR_MAX
+#define INT_MIN  INTPTR_MIN
+#define UINT_FMT "%" PRIuPTR
+#define INT_FMT  "%" PRIiPTR
 
 static inline UInt uIntMax(UInt lhs, UInt rhs) {
     return (lhs > rhs) ? lhs : rhs;

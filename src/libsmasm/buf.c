@@ -65,21 +65,22 @@ UInt smBufParse(SmBuf buf) {
         ++i;
     }
     if (i == buf.len) {
-        smFatal("invalid number: %.*s\n", (int)buf.len, buf.bytes);
+        smFatal("invalid number: " SM_BUF_FMT "\n", SM_BUF_FMT_ARG(buf));
     }
     UInt value = 0;
     for (; i < buf.len; ++i) {
         for (UInt j = 0; j < (sizeof(DIGITS) / sizeof(DIGITS[0])); ++j) {
             if (toupper(buf.bytes[i]) == DIGITS[j]) {
                 if (j >= (UInt)radix) {
-                    smFatal("invalid number: %.*s\n", (int)buf.len, buf.bytes);
+                    smFatal("invalid number: " SM_BUF_FMT "\n",
+                            SM_BUF_FMT_ARG(buf));
                 }
                 value *= radix;
                 value += j;
                 goto next;
             }
         }
-        smFatal("invalid number: %.*s\n", (int)buf.len, buf.bytes);
+        smFatal("invalid number: " SM_BUF_FMT "\n", SM_BUF_FMT_ARG(buf));
     next:
         (void)0;
     }

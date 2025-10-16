@@ -1225,7 +1225,8 @@ static SmBuf findInclude(SmBuf path) {
             }
         }
     }
-    fatal("could not find include file: %.*s\n", (int)path.len, path.bytes);
+    fatal("could not find include file: " SM_BUF_FMT "\n",
+          SM_BUF_FMT_ARG(path));
 }
 
 static SmExprBuf addrExprBuf(SmBuf section, U16 offset) {
@@ -1377,10 +1378,11 @@ static void eatDirective() {
         }
         Macro *macro = macroFind(lbl.name);
         if (macro) {
-            fatal("macro %.*s already defined\n"
-                  "\toriginally defined at %.*s:%zu:%zu\n",
-                  (int)lbl.name.len, lbl.name.bytes, (int)macro->pos.file.len,
-                  macro->pos.file.bytes, macro->pos.line, macro->pos.col);
+            fatal("macro " SM_BUF_FMT
+                  " already defined\n\toriginally defined at " SM_BUF_FMT
+                  ":" UINT_FMT ":" UINT_FMT "\n",
+                  SM_BUF_FMT_ARG(lbl.name), SM_BUF_FMT_ARG(macro->pos.file),
+                  macro->pos.line, macro->pos.col);
         }
         eat();
         UInt depth = 0;
@@ -1596,7 +1598,7 @@ static void eatDirective() {
             fieldlbl.scope = lbl.name;
             expect(':');
             eat();
-            num            = exprEatSolvedU16();
+            num = exprEatSolvedU16();
             if (!emit) {
                 // TODO should probably check for redefinition with different
                 // values
@@ -1647,7 +1649,7 @@ static void eatDirective() {
         SmBuf   name  = intern(tokBuf());
         Struct *strct = structFind(name);
         if (!strct) {
-            fatal("structure %.*s not found\n", (int)name.len, name.bytes);
+            fatal("structure " SM_BUF_FMT " not found\n", SM_BUF_FMT_ARG(name));
         }
 
         eat();
@@ -1688,12 +1690,12 @@ static void eatDirective() {
     case SM_TOK_FATAL:
         fmtInvoke(SM_TOK_STR);
         expect(SM_TOK_STR);
-        fatal("explicit fatal error: %.*s", (int)tokBuf().len, tokBuf().bytes);
+        fatal("explicit fatal error: " SM_BUF_FMT, SM_BUF_FMT_ARG(tokBuf()));
     case SM_TOK_PRINT:
         fmtInvoke(SM_TOK_STR);
         expect(SM_TOK_STR);
         if (emit) {
-            fprintf(stderr, "%.*s", (int)tokBuf().len, tokBuf().bytes);
+            fprintf(stderr, SM_BUF_FMT, SM_BUF_FMT_ARG(tokBuf()));
         }
         eat();
         expectEOL();
@@ -1701,7 +1703,7 @@ static void eatDirective() {
         return;
     default: {
         SmBuf name = smTokName(peek());
-        fatal("unexpected: %.*s\n", (int)name.len, name.bytes);
+        fatal("unexpected: " SM_BUF_FMT "\n", SM_BUF_FMT_ARG(name));
     }
     }
 }
@@ -1752,10 +1754,10 @@ static void pass() {
                 // never changes.
                 // TODO: also we want to create weak/redefinable symbols
                 fatalPos(pos,
-                         "symbol already defined\n"
-                         "\t%.*s:%zu:%zu: defined previously here\n",
-                         (int)sym->pos.file.len, sym->pos.file.bytes,
-                         sym->pos.line, sym->pos.col);
+                         "symbol already defined\n\t" SM_BUF_FMT ":" UINT_FMT
+                         ":" UINT_FMT " : defined previously here\n",
+                         SM_BUF_FMT_ARG(sym->pos.file), sym->pos.line,
+                         sym->pos.col);
             }
             switch (peek()) {
             case SM_TOK_DCOLON:

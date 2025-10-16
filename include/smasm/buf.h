@@ -11,7 +11,10 @@ typedef struct SmBuf SmBuf;
 
 static SmBuf const SM_BUF_NULL = {0};
 
-#define SM_BUF(cstr) ((SmBuf){(U8 *)(cstr), (sizeof((cstr)) - 1)})
+#define SM_BUF(cstr)        ((SmBuf){(U8 *)(cstr), (sizeof((cstr)) - 1)})
+
+#define SM_BUF_FMT          "%.*s"
+#define SM_BUF_FMT_ARG(buf) ((int)(buf).len), ((char *)(buf).bytes)
 
 Bool smBufEqual(SmBuf lhs, SmBuf rhs);
 Bool smBufEqualIgnoreAsciiCase(SmBuf lhs, SmBuf rhs);

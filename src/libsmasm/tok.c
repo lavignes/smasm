@@ -181,25 +181,25 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
     case SM_TOK_STREAM_FILE:
     case SM_TOK_STREAM_FMT:
     case SM_TOK_STREAM_IFELSE:
-        fprintf(stderr, "%.*s:%zu:%zu: ", (int)pos.file.len, pos.file.bytes,
-                pos.line, pos.col);
+        fprintf(stderr, SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+                SM_BUF_FMT_ARG(pos.file), pos.line, pos.col);
         break;
     case SM_TOK_STREAM_MACRO:
         // TODO macro arg position
         fprintf(stderr,
-                "%.*s:%zu:%zu: in macro %.*s\n"
-                "\t%.*s:%zu:%zu: ",
-                (int)ts->pos.file.len, ts->pos.file.bytes, ts->pos.line,
-                ts->pos.col, (int)ts->macro.name.len, ts->macro.name.bytes,
-                (int)pos.file.len, pos.file.bytes, pos.line, pos.col);
+                SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": in macro " SM_BUF_FMT
+                           "\n\t" SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+                SM_BUF_FMT_ARG(ts->pos.file), ts->pos.line, ts->pos.col,
+                SM_BUF_FMT_ARG(ts->macro.name), SM_BUF_FMT_ARG(pos.file),
+                pos.line, pos.col);
         break;
     case SM_TOK_STREAM_REPEAT:
         fprintf(stderr,
-                "%.*s:%zu:%zu: at repeat index %zu\n"
-                "\t%.*s:%zu:%zu: ",
-                (int)ts->pos.file.len, ts->pos.file.bytes, ts->pos.line,
-                ts->pos.col, ts->repeat.idx, (int)pos.file.len, pos.file.bytes,
-                pos.line, pos.col);
+                SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT
+                           ": at repeat index " UINT_FMT "\n\t" SM_BUF_FMT
+                           ":" UINT_FMT ":" UINT_FMT ": ",
+                SM_BUF_FMT_ARG(ts->pos.file), ts->pos.line, ts->pos.col,
+                ts->repeat.idx, SM_BUF_FMT_ARG(pos.file), pos.line, pos.col);
         break;
     default:
         SM_UNREACHABLE();
@@ -258,8 +258,8 @@ void smTokStreamFini(SmTokStream *ts) {
     case SM_TOK_STREAM_FILE:
         if (fclose(ts->file.hnd) == EOF) {
             int err = errno;
-            fprintf(stderr, "%.*s:%zu:%zu: ", (int)ts->pos.file.len,
-                    ts->pos.file.bytes, ts->pos.line, ts->pos.col);
+            fprintf(stderr, SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+                    SM_BUF_FMT_ARG(ts->pos.file), ts->pos.line, ts->pos.col);
             smFatal("failed to close file: %s\n", strerror(err));
         }
         smGBufFini(&ts->file.buf);
@@ -281,8 +281,8 @@ void smTokStreamFini(SmTokStream *ts) {
 }
 
 static _Noreturn void fatalChar(SmTokStream *ts, char const *fmt, ...) {
-    fprintf(stderr, "%.*s:%zu:%zu: ", (int)ts->pos.file.len, ts->pos.file.bytes,
-            ts->file.cline, ts->file.ccol);
+    fprintf(stderr, SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+            SM_BUF_FMT_ARG(ts->pos.file), ts->file.cline, ts->file.ccol);
     va_list args;
     va_start(args, fmt);
     smFatalV(fmt, args);
@@ -364,16 +364,16 @@ static I32 parse(SmTokStream *ts, I32 radix) {
         for (UInt j = 0; j < (sizeof(DIGITS) / sizeof(DIGITS[0])); ++j) {
             if (buf->bytes[i] == DIGITS[j]) {
                 if (j >= (UInt)radix) {
-                    smTokStreamFatal(ts, "invalid number: %.*s\n",
-                                     (int)buf->len, buf->bytes);
+                    smTokStreamFatal(ts, "invalid number: " SM_BUF_FMT "\n",
+                                     SM_BUF_FMT_ARG(*buf));
                 }
                 value *= radix;
                 value += j;
                 goto next;
             }
         }
-        smTokStreamFatal(ts, "invalid number: %.*s\n", (int)buf->len,
-                         buf->bytes);
+        smTokStreamFatal(ts, "invalid number: " SM_BUF_FMT "\n",
+                         SM_BUF_FMT_ARG(*buf));
     next:
         (void)0;
     }
@@ -507,8 +507,8 @@ static U32 peekFile(SmTokStream *ts) {
                 return ts->file.stash;
             }
         }
-        smTokStreamFatal(ts, "unrecognized directive: @%.*s\n", (int)buf->len,
-                         buf->bytes);
+        smTokStreamFatal(ts, "unrecognized directive: @" SM_BUF_FMT "\n",
+                         SM_BUF_FMT_ARG(*buf));
     }
     if (peek(ts) == '"') {
         eat(ts);
@@ -842,8 +842,8 @@ void smTokStreamRewind(SmTokStream *ts) {
     smTokStreamEat(ts);
     if (fseek(ts->file.hnd, 0, SEEK_SET) < 0) {
         int err = errno;
-        fprintf(stderr, "%.*s:%zu:%zu: ", (int)ts->pos.file.len,
-                ts->pos.file.bytes, ts->file.cline, ts->file.ccol);
+        fprintf(stderr, SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+                SM_BUF_FMT_ARG(ts->pos.file), ts->file.cline, ts->file.ccol);
         smFatal("failed to rewind file: %s\n", strerror(err));
     }
     ts->pos.line      = 1;
