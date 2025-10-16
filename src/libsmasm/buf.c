@@ -124,9 +124,9 @@ static UInt roundUp(UInt num) {
     num |= num >> 4;
     num |= num >> 8;
     num |= num >> 16;
-#if SMASM_ABI64
-    num |= num >> 32;
-#endif
+    if (sizeof(UInt) == sizeof(U64)) {
+        num |= num >> 32;
+    }
     num++;
     return num;
 }
