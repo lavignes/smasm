@@ -1,6 +1,15 @@
-include mk/config.mk
-
 rwildcard = $(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
+
+CC = cc
+LD = cc
+AR = ar
+
+CFLAGS = -std=c11 -Werror -Wextra -Wall -Wimplicit -Wstrict-aliasing \
+		 -Iinclude -D_GNU_SOURCE -D_XOPEN_SOURCE=700
+CFLAGS += -g
+
+LDFLAGS = -Llib
+LDFLAGS += -g
 
 LIBSRCS = $(call rwildcard,src/libsmasm,*.c)
 LIBOBJS = $(LIBSRCS:.c=.o)
