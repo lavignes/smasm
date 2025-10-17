@@ -325,8 +325,9 @@ static U32 peek(SmTokStream *ts) {
                     return ts->chardev.cstash;
                 }
             }
+        } else {
+            SM_TODO("buf");
         }
-        SM_TODO("buf");
     }
     UInt len = 0;
     while (len == 0) {
