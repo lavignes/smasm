@@ -213,6 +213,11 @@ SmExprBuf exprEat() {
                 fatal("expected an operator\n");
             }
             eat();
+            Bool has_brace = false;
+            if (peek() == '{') {
+                eat();
+                has_brace = true;
+            }
             expect(SM_TOK_ID);
             SmLbl lbl = tokLbl();
             eat();
@@ -222,6 +227,10 @@ SmExprBuf exprEat() {
             pushExpr(
                 (SmExpr){.kind = SM_EXPR_TAG, .tag = {lbl, intern(tokBuf())}});
             eat();
+            if (has_brace) {
+                expect('}');
+                eat();
+            }
             seen_value = true;
             continue;
         }
