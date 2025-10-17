@@ -194,6 +194,7 @@ void smPosTokGBufFini(SmPosTokGBuf *buf);
 
 enum SmTokStreamKind {
     SM_TOK_STREAM_FILE,
+    SM_TOK_STREAM_BUF,
     SM_TOK_STREAM_MACRO,
     SM_TOK_STREAM_REPEAT,
     SM_TOK_STREAM_FMT,
@@ -205,7 +206,15 @@ struct SmTokStream {
     SmPos pos;
     union {
         struct {
-            FILE  *hnd;
+            union {
+                struct {
+                    FILE *hnd;
+                } file;
+                struct {
+                    SmBuf buf;
+                    UInt  offset;
+                } src;
+            };
             U32    stash;
             Bool   stashed;
             U32    cstash;
@@ -216,7 +225,7 @@ struct SmTokStream {
             UInt   clen;
             SmGBuf buf;
             I32    num;
-        } file;
+        } chardev;
 
         struct {
             SmBuf           name;
@@ -259,6 +268,7 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
                                     va_list args);
 
 void smTokStreamFileInit(SmTokStream *ts, SmBuf name, FILE *hnd);
+void smTokStreamBufInit(SmTokStream *ts, SmBuf name, SmBuf buf);
 void smTokStreamMacroInit(SmTokStream *ts, SmBuf name, SmPos pos,
                           SmMacroTokBuf buf, SmMacroArgQueue args, UInt nonce);
 void smTokStreamRepeatInit(SmTokStream *ts, SmPos pos, SmRepeatTokGBuf buf,

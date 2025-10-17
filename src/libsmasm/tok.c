@@ -157,6 +157,7 @@ _Noreturn void smTokStreamFatalV(SmTokStream *ts, char const *fmt,
                                  va_list args) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
+    case SM_TOK_STREAM_BUF:
     case SM_TOK_STREAM_FMT:
         smTokStreamFatalPosV(ts, ts->pos, fmt, args);
     case SM_TOK_STREAM_MACRO:
@@ -179,6 +180,7 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
 
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
+    case SM_TOK_STREAM_BUF:
     case SM_TOK_STREAM_FMT:
     case SM_TOK_STREAM_IFELSE:
         fprintf(stderr, SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": ",
@@ -209,13 +211,25 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
 
 void smTokStreamFileInit(SmTokStream *ts, SmBuf name, FILE *hnd) {
     memset(ts, 0, sizeof(SmTokStream));
-    ts->kind          = SM_TOK_STREAM_FILE;
-    ts->pos           = (SmPos){name, 1, 1};
-    ts->file.hnd      = hnd;
-    ts->file.stashed  = false;
-    ts->file.cstashed = false;
-    ts->file.cline    = 1;
-    ts->file.ccol     = 1;
+    ts->kind             = SM_TOK_STREAM_FILE;
+    ts->pos              = (SmPos){name, 1, 1};
+    ts->chardev.file.hnd = hnd;
+    ts->chardev.stashed  = false;
+    ts->chardev.cstashed = false;
+    ts->chardev.cline    = 1;
+    ts->chardev.ccol     = 1;
+}
+
+void smTokStreamBufInit(SmTokStream *ts, SmBuf name, SmBuf buf) {
+    memset(ts, 0, sizeof(SmTokStream));
+    ts->kind               = SM_TOK_STREAM_BUF;
+    ts->pos                = (SmPos){name, 1, 1};
+    ts->chardev.src.buf    = buf;
+    ts->chardev.src.offset = 0;
+    ts->chardev.stashed    = false;
+    ts->chardev.cstashed   = false;
+    ts->chardev.cline      = 1;
+    ts->chardev.ccol       = 1;
 }
 
 void smTokStreamMacroInit(SmTokStream *ts, SmBuf name, SmPos pos,
@@ -256,13 +270,15 @@ void smTokStreamIfElseInit(SmTokStream *ts, SmPos pos, SmPosTokGBuf buf) {
 void smTokStreamFini(SmTokStream *ts) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
-        if (fclose(ts->file.hnd) == EOF) {
+        if (fclose(ts->chardev.file.hnd) == EOF) {
             int err = errno;
             fprintf(stderr, SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": ",
                     SM_BUF_FMT_ARG(ts->pos.file), ts->pos.line, ts->pos.col);
             smFatal("failed to close file: %s\n", strerror(err));
         }
-        smGBufFini(&ts->file.buf);
+        smGBufFini(&ts->chardev.buf);
+        return;
+    case SM_TOK_STREAM_BUF:
         return;
     case SM_TOK_STREAM_MACRO:
         smMacroArgQueueFini(&ts->macro.args);
@@ -282,7 +298,7 @@ void smTokStreamFini(SmTokStream *ts) {
 
 static _Noreturn void fatalChar(SmTokStream *ts, char const *fmt, ...) {
     fprintf(stderr, SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": ",
-            SM_BUF_FMT_ARG(ts->pos.file), ts->file.cline, ts->file.ccol);
+            SM_BUF_FMT_ARG(ts->pos.file), ts->chardev.cline, ts->chardev.ccol);
     va_list args;
     va_start(args, fmt);
     smFatalV(fmt, args);
@@ -290,73 +306,77 @@ static _Noreturn void fatalChar(SmTokStream *ts, char const *fmt, ...) {
 }
 
 static U32 peek(SmTokStream *ts) {
-    assert(ts->kind == SM_TOK_STREAM_FILE);
-    if (ts->file.cstashed) {
-        return ts->file.cstash;
+    assert((ts->kind == SM_TOK_STREAM_FILE) || (ts->kind == SM_TOK_STREAM_BUF));
+    if (ts->chardev.cstashed) {
+        return ts->chardev.cstash;
     }
-    ts->file.cstashed = true;
-    if (ts->file.clen == 0) {
-        ts->file.clen = fread(ts->file.cbuf, 1, 1, ts->file.hnd);
-        if (ts->file.clen != 1) {
-            int err = ferror(ts->file.hnd);
-            if (err) {
-                fatalChar(ts, "failed to read file: %s\n", strerror(err));
-            }
-            if (feof(ts->file.hnd)) {
-                ts->file.cstash = SM_TOK_EOF;
-                return ts->file.cstash;
-            }
-        }
-    }
-    UInt len = 0;
-    while (len == 0) {
-        ts->file.cstash =
-            smUtf8Decode((SmBuf){ts->file.cbuf, ts->file.clen}, &len);
-        ts->file.clen -= len;
-        memmove(ts->file.cbuf, ts->file.cbuf + len, ts->file.clen);
-        if (len == 0) {
-            if (ts->file.clen == 4) {
-                fatalChar(ts, "invalid UTF-8 data\n");
-            }
-            UInt read =
-                fread(ts->file.cbuf + ts->file.clen, 1, 1, ts->file.hnd);
-            if (read != 0) {
-                int err = ferror(ts->file.hnd);
+    ts->chardev.cstashed = true;
+    if (ts->chardev.clen == 0) {
+        if (ts->kind == SM_TOK_STREAM_FILE) {
+            ts->chardev.clen =
+                fread(ts->chardev.cbuf, 1, 1, ts->chardev.file.hnd);
+            if (ts->chardev.clen != 1) {
+                int err = ferror(ts->chardev.file.hnd);
                 if (err) {
                     fatalChar(ts, "failed to read file: %s\n", strerror(err));
                 }
-                if (feof(ts->file.hnd)) {
+                if (feof(ts->chardev.file.hnd)) {
+                    ts->chardev.cstash = SM_TOK_EOF;
+                    return ts->chardev.cstash;
+                }
+            }
+        }
+        SM_TODO("buf");
+    }
+    UInt len = 0;
+    while (len == 0) {
+        ts->chardev.cstash =
+            smUtf8Decode((SmBuf){ts->chardev.cbuf, ts->chardev.clen}, &len);
+        ts->chardev.clen -= len;
+        memmove(ts->chardev.cbuf, ts->chardev.cbuf + len, ts->chardev.clen);
+        if (len == 0) {
+            if (ts->chardev.clen == 4) {
+                fatalChar(ts, "invalid UTF-8 data\n");
+            }
+            UInt read = fread(ts->chardev.cbuf + ts->chardev.clen, 1, 1,
+                              ts->chardev.file.hnd);
+            if (read != 0) {
+                int err = ferror(ts->chardev.file.hnd);
+                if (err) {
+                    fatalChar(ts, "failed to read file: %s\n", strerror(err));
+                }
+                if (feof(ts->chardev.file.hnd)) {
                     fatalChar(ts, "unexpected end of file\n");
                 }
             }
-            ts->file.clen += read;
+            ts->chardev.clen += read;
         }
     }
-    return ts->file.cstash;
+    return ts->chardev.cstash;
 }
 
 static void eat(SmTokStream *ts) {
     assert(ts->kind == SM_TOK_STREAM_FILE);
-    ts->file.cstashed = false;
-    ++ts->file.ccol;
-    if (ts->file.cstash == '\n') {
-        ++ts->file.cline;
-        ts->file.ccol = 1;
+    ts->chardev.cstashed = false;
+    ++ts->chardev.ccol;
+    if (ts->chardev.cstash == '\n') {
+        ++ts->chardev.cline;
+        ts->chardev.ccol = 1;
     }
 }
 
 static void pushChar(SmTokStream *ts, U32 c) {
-    assert(ts->kind == SM_TOK_STREAM_FILE);
+    assert((ts->kind == SM_TOK_STREAM_FILE) || (ts->kind == SM_TOK_STREAM_BUF));
     U8   tmp[4];
     UInt len = smUtf8Encode((SmBuf){tmp, 4}, c);
-    smGBufCat(&ts->file.buf, (SmBuf){tmp, len});
+    smGBufCat(&ts->chardev.buf, (SmBuf){tmp, len});
 }
 
 static char const DIGITS[] = "0123456789ABCDEF";
 
-static I32 parse(SmTokStream *ts, I32 radix) {
+static I32 parseChardev(SmTokStream *ts, I32 radix) {
     I32    value = 0;
-    SmBuf *buf   = &ts->file.buf.inner;
+    SmBuf *buf   = &ts->chardev.buf.inner;
     if (buf->len == 0) {
         smTokStreamFatal(ts, "empty number\n");
     }
@@ -436,9 +456,9 @@ static struct {
 
 static U8 SINGLES[] = "ABCDEHLZ";
 
-static U32 peekFile(SmTokStream *ts) {
-    if (ts->file.stashed) {
-        return ts->file.stash;
+static U32 peekChardev(SmTokStream *ts) {
+    if (ts->chardev.stashed) {
+        return ts->chardev.stash;
     }
     while (true) {
         U32 c = peek(ts);
@@ -456,12 +476,12 @@ static U32 peekFile(SmTokStream *ts) {
             eat(ts);
         }
     }
-    ts->pos.line = ts->file.cline;
-    ts->pos.col  = ts->file.ccol;
+    ts->pos.line = ts->chardev.cline;
+    ts->pos.col  = ts->chardev.ccol;
     if (peek(ts) == SM_TOK_EOF) {
         eat(ts);
-        ts->file.stashed = true;
-        ts->file.stash   = SM_TOK_EOF;
+        ts->chardev.stashed = true;
+        ts->chardev.stash   = SM_TOK_EOF;
         return SM_TOK_EOF;
     }
     if (peek(ts) == '\\') {
@@ -470,8 +490,8 @@ static U32 peekFile(SmTokStream *ts) {
             eat(ts);
             return peek(ts); // yuck
         }
-        ts->file.stashed = true;
-        ts->file.stash   = '\\';
+        ts->chardev.stashed = true;
+        ts->chardev.stash   = '\\';
         return '\\';
     }
     if (peek(ts) == '@') {
@@ -483,9 +503,9 @@ static U32 peekFile(SmTokStream *ts) {
                 pushChar(ts, toupper(c));
                 eat(ts);
             }
-            ts->file.num     = parse(ts, 10);
-            ts->file.stashed = true;
-            ts->file.stash   = SM_TOK_ARG;
+            ts->chardev.num     = parseChardev(ts, 10);
+            ts->chardev.stashed = true;
+            ts->chardev.stash   = SM_TOK_ARG;
             return SM_TOK_ARG;
         }
         // directive
@@ -493,7 +513,7 @@ static U32 peekFile(SmTokStream *ts) {
             pushChar(ts, toupper(c));
             eat(ts);
         }
-        SmBuf *buf = &ts->file.buf.inner;
+        SmBuf *buf = &ts->chardev.buf.inner;
         for (UInt i = 0; i < (sizeof(DIRECTIVES) / sizeof(DIRECTIVES[0]));
              ++i) {
             char const *name = DIRECTIVES[i].name;
@@ -502,9 +522,9 @@ static U32 peekFile(SmTokStream *ts) {
                 continue;
             }
             if (memcmp(name, buf->bytes, buf->len) == 0) {
-                ts->file.stashed = true;
-                ts->file.stash   = DIRECTIVES[i].tok;
-                return ts->file.stash;
+                ts->chardev.stashed = true;
+                ts->chardev.stash   = DIRECTIVES[i].tok;
+                return ts->chardev.stash;
             }
         }
         smTokStreamFatal(ts, "unrecognized directive: @" SM_BUF_FMT "\n",
@@ -553,8 +573,8 @@ static U32 peekFile(SmTokStream *ts) {
             }
         }
     stringdone:
-        ts->file.stashed = true;
-        ts->file.stash   = SM_TOK_STR;
+        ts->chardev.stashed = true;
+        ts->chardev.stash   = SM_TOK_STR;
         return SM_TOK_STR;
     }
     if (peek(ts) == '\'') {
@@ -567,29 +587,29 @@ static U32 peekFile(SmTokStream *ts) {
             eat(ts);
             switch (peek(ts)) {
             case 'n':
-                ts->file.num = '\n';
+                ts->chardev.num = '\n';
                 break;
             case 'r':
-                ts->file.num = '\r';
+                ts->chardev.num = '\r';
                 break;
             case 't':
-                ts->file.num = '\t';
+                ts->chardev.num = '\t';
                 break;
             case '\\':
-                ts->file.num = '\\';
+                ts->chardev.num = '\\';
                 break;
             case '\'':
-                ts->file.num = '\'';
+                ts->chardev.num = '\'';
                 break;
             case '0':
-                ts->file.num = '\0';
+                ts->chardev.num = '\0';
                 break;
             default:
                 fatalChar(ts, "unrecognized character escape\n");
             }
             break;
         default:
-            ts->file.num = c;
+            ts->chardev.num = c;
             break;
         }
         eat(ts);
@@ -597,8 +617,8 @@ static U32 peekFile(SmTokStream *ts) {
             fatalChar(ts, "expected single quote\n");
         }
         eat(ts);
-        ts->file.stashed = true;
-        ts->file.stash   = SM_TOK_NUM;
+        ts->chardev.stashed = true;
+        ts->chardev.stash   = SM_TOK_NUM;
         return SM_TOK_NUM;
     } else {
         U32 c = peek(ts);
@@ -610,8 +630,8 @@ static U32 peekFile(SmTokStream *ts) {
                 // edge case. this is a modulus
                 c = peek(ts);
                 if ((c != '0') && (c != '1')) {
-                    ts->file.stashed = true;
-                    ts->file.stash   = '%';
+                    ts->chardev.stashed = true;
+                    ts->chardev.stash   = '%';
                     return '%';
                 }
             } else if (c == '$') {
@@ -633,9 +653,9 @@ static U32 peekFile(SmTokStream *ts) {
                 eat(ts);
                 c = peek(ts);
             }
-            ts->file.num     = parse(ts, radix);
-            ts->file.stashed = true;
-            ts->file.stash   = SM_TOK_NUM;
+            ts->chardev.num     = parseChardev(ts, radix);
+            ts->chardev.stashed = true;
+            ts->chardev.stash   = SM_TOK_NUM;
             return SM_TOK_NUM;
         }
         while (true) {
@@ -650,7 +670,7 @@ static U32 peekFile(SmTokStream *ts) {
             c = peek(ts);
         }
         // doesn't start with ident symbol. digraph?
-        if (ts->file.buf.inner.len == 0) {
+        if (ts->chardev.buf.inner.len == 0) {
             eat(ts);
             U32 nc = peek(ts);
             for (UInt i = 0; i < (sizeof(DIGRAPHS) / sizeof(DIGRAPHS[0]));
@@ -658,48 +678,48 @@ static U32 peekFile(SmTokStream *ts) {
                 if ((DIGRAPHS[i].digraph[0] == c) &&
                     (DIGRAPHS[i].digraph[1] == nc)) {
                     eat(ts);
-                    ts->file.stashed = true;
-                    ts->file.stash   = DIGRAPHS[i].tok;
-                    return ts->file.stash;
+                    ts->chardev.stashed = true;
+                    ts->chardev.stash   = DIGRAPHS[i].tok;
+                    return ts->chardev.stash;
                 }
             }
         }
         // 1 char identifier?
-        if (ts->file.buf.inner.len == 1) {
-            ts->file.stashed = true;
-            U32 upper        = toupper(ts->file.buf.inner.bytes[0]);
+        if (ts->chardev.buf.inner.len == 1) {
+            ts->chardev.stashed = true;
+            U32 upper           = toupper(ts->chardev.buf.inner.bytes[0]);
             for (UInt i = 0; i < sizeof(SINGLES); ++i) {
                 if (SINGLES[i] == upper) {
-                    ts->file.stash = upper;
+                    ts->chardev.stash = upper;
                     return upper;
                 }
             }
-            ts->file.stash = SM_TOK_ID;
-            return ts->file.stash;
+            ts->chardev.stash = SM_TOK_ID;
+            return ts->chardev.stash;
         }
         // 2 char ident?
-        if (ts->file.buf.inner.len == 2) {
-            ts->file.stashed = true;
-            U32 c0           = toupper(ts->file.buf.inner.bytes[0]);
-            U32 c1           = toupper(ts->file.buf.inner.bytes[1]);
+        if (ts->chardev.buf.inner.len == 2) {
+            ts->chardev.stashed = true;
+            U32 c0              = toupper(ts->chardev.buf.inner.bytes[0]);
+            U32 c1              = toupper(ts->chardev.buf.inner.bytes[1]);
             for (UInt i = 0; i < (sizeof(PAIRS) / sizeof(PAIRS[0])); ++i) {
                 if ((PAIRS[i].pair[0] == c0) && (PAIRS[i].pair[1] == c1)) {
-                    ts->file.stashed = true;
-                    ts->file.stash   = PAIRS[i].tok;
-                    return ts->file.stash;
+                    ts->chardev.stashed = true;
+                    ts->chardev.stash   = PAIRS[i].tok;
+                    return ts->chardev.stash;
                 }
             }
         }
         // ident?
-        if (ts->file.buf.inner.len != 0) {
-            ts->file.stashed = true;
-            ts->file.stash   = SM_TOK_ID;
+        if (ts->chardev.buf.inner.len != 0) {
+            ts->chardev.stashed = true;
+            ts->chardev.stash   = SM_TOK_ID;
             return SM_TOK_ID;
         }
         // else uppercase whatever the char is
-        ts->file.stashed = true;
-        ts->file.stash   = toupper(c);
-        return ts->file.stash;
+        ts->chardev.stashed = true;
+        ts->chardev.stash   = toupper(c);
+        return ts->chardev.stash;
     }
 }
 
@@ -778,7 +798,8 @@ static U32 peekIfElse(SmTokStream *ts) {
 U32 smTokStreamPeek(SmTokStream *ts) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
-        return peekFile(ts);
+    case SM_TOK_STREAM_BUF:
+        return peekChardev(ts);
     case SM_TOK_STREAM_MACRO:
         return peekMacro(ts);
     case SM_TOK_STREAM_REPEAT:
@@ -795,8 +816,9 @@ U32 smTokStreamPeek(SmTokStream *ts) {
 void smTokStreamEat(SmTokStream *ts) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
-        ts->file.stashed       = false;
-        ts->file.buf.inner.len = 0;
+    case SM_TOK_STREAM_BUF:
+        ts->chardev.stashed       = false;
+        ts->chardev.buf.inner.len = 0;
         return;
     case SM_TOK_STREAM_MACRO: {
         SmMacroTok *tok = ts->macro.buf.items + ts->macro.pos;
@@ -838,26 +860,32 @@ void smTokStreamEat(SmTokStream *ts) {
 }
 
 void smTokStreamRewind(SmTokStream *ts) {
-    assert(ts->kind == SM_TOK_STREAM_FILE);
+    assert((ts->kind == SM_TOK_STREAM_FILE) || (ts->kind == SM_TOK_STREAM_BUF));
     smTokStreamEat(ts);
-    if (fseek(ts->file.hnd, 0, SEEK_SET) < 0) {
-        int err = errno;
-        fprintf(stderr, SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": ",
-                SM_BUF_FMT_ARG(ts->pos.file), ts->file.cline, ts->file.ccol);
-        smFatal("failed to rewind file: %s\n", strerror(err));
+    if (ts->kind == SM_TOK_STREAM_FILE) {
+        if (fseek(ts->chardev.file.hnd, 0, SEEK_SET) < 0) {
+            int err = errno;
+            fprintf(stderr, SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+                    SM_BUF_FMT_ARG(ts->pos.file), ts->chardev.cline,
+                    ts->chardev.ccol);
+            smFatal("failed to rewind file: %s\n", strerror(err));
+        }
+    } else {
+        ts->chardev.src.offset = 0;
     }
-    ts->pos.line      = 1;
-    ts->pos.col       = 1;
-    ts->file.cstashed = false;
-    ts->file.cline    = 1;
-    ts->file.ccol     = 1;
+    ts->pos.line         = 1;
+    ts->pos.col          = 1;
+    ts->chardev.cstashed = false;
+    ts->chardev.cline    = 1;
+    ts->chardev.ccol     = 1;
     return;
 }
 
 SmBuf smTokStreamBuf(SmTokStream *ts) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
-        return ts->file.buf.inner;
+    case SM_TOK_STREAM_BUF:
+        return ts->chardev.buf.inner;
     case SM_TOK_STREAM_MACRO: {
         SmMacroTok *tok = ts->macro.buf.items + ts->macro.pos;
         switch (tok->kind) {
@@ -899,7 +927,8 @@ SmBuf smTokStreamBuf(SmTokStream *ts) {
 I32 smTokStreamNum(SmTokStream *ts) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
-        return ts->file.num;
+    case SM_TOK_STREAM_BUF:
+        return ts->chardev.num;
     case SM_TOK_STREAM_MACRO: {
         SmMacroTok *tok = ts->macro.buf.items + ts->macro.pos;
         switch (tok->kind) {
@@ -943,6 +972,7 @@ I32 smTokStreamNum(SmTokStream *ts) {
 SmPos smTokStreamPos(SmTokStream *ts) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
+    case SM_TOK_STREAM_BUF:
         return ts->pos;
     case SM_TOK_STREAM_MACRO:
         // TODO macro arg pos
