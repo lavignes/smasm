@@ -772,14 +772,12 @@ _Noreturn void fatal(char const *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     smTokStreamFatalV(&TS, fmt, args);
-    va_end(args);
 }
 
 _Noreturn void fatalPos(SmPos pos, char const *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     smTokStreamFatalPosV(&TS, pos, fmt, args);
-    va_end(args);
 }
 
 static U32    peek() { return smTokStreamPeek(&TS); }

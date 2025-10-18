@@ -142,7 +142,6 @@ _Noreturn void smTokStreamFatal(SmTokStream *ts, char const *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     smTokStreamFatalPosV(ts, ts->pos, fmt, args);
-    va_end(args);
 }
 
 _Noreturn void smTokStreamFatalPos(SmTokStream *ts, SmPos pos, char const *fmt,
@@ -150,7 +149,6 @@ _Noreturn void smTokStreamFatalPos(SmTokStream *ts, SmPos pos, char const *fmt,
     va_list args;
     va_start(args, fmt);
     smTokStreamFatalPosV(ts, pos, fmt, args);
-    va_end(args);
 }
 
 _Noreturn void smTokStreamFatalV(SmTokStream *ts, char const *fmt,

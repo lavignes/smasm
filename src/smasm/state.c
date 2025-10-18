@@ -36,14 +36,12 @@ _Noreturn void fatal(char const *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     smTokStreamFatalV(ts, fmt, args);
-    va_end(args);
 }
 
 _Noreturn void fatalPos(SmPos pos, char const *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     smTokStreamFatalPosV(ts, pos, fmt, args);
-    va_end(args);
 }
 
 void popStream() {
