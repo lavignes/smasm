@@ -6,7 +6,7 @@
 #define SM_TAB_WHENCE_IMPL(Type, EntryType)                                    \
     static EntryType *Type##Whence(Type *tab, SmView name) {                   \
         UInt       hash  = smViewHash(name);                                   \
-        UInt       i     = hash % tab->size;                                   \
+        UInt       i     = hash % tab->cap;                                    \
         EntryType *entry = tab->entries + i;                                   \
         while (hash != smViewHash(entry->name)) {                              \
             if (smViewEqual(entry->name, SM_VIEW_NULL)) {                      \
@@ -15,7 +15,7 @@
             if (smViewEqual(entry->name, name)) {                              \
                 break;                                                         \
             }                                                                  \
-            i     = (i + 1) % tab->size;                                       \
+            i     = (i + 1) % tab->cap;                                        \
             entry = tab->entries + i;                                          \
         }                                                                      \
         return entry;                                                          \
@@ -28,19 +28,19 @@
             if (!tab->entries) {                                               \
                 smFatal("out of memory\n");                                    \
             }                                                                  \
-            tab->len  = 0;                                                     \
-            tab->size = 16;                                                    \
+            tab->len = 0;                                                      \
+            tab->cap = 16;                                                     \
         }                                                                      \
         /* we always want at least 1 empty slot */                             \
-        if ((tab->size - tab->len) == 0) {                                     \
+        if ((tab->cap - tab->len) == 0) {                                      \
             EntryType *old_entries = tab->entries;                             \
-            UInt       old_size    = tab->size;                                \
-            tab->size *= 2;                                                    \
-            tab->entries = calloc(tab->size, sizeof(EntryType));               \
+            UInt       old_cap     = tab->cap;                                 \
+            tab->cap *= 2;                                                     \
+            tab->entries = calloc(tab->cap, sizeof(EntryType));                \
             if (!tab->entries) {                                               \
                 smFatal("out of memory\n");                                    \
             }                                                                  \
-            for (UInt i = 0; i < old_size; ++i) {                              \
+            for (UInt i = 0; i < old_cap; ++i) {                               \
                 EntryType *entry = old_entries + i;                            \
                 if (smViewEqual(entry->name, SM_VIEW_NULL)) {                  \
                     continue;                                                  \
@@ -72,7 +72,7 @@
     if (!tab->entries) {                                                       \
         return;                                                                \
     }                                                                          \
-    for (UInt i = 0; i < tab->size; ++i) {                                     \
+    for (UInt i = 0; i < tab->cap; ++i) {                                      \
         typeof(*tab->entries) *entry = tab->entries + i;                       \
         if (smViewEqual(entry->name, SM_VIEW_NULL)) {                          \
             continue;                                                          \

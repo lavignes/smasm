@@ -6,16 +6,16 @@
 typedef struct {
     SmView    name;
     SmPos     pos;
-    SmBufGBuf fields;
+    SmViewBuf fields;
 } Struct;
 
 typedef struct {
     Struct *entries;
     UInt    len;
-    UInt    size;
+    UInt    cap;
 } StructTab;
 
 Struct *structFind(SmView name);
-void    structAdd(SmView name, SmPos pos, SmBufGBuf fields);
+void    structAdd(SmView name, SmPos pos, SmViewBuf fields);
 
 #endif // STRUCT_H

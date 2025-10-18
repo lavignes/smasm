@@ -12,7 +12,7 @@ static SmLbl const SM_LBL_NULL = {0};
 
 Bool   smLblEqual(SmLbl lhs, SmLbl rhs);
 Bool   smLblIsGlobal(SmLbl lbl);
-SmView smLblFullName(SmLbl lbl, SmBufIntern *in);
+SmView smLblFullName(SmLbl lbl, SmViewIntern *in);
 
 typedef struct {
     U32  tok;
@@ -22,14 +22,14 @@ typedef struct {
 typedef struct {
     SmOp *items;
     UInt  len;
-} SmOpBuf;
+} SmOpView;
 
 typedef struct {
-    SmOpBuf view;
-    UInt    size;
-} SmOpGBuf;
+    SmOpView view;
+    UInt     cap;
+} SmOpBuf;
 
-void smOpGBufAdd(SmOpGBuf *buf, SmOp op);
+void smOpBufAdd(SmOpBuf *buf, SmOp op);
 
 enum SmExprKind {
     SM_EXPR_CONST,
@@ -62,53 +62,53 @@ typedef struct {
 typedef struct {
     SmExpr *items;
     UInt    len;
+} SmExprView;
+
+typedef struct {
+    SmExprView view;
+    UInt       cap;
 } SmExprBuf;
 
-typedef struct {
-    SmExprBuf view;
-    UInt      size;
-} SmExprGBuf;
-
-void smExprGBufAdd(SmExprGBuf *buf, SmExpr expr);
-void smExprGBufFini(SmExprGBuf *buf);
+void smExprBufAdd(SmExprBuf *buf, SmExpr expr);
+void smExprBufFini(SmExprBuf *buf);
 
 typedef struct {
-    SmExprGBuf *bufs;
-    UInt        len;
-    UInt        size;
+    SmExprBuf *bufs;
+    UInt       len;
+    UInt       cap;
 } SmExprIntern;
 
-SmExprBuf smExprIntern(SmExprIntern *in, SmExprBuf buf);
-void      smExprInternFini(SmExprIntern *in);
+SmExprView smExprIntern(SmExprIntern *in, SmExprView view);
+void       smExprInternFini(SmExprIntern *in);
 
 typedef struct {
     I32 *items;
     UInt len;
-} SmI32Buf;
+} SmI32View;
 
 typedef struct {
-    SmI32Buf view;
-    UInt     size;
-} SmI32GBuf;
+    SmI32View view;
+    UInt      cap;
+} SmI32Buf;
 
-void smI32GBufAdd(SmI32GBuf *buf, I32 num);
-void smI32GBufFini(SmI32GBuf *buf);
+void smI32BufAdd(SmI32Buf *buf, I32 num);
+void smI32BufFini(SmI32Buf *buf);
 
 enum SmSymFlags { SM_SYM_EQU = 1 << 0 };
 
 typedef struct {
-    SmLbl     lbl;
-    SmExprBuf value;
-    SmView    unit;
-    SmView    section;
-    SmPos     pos;
-    U8        flags;
+    SmLbl      lbl;
+    SmExprView value;
+    SmView     unit;
+    SmView     section;
+    SmPos      pos;
+    U8         flags;
 } SmSym;
 
 typedef struct {
     SmSym *syms;
     UInt   len;
-    UInt   size;
+    UInt   cap;
 } SmSymTab;
 
 SmSym *smSymTabAdd(SmSymTab *tab, SmSym sym);

@@ -7,13 +7,13 @@
 #include <stdarg.h>
 #include <string.h>
 
-SmBufIntern  STRS   = {0};
+SmViewIntern STRS   = {0};
 SmSymTab     SYMS   = {0};
 SmExprIntern EXPRS  = {0};
 SmPathSet    IPATHS = {0};
 SmPathSet    INCS   = {0};
 
-SmView intern(SmView view) { return smBufIntern(&STRS, view); }
+SmView intern(SmView view) { return smViewIntern(&STRS, view); }
 
 SmView DEFINES_SECTION;
 SmView CODE_SECTION;
@@ -120,9 +120,9 @@ SmLbl tokLbl() {
     return lblLocal(intern(name));
 }
 
-SmSectGBuf SECTS                  = {0};
-UInt       SECT_STACK[STACK_SIZE] = {0};
-UInt      *sect                   = SECT_STACK - 1;
+SmSectBuf SECTS                  = {0};
+UInt      SECT_STACK[STACK_SIZE] = {0};
+UInt     *sect                   = SECT_STACK - 1;
 
 static UInt sectFind(SmView name) {
     for (UInt i = 0; i < SECTS.view.len; ++i) {
@@ -138,12 +138,12 @@ SmSect *sectGet() { return SECTS.view.items + *sect; }
 void sectSet(SmView name) {
     UInt idx = sectFind(name);
     if (idx == UINT_MAX) {
-        smSectGBufAdd(&SECTS, (SmSect){
-                                  .name   = name,
-                                  .pc     = 0,
-                                  .data   = {{0}, 0}, // GCC doesnt like {0}
-                                  .relocs = {{0}, 0},
-                              });
+        smSectBufAdd(&SECTS, (SmSect){
+                                 .name   = name,
+                                 .pc     = 0,
+                                 .data   = {{0}, 0}, // GCC doesnt like {0}
+                                 .relocs = {{0}, 0},
+                             });
         idx = SECTS.view.len - 1;
     }
     *sect = idx;

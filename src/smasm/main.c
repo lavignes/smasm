@@ -33,14 +33,14 @@ static void help() {
             "  -h, --help                   Print help\n");
 }
 
-static SmExprBuf constExprBuf(I32 num);
-static FILE     *openFileCstr(char const *name, char const *modes);
-static void      closeFile(FILE *hnd);
-static void      pushFile(SmView path);
-static void      pass();
-static void      rewindPass();
-static void      writeDepend();
-static void      serialize();
+static SmExprView constExprBuf(I32 num);
+static FILE      *openFileCstr(char const *name, char const *modes);
+static void       closeFile(FILE *hnd);
+static void       pushFile(SmView path);
+static void       pass();
+static void       rewindPass();
+static void       writeDepend();
+static void       serialize();
 
 static FILE *infile       = NULL;
 static char *infile_name  = NULL;
@@ -184,22 +184,22 @@ static void expectReprU16(SmPos pos, I32 num) {
     }
 }
 
-static void emitView(SmView view) { smGBufCat(&sectGet()->data, view); }
+static void emitView(SmView view) { smBufCat(&sectGet()->data, view); }
 static void emit8(U8 byte) { emitView((SmView){&byte, 1}); }
 static void emit16(U16 word) {
     U8 bytes[2] = {word & 0x00FF, word >> 8};
     emitView((SmView){bytes, 2});
 }
 
-static void reloc(U16 offset, U8 width, SmExprBuf buf, SmPos pos, U8 flags) {
-    smRelocGBufAdd(&sectGet()->relocs, (SmReloc){
-                                           .offset = getPC() + offset,
-                                           .width  = width,
-                                           .value  = buf,
-                                           .unit   = STATIC_UNIT,
-                                           .pos    = pos,
-                                           .flags  = flags,
-                                       });
+static void reloc(U16 offset, U8 width, SmExprView buf, SmPos pos, U8 flags) {
+    smRelocBufAdd(&sectGet()->relocs, (SmReloc){
+                                          .offset = getPC() + offset,
+                                          .width  = width,
+                                          .value  = buf,
+                                          .unit   = STATIC_UNIT,
+                                          .pos    = pos,
+                                          .flags  = flags,
+                                      });
 }
 
 static Bool loadIndirect(U32 tok, U8 *op) {
@@ -348,10 +348,10 @@ static void pushPop(U8 base) {
 }
 
 static void aluReg8(U8 base, U8 imm) {
-    U8        op;
-    SmPos     pos;
-    SmExprBuf buf;
-    I32       num;
+    U8         op;
+    SmPos      pos;
+    SmExprView buf;
+    I32        num;
     eat();
     expect(',');
     eat();
@@ -416,10 +416,10 @@ static void doAluReg8Cb(U8 base) {
 }
 
 static void doBitCb(U8 base) {
-    U8        op;
-    SmPos     pos;
-    SmExprBuf buf;
-    I32       num;
+    U8         op;
+    SmPos      pos;
+    SmExprView buf;
+    I32        num;
     eat();
     buf = exprEatPos(&pos);
     expect(',');
@@ -468,10 +468,10 @@ static Bool flag(U32 tok, U8 base, U8 *op) {
 }
 
 static void eatMne(U8 mne) {
-    U8        op;
-    SmPos     pos;
-    SmExprBuf buf;
-    I32       num;
+    U8         op;
+    SmPos      pos;
+    SmExprView buf;
+    I32        num;
     switch (mne) {
     case MNE_LD:
         eat();
@@ -1189,18 +1189,18 @@ static void eatMne(U8 mne) {
 }
 
 static FILE *openFile(SmView path, char const *modes) {
-    static SmGBuf buf = {0};
-    buf.view.len      = 0;
-    smGBufCat(&buf, path);
-    smGBufCat(&buf, SM_VIEW("\0"));
+    static SmBuf buf = {0};
+    buf.view.len     = 0;
+    smBufCat(&buf, path);
+    smBufCat(&buf, SM_VIEW("\0"));
     return openFileCstr((char const *)buf.view.bytes, modes);
 }
 
 static Bool fileExists(SmView path) {
-    static SmGBuf buf = {0};
-    buf.view.len      = 0;
-    smGBufCat(&buf, path);
-    smGBufCat(&buf, SM_VIEW("\0"));
+    static SmBuf buf = {0};
+    buf.view.len     = 0;
+    smBufCat(&buf, path);
+    smBufCat(&buf, SM_VIEW("\0"));
     FILE *hnd = fopen((char const *)buf.view.bytes, "rb");
     if (hnd) {
         closeFile(hnd);
@@ -1210,15 +1210,15 @@ static Bool fileExists(SmView path) {
 }
 
 static SmView findInclude(SmView path) {
-    static SmGBuf buf      = {0};
-    SmView        fullpath = smPathIntern(&STRS, path);
+    static SmBuf buf      = {0};
+    SmView       fullpath = smPathIntern(&STRS, path);
     if (!fileExists(fullpath)) {
         for (UInt i = 0; i < IPATHS.bufs.view.len; ++i) {
             SmView inc   = IPATHS.bufs.view.items[i];
             buf.view.len = 0;
-            smGBufCat(&buf, inc);
-            smGBufCat(&buf, SM_VIEW("/"));
-            smGBufCat(&buf, path);
+            smBufCat(&buf, inc);
+            smBufCat(&buf, SM_VIEW("/"));
+            smBufCat(&buf, path);
             fullpath = smPathIntern(&STRS, buf.view);
             if (fileExists(fullpath)) {
                 return fullpath;
@@ -1229,22 +1229,22 @@ static SmView findInclude(SmView path) {
           SM_VIEW_FMT_ARG(path));
 }
 
-static SmExprBuf addrExprBuf(SmView section, U16 offset) {
+static SmExprView addrExprBuf(SmView section, U16 offset) {
     return smExprIntern(
         &EXPRS,
-        (SmExprBuf){&(SmExpr){.kind = SM_EXPR_ADDR, .addr = {section, offset}},
-                    1});
+        (SmExprView){&(SmExpr){.kind = SM_EXPR_ADDR, .addr = {section, offset}},
+                     1});
 }
 
-static SmExprBuf constExprBuf(I32 num) {
+static SmExprView constExprBuf(I32 num) {
     return smExprIntern(
-        &EXPRS, (SmExprBuf){&(SmExpr){.kind = SM_EXPR_CONST, .num = num}, 1});
+        &EXPRS, (SmExprView){&(SmExpr){.kind = SM_EXPR_CONST, .num = num}, 1});
 }
 
 static void eatDirective() {
-    SmPos     pos;
-    SmExprBuf buf;
-    I32       num;
+    SmPos      pos;
+    SmExprView buf;
+    I32        num;
     switch (peek()) {
     case SM_TOK_DB:
         eat();
@@ -1348,8 +1348,8 @@ static void eatDirective() {
         return;
     }
     case SM_TOK_INCBIN: {
-        static SmGBuf buf = {0};
-        buf.view.len      = 0;
+        static SmBuf buf = {0};
+        buf.view.len     = 0;
         eat();
         expect(SM_TOK_STR);
         SmView path = findInclude(tokView());
@@ -1367,9 +1367,9 @@ static void eatDirective() {
         return;
     }
     case SM_TOK_MACRO: {
-        pos                       = tokPos();
-        static SmMacroTokGBuf buf = {0};
-        buf.view.len              = 0;
+        pos                      = tokPos();
+        static SmMacroTokBuf buf = {0};
+        buf.view.len             = 0;
         eat();
         expect(SM_TOK_ID);
         SmLbl lbl = tokLbl();
@@ -1410,49 +1410,47 @@ static void eatDirective() {
             case SM_TOK_EOF:
                 fatal("unexpected end of file\n");
             case SM_TOK_ID:
-                smMacroTokGBufAdd(&buf,
-                                  (SmMacroTok){.kind = SM_MACRO_TOK_ID,
-                                               .pos  = tokPos(),
-                                               .view = intern(tokView())});
+                smMacroTokBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_ID,
+                                                    .pos  = tokPos(),
+                                                    .view = intern(tokView())});
                 break;
             case SM_TOK_NUM:
-                smMacroTokGBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_NUM,
-                                                     .pos  = tokPos(),
-                                                     .num  = tokNum()});
+                smMacroTokBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_NUM,
+                                                    .pos  = tokPos(),
+                                                    .num  = tokNum()});
                 break;
             case SM_TOK_STR:
-                smMacroTokGBufAdd(&buf,
-                                  (SmMacroTok){.kind = SM_MACRO_TOK_STR,
-                                               .pos  = tokPos(),
-                                               .view = intern(tokView())});
+                smMacroTokBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_STR,
+                                                    .pos  = tokPos(),
+                                                    .view = intern(tokView())});
                 break;
             case SM_TOK_ARG:
-                smMacroTokGBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_ARG,
-                                                     .pos  = tokPos(),
-                                                     .num  = tokNum()});
+                smMacroTokBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_ARG,
+                                                    .pos  = tokPos(),
+                                                    .num  = tokNum()});
                 break;
             case SM_TOK_NARG:
-                smMacroTokGBufAdd(&buf, (SmMacroTok){
-                                            .kind = SM_MACRO_TOK_NARG,
-                                            .pos  = tokPos(),
-                                        });
+                smMacroTokBufAdd(&buf, (SmMacroTok){
+                                           .kind = SM_MACRO_TOK_NARG,
+                                           .pos  = tokPos(),
+                                       });
                 break;
             case SM_TOK_SHIFT:
-                smMacroTokGBufAdd(&buf, (SmMacroTok){
-                                            .kind = SM_MACRO_TOK_SHIFT,
-                                            .pos  = tokPos(),
-                                        });
+                smMacroTokBufAdd(&buf, (SmMacroTok){
+                                           .kind = SM_MACRO_TOK_SHIFT,
+                                           .pos  = tokPos(),
+                                       });
                 break;
             case SM_TOK_UNIQUE:
-                smMacroTokGBufAdd(&buf, (SmMacroTok){
-                                            .kind = SM_MACRO_TOK_UNIQUE,
-                                            .pos  = tokPos(),
-                                        });
+                smMacroTokBufAdd(&buf, (SmMacroTok){
+                                           .kind = SM_MACRO_TOK_UNIQUE,
+                                           .pos  = tokPos(),
+                                       });
                 break;
             default:
-                smMacroTokGBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_TOK,
-                                                     .pos  = tokPos(),
-                                                     .tok  = peek()});
+                smMacroTokBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_TOK,
+                                                    .pos  = tokPos(),
+                                                    .tok  = peek()});
                 break;
             }
             eat();
@@ -1480,9 +1478,9 @@ static void eatDirective() {
             // TODO should I check if this shadows an existing label?
             eat();
         }
-        UInt            depth = 0;
-        SmRepeatTokGBuf buf   = {0};
-        streamdef             = true;
+        UInt           depth = 0;
+        SmRepeatTokBuf buf   = {0};
+        streamdef            = true;
         while (true) {
             switch (peek()) {
             case SM_TOK_IF:
@@ -1508,33 +1506,31 @@ static void eatDirective() {
             case SM_TOK_ID:
                 // referencing the variable
                 if (smViewEqual(tokView(), lbl.name)) {
-                    smRepeatTokGBufAdd(&buf,
-                                       (SmRepeatTok){.kind = SM_REPEAT_TOK_ITER,
-                                                     .pos  = tokPos()});
+                    smRepeatTokBufAdd(&buf,
+                                      (SmRepeatTok){.kind = SM_REPEAT_TOK_ITER,
+                                                    .pos  = tokPos()});
                     break;
                 }
-                smRepeatTokGBufAdd(&buf,
-                                   (SmRepeatTok){.kind = SM_REPEAT_TOK_ID,
-                                                 .pos  = tokPos(),
-                                                 .view = intern(tokView())});
+                smRepeatTokBufAdd(&buf,
+                                  (SmRepeatTok){.kind = SM_REPEAT_TOK_ID,
+                                                .pos  = tokPos(),
+                                                .view = intern(tokView())});
                 break;
             case SM_TOK_NUM:
-                smRepeatTokGBufAdd(&buf,
-                                   (SmRepeatTok){.kind = SM_REPEAT_TOK_NUM,
-                                                 .pos  = tokPos(),
-                                                 .num  = tokNum()});
+                smRepeatTokBufAdd(&buf, (SmRepeatTok){.kind = SM_REPEAT_TOK_NUM,
+                                                      .pos  = tokPos(),
+                                                      .num  = tokNum()});
                 break;
             case SM_TOK_STR:
-                smRepeatTokGBufAdd(&buf,
-                                   (SmRepeatTok){.kind = SM_REPEAT_TOK_STR,
-                                                 .pos  = tokPos(),
-                                                 .view = intern(tokView())});
+                smRepeatTokBufAdd(&buf,
+                                  (SmRepeatTok){.kind = SM_REPEAT_TOK_STR,
+                                                .pos  = tokPos(),
+                                                .view = intern(tokView())});
                 break;
             default:
-                smRepeatTokGBufAdd(&buf,
-                                   (SmRepeatTok){.kind = SM_REPEAT_TOK_TOK,
-                                                 .pos  = tokPos(),
-                                                 .tok  = peek()});
+                smRepeatTokBufAdd(&buf, (SmRepeatTok){.kind = SM_REPEAT_TOK_TOK,
+                                                      .pos  = tokPos(),
+                                                      .tok  = peek()});
                 break;
             }
             eat();
@@ -1559,7 +1555,7 @@ static void eatDirective() {
         // TODO check if this struct is already defined
         eat();
         UInt      size      = 0;
-        SmBufGBuf fields    = {0};
+        SmViewBuf fields    = {0};
         Bool      inunion   = false;
         UInt      unionsize = 0;
         while (true) {
@@ -1807,18 +1803,18 @@ static void pass() {
 }
 
 static void writeDepend() {
-    static SmGBuf buf = {0};
-    buf.view.len      = 0;
+    static SmBuf buf = {0};
+    buf.view.len     = 0;
     if (!depfile_name) {
         UInt        len    = strlen(infile_name);
         char const *offset = strchr(infile_name, '.');
         if (offset) {
             len -= (offset - infile_name);
         }
-        smGBufCat(&buf, (SmView){(U8 *)infile_name, len});
-        smGBufCat(&buf, SM_VIEW(".d"));
+        smBufCat(&buf, (SmView){(U8 *)infile_name, len});
+        smBufCat(&buf, SM_VIEW(".d"));
     } else {
-        smGBufCat(&buf, (SmView){(U8 *)depfile_name, strlen(depfile_name)});
+        smBufCat(&buf, (SmView){(U8 *)depfile_name, strlen(depfile_name)});
     }
     FILE   *hnd = openFile(buf.view, "wb+");
     SmSerde ser = {hnd, buf.view};
@@ -1835,10 +1831,10 @@ static void writeDepend() {
 static void serialize() {
     SmSerde ser = {outfile, {(U8 *)outfile_name, strlen(outfile_name)}};
     smSerializeU32(&ser, *(U32 *)"SM00");
-    smSerializeBufIntern(&ser, &STRS);
+    smSerializeViewIntern(&ser, &STRS);
     smSerializeExprIntern(&ser, &EXPRS, &STRS);
     smSerializeSymTab(&ser, &SYMS, &STRS, &EXPRS);
-    smSerializeSectBuf(&ser, SECTS.view, &STRS, &EXPRS);
+    smSerializeSectView(&ser, SECTS.view, &STRS, &EXPRS);
 }
 
 static FILE *openFileCstr(char const *name, char const *modes) {

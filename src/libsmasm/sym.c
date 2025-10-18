@@ -10,30 +10,30 @@ Bool smLblEqual(SmLbl lhs, SmLbl rhs) {
 
 Bool smLblIsGlobal(SmLbl lbl) { return smViewEqual(lbl.scope, SM_VIEW_NULL); }
 
-SmView smLblFullName(SmLbl lbl, SmBufIntern *in) {
-    static SmGBuf buf = {0};
-    buf.view.len      = 0;
+SmView smLblFullName(SmLbl lbl, SmViewIntern *in) {
+    static SmBuf buf = {0};
+    buf.view.len     = 0;
     if (!smViewEqual(lbl.scope, SM_VIEW_NULL)) {
-        smGBufCat(&buf, lbl.scope);
-        smGBufCat(&buf, SM_VIEW("."));
+        smBufCat(&buf, lbl.scope);
+        smBufCat(&buf, SM_VIEW("."));
     }
-    smGBufCat(&buf, lbl.name);
-    return smBufIntern(in, buf.view);
+    smBufCat(&buf, lbl.name);
+    return smViewIntern(in, buf.view);
 }
 
-void smOpGBufAdd(SmOpGBuf *buf, SmOp item) { SM_GBUF_ADD_IMPL(); }
+void smOpBufAdd(SmOpBuf *buf, SmOp item) { SM_GBUF_ADD_IMPL(); }
 
-void smExprGBufAdd(SmExprGBuf *buf, SmExpr item) { SM_GBUF_ADD_IMPL(); }
+void smExprBufAdd(SmExprBuf *buf, SmExpr item) { SM_GBUF_ADD_IMPL(); }
 
-void smExprGBufFini(SmExprGBuf *buf) { SM_GBUF_FINI_IMPL(); }
+void smExprBufFini(SmExprBuf *buf) { SM_GBUF_FINI_IMPL(); }
 
-SmExprBuf smExprIntern(SmExprIntern *in, SmExprBuf buf) { SM_INTERN_IMPL(); }
+SmExprView smExprIntern(SmExprIntern *in, SmExprView buf) { SM_INTERN_IMPL(); }
 
-void smExprInternFini(SmExprIntern *in) { SM_INTERN_FINI_IMPL(smExprGBufFini); }
+void smExprInternFini(SmExprIntern *in) { SM_INTERN_FINI_IMPL(smExprBufFini); }
 
-void smI32GBufAdd(SmI32GBuf *buf, I32 item) { SM_GBUF_ADD_IMPL(); }
+void smI32BufAdd(SmI32Buf *buf, I32 item) { SM_GBUF_ADD_IMPL(); }
 
-void smI32GBufFini(SmI32GBuf *buf) { SM_GBUF_FINI_IMPL(); }
+void smI32BufFini(SmI32Buf *buf) { SM_GBUF_FINI_IMPL(); }
 
 static UInt hashLbl(SmLbl lbl) {
     UInt hash = 5381;
@@ -49,7 +49,7 @@ static UInt hashLbl(SmLbl lbl) {
 
 static SmSym *whence(SmSymTab *tab, SmLbl lbl) {
     UInt   hash = hashLbl(lbl);
-    UInt   i    = hash % tab->size;
+    UInt   i    = hash % tab->cap;
     SmSym *sym  = tab->syms + i;
     while (hash != hashLbl(sym->lbl)) {
         if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
@@ -58,7 +58,7 @@ static SmSym *whence(SmSymTab *tab, SmLbl lbl) {
         if (smLblEqual(sym->lbl, lbl)) {
             break;
         }
-        i   = (i + 1) % tab->size;
+        i   = (i + 1) % tab->cap;
         sym = tab->syms + i;
     }
     return sym;
@@ -70,15 +70,15 @@ static void tryGrow(SmSymTab *tab) {
         if (!tab->syms) {
             smFatal("out of memory\n");
         }
-        tab->len  = 0;
-        tab->size = 16;
+        tab->len = 0;
+        tab->cap = 16;
     }
     // We always want at least 1 empty slot
-    if ((tab->size - tab->len) == 1) {
+    if ((tab->cap - tab->len) == 1) {
         SmSym *old_syms = tab->syms;
-        UInt   old_size = tab->size;
-        tab->size *= 2;
-        tab->syms = calloc(tab->size, sizeof(SmSym));
+        UInt   old_size = tab->cap;
+        tab->cap *= 2;
+        tab->syms = calloc(tab->cap, sizeof(SmSym));
         if (!tab->syms) {
             smFatal("out of memory\n");
         }

@@ -10,45 +10,45 @@ enum SmRelocFlags {
 };
 
 typedef struct {
-    UInt      offset;
-    U8        width;
-    SmExprBuf value;
-    SmView    unit;
-    SmPos     pos;
-    U8        flags;
+    UInt       offset;
+    U8         width;
+    SmExprView value;
+    SmView     unit;
+    SmPos      pos;
+    U8         flags;
 } SmReloc;
 
 typedef struct {
     SmReloc *items;
     UInt     len;
+} SmRelocView;
+
+typedef struct {
+    SmRelocView view;
+    UInt        cap;
 } SmRelocBuf;
 
-typedef struct {
-    SmRelocBuf view;
-    UInt       size;
-} SmRelocGBuf;
-
-void smRelocGBufAdd(SmRelocGBuf *buf, SmReloc reloc);
-void smRelocGBufFini(SmRelocGBuf *buf);
+void smRelocBufAdd(SmRelocBuf *buf, SmReloc reloc);
+void smRelocBufFini(SmRelocBuf *buf);
 
 typedef struct {
-    SmView      name;
-    U32         pc;
-    SmGBuf      data;
-    SmRelocGBuf relocs;
+    SmView     name;
+    U32        pc;
+    SmBuf      data;
+    SmRelocBuf relocs;
 } SmSect;
 
 typedef struct {
     SmSect *items;
     UInt    len;
-} SmSectBuf;
+} SmSectView;
 
 typedef struct {
-    SmSectBuf view;
-    UInt      size;
-} SmSectGBuf;
+    SmSectView view;
+    UInt       cap;
+} SmSectBuf;
 
-void smSectGBufAdd(SmSectGBuf *buf, SmSect sect);
-void smSectGBufFini(SmSectGBuf *buf);
+void smSectBufAdd(SmSectBuf *buf, SmSect sect);
+void smSectBufFini(SmSectBuf *buf);
 
 #endif // SMASM_SECT_H

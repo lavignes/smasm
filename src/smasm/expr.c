@@ -5,10 +5,10 @@
 
 #include <assert.h>
 
-static SmExprGBuf expr_stack = {0};
-static SmOpGBuf   op_stack   = {0};
+static SmExprBuf expr_stack = {0};
+static SmOpBuf   op_stack   = {0};
 
-static void pushExpr(SmExpr expr) { smExprGBufAdd(&expr_stack, expr); }
+static void pushExpr(SmExpr expr) { smExprBufAdd(&expr_stack, expr); }
 
 static U8 precedence(SmOp op) {
     if (op.unary) {
@@ -59,19 +59,19 @@ static void pushApply(SmOp op) {
         --op_stack.view.len;
         SmOp top = op_stack.view.items[op_stack.view.len];
         if (precedence(top) >= precedence(op)) {
-            smOpGBufAdd(&op_stack, top);
+            smOpBufAdd(&op_stack, top);
             break;
         }
         pushExpr((SmExpr){.kind = SM_EXPR_OP, .op = top});
     }
-    smOpGBufAdd(&op_stack, op);
+    smOpBufAdd(&op_stack, op);
 }
 
 static void pushApplyBinary(U32 tok) { pushApply((SmOp){tok, false}); }
 
 static void pushApplyUnary(U32 tok) { pushApply((SmOp){tok, true}); }
 
-SmExprBuf exprEat() {
+SmExprView exprEat() {
     expr_stack.view.len = 0;
     op_stack.view.len   = 0;
     Bool seen_value     = false;
@@ -154,7 +154,7 @@ SmExprBuf exprEat() {
                 fatal("expected an operator\n");
             }
             ++paren_depth;
-            smOpGBufAdd(&op_stack, (SmOp){'(', true});
+            smOpBufAdd(&op_stack, (SmOp){'(', true});
             eat();
             seen_value = false;
             continue;
@@ -263,7 +263,7 @@ complete:
     return smExprIntern(&EXPRS, expr_stack.view);
 }
 
-SmExprBuf exprEatPos(SmPos *pos) {
+SmExprView exprEatPos(SmPos *pos) {
     // advance to get the location of the expr
     peek();
     *pos = tokPos();
@@ -296,13 +296,13 @@ U16 exprEatSolvedU16() {
     return (U16)num;
 }
 
-static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
-    SmI32GBuf stack = {0};
-    for (UInt i = 0; i < buf.len; ++i) {
-        SmExpr *expr = buf.items + i;
+static Bool exprSolveFull(SmExprView view, I32 *num, Bool relative) {
+    SmI32Buf stack = {0};
+    for (UInt i = 0; i < view.len; ++i) {
+        SmExpr *expr = view.items + i;
         switch (expr->kind) {
         case SM_EXPR_CONST:
-            smI32GBufAdd(&stack, expr->num);
+            smI32BufAdd(&stack, expr->num);
             break;
         case SM_EXPR_LABEL: {
             SmSym *sym = smSymTabFind(&SYMS, expr->lbl);
@@ -314,7 +314,7 @@ static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
             if (!exprSolveFull(sym->value, &num, relative)) {
                 goto fail;
             }
-            smI32GBufAdd(&stack, num);
+            smI32BufAdd(&stack, num);
             break;
         }
         case SM_EXPR_TAG:
@@ -325,25 +325,25 @@ static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
             if (expr->op.unary) {
                 switch (expr->op.tok) {
                 case '+':
-                    smI32GBufAdd(&stack, rhs);
+                    smI32BufAdd(&stack, rhs);
                     break;
                 case '-':
-                    smI32GBufAdd(&stack, -rhs);
+                    smI32BufAdd(&stack, -rhs);
                     break;
                 case '~':
-                    smI32GBufAdd(&stack, ~rhs);
+                    smI32BufAdd(&stack, ~rhs);
                     break;
                 case '!':
-                    smI32GBufAdd(&stack, !rhs);
+                    smI32BufAdd(&stack, !rhs);
                     break;
                 case '<':
-                    smI32GBufAdd(&stack, ((U32)rhs) & 0xFF);
+                    smI32BufAdd(&stack, ((U32)rhs) & 0xFF);
                     break;
                 case '>':
-                    smI32GBufAdd(&stack, ((U32)rhs & 0xFF00) >> 8);
+                    smI32BufAdd(&stack, ((U32)rhs & 0xFF00) >> 8);
                     break;
                 case '^':
-                    smI32GBufAdd(&stack, ((U32)rhs & 0xFF0000) >> 16);
+                    smI32BufAdd(&stack, ((U32)rhs & 0xFF0000) >> 16);
                     break;
                 default:
                     SM_UNREACHABLE();
@@ -353,61 +353,61 @@ static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
                 I32 lhs = stack.view.items[stack.view.len];
                 switch (expr->op.tok) {
                 case '+':
-                    smI32GBufAdd(&stack, lhs + rhs);
+                    smI32BufAdd(&stack, lhs + rhs);
                     break;
                 case '-':
-                    smI32GBufAdd(&stack, lhs - rhs);
+                    smI32BufAdd(&stack, lhs - rhs);
                     break;
                 case '*':
-                    smI32GBufAdd(&stack, lhs * rhs);
+                    smI32BufAdd(&stack, lhs * rhs);
                     break;
                 case '/':
-                    smI32GBufAdd(&stack, lhs / rhs);
+                    smI32BufAdd(&stack, lhs / rhs);
                     break;
                 case '%':
-                    smI32GBufAdd(&stack, lhs % rhs);
+                    smI32BufAdd(&stack, lhs % rhs);
                     break;
                 case SM_TOK_ASL:
-                    smI32GBufAdd(&stack, lhs << rhs);
+                    smI32BufAdd(&stack, lhs << rhs);
                     break;
                 case SM_TOK_ASR:
-                    smI32GBufAdd(&stack, lhs >> rhs);
+                    smI32BufAdd(&stack, lhs >> rhs);
                     break;
                 case SM_TOK_LSR:
-                    smI32GBufAdd(&stack, ((U32)lhs) >> ((U32)rhs));
+                    smI32BufAdd(&stack, ((U32)lhs) >> ((U32)rhs));
                     break;
                 case '<':
-                    smI32GBufAdd(&stack, lhs < rhs);
+                    smI32BufAdd(&stack, lhs < rhs);
                     break;
                 case SM_TOK_LTE:
-                    smI32GBufAdd(&stack, lhs <= rhs);
+                    smI32BufAdd(&stack, lhs <= rhs);
                     break;
                 case '>':
-                    smI32GBufAdd(&stack, lhs > rhs);
+                    smI32BufAdd(&stack, lhs > rhs);
                     break;
                 case SM_TOK_GTE:
-                    smI32GBufAdd(&stack, lhs >= rhs);
+                    smI32BufAdd(&stack, lhs >= rhs);
                     break;
                 case SM_TOK_DEQ:
-                    smI32GBufAdd(&stack, lhs == rhs);
+                    smI32BufAdd(&stack, lhs == rhs);
                     break;
                 case SM_TOK_NEQ:
-                    smI32GBufAdd(&stack, lhs != rhs);
+                    smI32BufAdd(&stack, lhs != rhs);
                     break;
                 case '&':
-                    smI32GBufAdd(&stack, lhs & rhs);
+                    smI32BufAdd(&stack, lhs & rhs);
                     break;
                 case '|':
-                    smI32GBufAdd(&stack, lhs | rhs);
+                    smI32BufAdd(&stack, lhs | rhs);
                     break;
                 case '^':
-                    smI32GBufAdd(&stack, lhs ^ rhs);
+                    smI32BufAdd(&stack, lhs ^ rhs);
                     break;
                 case SM_TOK_AND:
-                    smI32GBufAdd(&stack, lhs && rhs);
+                    smI32BufAdd(&stack, lhs && rhs);
                     break;
                 case SM_TOK_OR:
-                    smI32GBufAdd(&stack, lhs || rhs);
+                    smI32BufAdd(&stack, lhs || rhs);
                     break;
                 default:
                     SM_UNREACHABLE();
@@ -422,7 +422,7 @@ static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
             if (!relative) {
                 goto fail;
             }
-            smI32GBufAdd(&stack, expr->addr.pc);
+            smI32BufAdd(&stack, expr->addr.pc);
             break;
         case SM_EXPR_REL: {
             SmSym *sym = smSymTabFind(&SYMS, expr->lbl);
@@ -434,7 +434,7 @@ static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
             if (!exprSolveFull(sym->value, &num, true)) {
                 goto fail;
             }
-            smI32GBufAdd(&stack, num);
+            smI32BufAdd(&stack, num);
             break;
         }
         default:
@@ -443,18 +443,18 @@ static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
     }
     assert(stack.view.len == 1);
     *num = *stack.view.items;
-    smI32GBufFini(&stack);
+    smI32BufFini(&stack);
     return true;
 fail:
-    smI32GBufFini(&stack);
+    smI32BufFini(&stack);
     return false;
 }
 
-Bool exprSolve(SmExprBuf buf, I32 *num) {
+Bool exprSolve(SmExprView buf, I32 *num) {
     return exprSolveFull(buf, num, false);
 }
 
-Bool exprSolveRelative(SmExprBuf buf, I32 *num) {
+Bool exprSolveRelative(SmExprView buf, I32 *num) {
     return exprSolveFull(buf, num, true);
 }
 

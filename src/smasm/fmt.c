@@ -30,7 +30,7 @@ enum FmtFlags {
 static const U8 DIGITS[]       = "0123456789abcdef";
 static const U8 DIGITS_UPPER[] = "0123456789ABCDEF";
 
-void fmtUInt(SmGBuf *buf, I32 num, I32 radix, U8 flags, U16 width, U16 prec,
+void fmtUInt(SmBuf *buf, I32 num, I32 radix, U8 flags, U16 width, U16 prec,
              Bool negative) {
     // write digits to a small buffer (at least big enough to hold 32
     // bits of binary)
@@ -59,35 +59,35 @@ void fmtUInt(SmGBuf *buf, I32 num, I32 radix, U8 flags, U16 width, U16 prec,
             c = '0';
         }
         for (; i < pad; ++i) {
-            smGBufCat(buf, (SmView){&c, 1});
+            smBufCat(buf, (SmView){&c, 1});
         }
     }
     // write sign
     if (i < len) {
         if (negative) {
-            smGBufCat(buf, SM_VIEW("-"));
+            smBufCat(buf, SM_VIEW("-"));
         } else if (flags & FMT_FLAG_PAD_SIGN) {
-            smGBufCat(buf, SM_VIEW(" "));
+            smBufCat(buf, SM_VIEW(" "));
         } else if (flags & FMT_FLAG_FORCE_SIGN) {
-            smGBufCat(buf, SM_VIEW("+"));
+            smBufCat(buf, SM_VIEW("+"));
         }
         ++i;
     }
     // add leading zeros to reach the desired precision
     for (pad = prec - nums.len; pad > 0; --pad) {
-        smGBufCat(buf, SM_VIEW("0"));
+        smBufCat(buf, SM_VIEW("0"));
         ++i;
     }
     // write the actual number
-    smGBufCat(buf, nums);
+    smBufCat(buf, nums);
     i += nums.len;
     // write out any leftover padding
     for (; i < len; ++i) {
-        smGBufCat(buf, SM_VIEW(" "));
+        smBufCat(buf, SM_VIEW(" "));
     }
 }
 
-static void fmtStr(SmGBuf *buf, SmView str, U8 flags, U16 width, U16 prec) {
+static void fmtStr(SmBuf *buf, SmView str, U8 flags, U16 width, U16 prec) {
     UInt len = 0;
     if (prec == 0) {
         prec = str.len;
@@ -102,19 +102,19 @@ static void fmtStr(SmGBuf *buf, SmView str, U8 flags, U16 width, U16 prec) {
             c = '0';
         }
         for (; i < pad; ++i) {
-            smGBufCat(buf, (SmView){&c, 1});
+            smBufCat(buf, (SmView){&c, 1});
         }
     }
     // write the str
-    smGBufCat(buf, (SmView){str.bytes, uIntMin(prec, str.len)});
+    smBufCat(buf, (SmView){str.bytes, uIntMin(prec, str.len)});
     i += uIntMin(prec, str.len);
     // write out any leftover padding
     for (; i < len; ++i) {
-        smGBufCat(buf, SM_VIEW(" "));
+        smBufCat(buf, SM_VIEW(" "));
     }
 }
 
-static void fmtInt(SmGBuf *buf, I32 num, I32 radix, U8 flags, U16 width,
+static void fmtInt(SmBuf *buf, I32 num, I32 radix, U8 flags, U16 width,
                    U8 prec) {
     Bool negative = false;
     if (num < 0) {
@@ -148,15 +148,15 @@ void fmtInvoke(U32 tok) {
         braced = true;
     }
     expect(SM_TOK_STR);
-    SmGBuf fmt = {0};
-    smGBufCat(&fmt, tokView());
+    SmBuf fmt = {0};
+    smBufCat(&fmt, tokView());
     eat();
-    SmGBuf buf      = {0};
-    U8     stack[6] = {FMT_STATE_INIT};
-    U8     top      = 0;
-    U8     flags    = 0;
-    U16    width    = 0;
-    U16    prec     = 0;
+    SmBuf buf      = {0};
+    U8    stack[6] = {FMT_STATE_INIT};
+    U8    top      = 0;
+    U8    flags    = 0;
+    U16   width    = 0;
+    U16   prec     = 0;
     for (UInt i = 0; i < fmt.view.len; ++i) {
         U8 c = fmt.view.bytes[i];
         switch (stack[top]) {
@@ -171,12 +171,12 @@ void fmtInvoke(U32 tok) {
                 stack[++top] = FMT_STATE_FLAG_OPT;
                 break;
             }
-            smGBufCat(&buf, (SmView){&c, 1});
+            smBufCat(&buf, (SmView){&c, 1});
             break;
         case FMT_STATE_FLAG_OPT:
             switch (c) {
             case '%':
-                smGBufCat(&buf, SM_VIEW("%"));
+                smBufCat(&buf, SM_VIEW("%"));
                 top = 0;
                 break;
             case '-':

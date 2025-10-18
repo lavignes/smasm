@@ -23,23 +23,23 @@ UInt smViewParse(SmView view);
 
 typedef struct {
     SmView view;
-    UInt   size;
-} SmGBuf;
+    UInt   cap;
+} SmBuf;
 
-void smGBufCat(SmGBuf *buf, SmView bytes);
-void smGBufFini(SmGBuf *buf);
+void smBufCat(SmBuf *buf, SmView view);
+void smBufFini(SmBuf *buf);
 
 typedef struct {
     SmView *items;
     UInt    len;
-} SmBufBuf;
+} SmViewView;
 
 typedef struct {
-    SmBufBuf view;
-    UInt     size;
-} SmBufGBuf;
+    SmViewView view;
+    UInt       cap;
+} SmViewBuf;
 
-void smBufGBufAdd(SmBufGBuf *buf, SmView item);
+void smBufGBufAdd(SmViewBuf *buf, SmView item);
 
 #define SM_GBUF_ADD_IMPL()                                                     \
     if (!buf->view.items) {                                                    \
@@ -48,15 +48,15 @@ void smBufGBufAdd(SmBufGBuf *buf, SmView item);
             smFatal("out of memory\n");                                        \
         }                                                                      \
         buf->view.len = 0;                                                     \
-        buf->size     = 16;                                                    \
+        buf->cap      = 16;                                                    \
     }                                                                          \
-    if ((buf->size - buf->view.len) == 0) {                                    \
-        buf->view.items = realloc(buf->view.items,                             \
-                                  sizeof(*buf->view.items) * buf->size * 2);   \
+    if ((buf->cap - buf->view.len) == 0) {                                     \
+        buf->view.items =                                                      \
+            realloc(buf->view.items, sizeof(*buf->view.items) * buf->cap * 2); \
         if (!buf->view.items) {                                                \
             smFatal("out of memory\n");                                        \
         }                                                                      \
-        buf->size *= 2;                                                        \
+        buf->cap *= 2;                                                         \
     }                                                                          \
     buf->view.items[buf->view.len] = item;                                     \
     ++buf->view.len;
@@ -69,13 +69,13 @@ void smBufGBufAdd(SmBufGBuf *buf, SmView item);
     memset(buf, 0, sizeof(*buf));
 
 typedef struct {
-    SmGBuf *bufs;
-    UInt    len;
-    UInt    size;
-} SmBufIntern;
+    SmBuf *bufs;
+    UInt   len;
+    UInt   cap;
+} SmViewIntern;
 
-SmView smBufIntern(SmBufIntern *in, SmView view);
-void   smBufInternFini(SmBufIntern *in);
+SmView smViewIntern(SmViewIntern *in, SmView view);
+void   smViewInternFini(SmViewIntern *in);
 
 #ifndef typeof
 #define typeof __typeof__
@@ -87,8 +87,8 @@ void   smBufInternFini(SmBufIntern *in);
         if (!in->bufs) {                                                       \
             smFatal("out of memory\n");                                        \
         }                                                                      \
-        in->len  = 0;                                                          \
-        in->size = 16;                                                         \
+        in->len = 0;                                                           \
+        in->cap = 16;                                                          \
     }                                                                          \
     typeof(*in->bufs) *has_space = NULL;                                       \
     for (UInt i = 0; i < in->len; ++i) {                                       \
@@ -100,24 +100,24 @@ void   smBufInternFini(SmBufIntern *in);
             return (typeof(gbuf->view)){items, buf.len};                       \
         }                                                                      \
         if (!has_space) {                                                      \
-            if ((gbuf->size - gbuf->view.len) >= buf.len) {                    \
+            if ((gbuf->cap - gbuf->view.len) >= buf.len) {                     \
                 has_space = gbuf;                                              \
             }                                                                  \
         }                                                                      \
     }                                                                          \
     if (!has_space) {                                                          \
-        if ((in->size - in->len) == 0) {                                       \
-            in->bufs = realloc(in->bufs, sizeof(*in->bufs) * in->size * 2);    \
+        if ((in->cap - in->len) == 0) {                                        \
+            in->bufs = realloc(in->bufs, sizeof(*in->bufs) * in->cap * 2);     \
             if (!in->bufs) {                                                   \
                 smFatal("out of memory\n");                                    \
             }                                                                  \
-            in->size *= 2;                                                     \
+            in->cap *= 2;                                                      \
         }                                                                      \
         has_space = in->bufs + in->len;                                        \
         has_space->view.items =                                                \
             malloc(sizeof(*has_space->view.items) * buf.len);                  \
         has_space->view.len = 0;                                               \
-        has_space->size     = buf.len;                                         \
+        has_space->cap      = buf.len;                                         \
         if (!has_space->view.items) {                                          \
             smFatal("out of memory\n");                                        \
         }                                                                      \

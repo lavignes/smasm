@@ -67,11 +67,11 @@ UInt smUtf8Len(SmView view) {
     return len;
 }
 
-void smUtf8Cat(SmGBuf *buf, U32 c) {
+void smUtf8Cat(SmBuf *buf, U32 c) {
     U8   tmp[4];
     UInt len = smUtf8Encode((SmView){tmp, 4}, c);
     if (len == 0) {
         smFatal("invalid UTF-8 codepoint");
     }
-    smGBufCat(buf, (SmView){tmp, len});
+    smBufCat(buf, (SmView){tmp, len});
 }

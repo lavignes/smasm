@@ -6,10 +6,10 @@
 void ifInvoke() {
     SmPos pos = tokPos();
     eat();
-    streamdef           = true;
-    Bool         ignore = (exprEatSolvedPos(&pos) == 0);
-    UInt         depth  = 0;
-    SmPosTokGBuf buf    = {0};
+    streamdef          = true;
+    Bool        ignore = (exprEatSolvedPos(&pos) == 0);
+    UInt        depth  = 0;
+    SmPosTokBuf buf    = {0};
     while (true) {
         switch (peek()) {
         case SM_TOK_IF:
@@ -41,23 +41,23 @@ void ifInvoke() {
         case SM_TOK_ID:
         case SM_TOK_STR:
             if (!ignore) {
-                smPosTokGBufAdd(&buf, (SmPosTok){.tok  = peek(),
-                                                 .pos  = tokPos(),
-                                                 .view = intern(tokView())});
+                smPosTokBufAdd(&buf, (SmPosTok){.tok  = peek(),
+                                                .pos  = tokPos(),
+                                                .view = intern(tokView())});
             }
             break;
         case SM_TOK_NUM:
         case SM_TOK_ARG:
             if (!ignore) {
-                smPosTokGBufAdd(&buf, (SmPosTok){.tok = peek(),
-                                                 .pos = tokPos(),
-                                                 .num = tokNum()});
+                smPosTokBufAdd(&buf, (SmPosTok){.tok = peek(),
+                                                .pos = tokPos(),
+                                                .num = tokNum()});
             }
             break;
         default:
             if (!ignore) {
-                smPosTokGBufAdd(&buf,
-                                (SmPosTok){.tok = peek(), .pos = tokPos()});
+                smPosTokBufAdd(&buf,
+                               (SmPosTok){.tok = peek(), .pos = tokPos()});
             }
             break;
         }

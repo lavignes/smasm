@@ -31,11 +31,11 @@ static Macro *add(Macro entry) {
     SM_TAB_ADD_IMPL(MacroTab, Macro);
 }
 
-void macroAdd(SmView name, SmPos pos, SmMacroTokBuf buf) {
+void macroAdd(SmView name, SmPos pos, SmMacroTokView view) {
     add((Macro){
         name,
         pos,
-        smMacroTokIntern(&MTOKS, buf),
+        smMacroTokIntern(&MTOKS, view),
     });
 }
 
@@ -43,7 +43,7 @@ void macroInvoke(Macro macro) {
     SmPos pos = tokPos();
     eat();
     SmMacroArgQueue args  = {0};
-    SmMacroTokGBuf  toks  = {0};
+    SmMacroTokBuf   toks  = {0};
     UInt            depth = 0;
     if (peek() == '{') {
         eat();
@@ -58,19 +58,19 @@ void macroInvoke(Macro macro) {
             }
             break;
         case SM_TOK_ID:
-            smMacroTokGBufAdd(&toks, (SmMacroTok){.kind = SM_MACRO_TOK_ID,
-                                                  .pos  = tokPos(),
-                                                  .view = intern(tokView())});
+            smMacroTokBufAdd(&toks, (SmMacroTok){.kind = SM_MACRO_TOK_ID,
+                                                 .pos  = tokPos(),
+                                                 .view = intern(tokView())});
             break;
         case SM_TOK_NUM:
-            smMacroTokGBufAdd(&toks, (SmMacroTok){.kind = SM_MACRO_TOK_NUM,
-                                                  .pos  = tokPos(),
-                                                  .num  = tokNum()});
+            smMacroTokBufAdd(&toks, (SmMacroTok){.kind = SM_MACRO_TOK_NUM,
+                                                 .pos  = tokPos(),
+                                                 .num  = tokNum()});
             break;
         case SM_TOK_STR:
-            smMacroTokGBufAdd(&toks, (SmMacroTok){.kind = SM_MACRO_TOK_STR,
-                                                  .pos  = tokPos(),
-                                                  .view = intern(tokView())});
+            smMacroTokBufAdd(&toks, (SmMacroTok){.kind = SM_MACRO_TOK_STR,
+                                                 .pos  = tokPos(),
+                                                 .view = intern(tokView())});
             break;
         default:
             if (depth > 0) {
@@ -84,9 +84,9 @@ void macroInvoke(Macro macro) {
                     }
                 }
             }
-            smMacroTokGBufAdd(&toks, (SmMacroTok){.kind = SM_MACRO_TOK_TOK,
-                                                  .pos  = tokPos(),
-                                                  .tok  = peek()});
+            smMacroTokBufAdd(&toks, (SmMacroTok){.kind = SM_MACRO_TOK_TOK,
+                                                 .pos  = tokPos(),
+                                                 .tok  = peek()});
             break;
         }
         eat();
@@ -100,11 +100,11 @@ flush:
     if (toks.view.len > 0) {
         smMacroArgEnqueue(&args, smMacroTokIntern(&MTOKS, toks.view));
     }
-    smMacroTokGBufFini(&toks);
+    smMacroTokBufFini(&toks);
     ++ts;
     if (ts >= (STACK + STACK_SIZE)) {
         smFatal("too many open files\n");
     }
     ++nonce;
-    smTokStreamMacroInit(ts, macro.name, pos, macro.buf, args, nonce);
+    smTokStreamMacroInit(ts, macro.name, pos, macro.view, args, nonce);
 }

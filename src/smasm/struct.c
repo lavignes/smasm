@@ -19,7 +19,7 @@ static Struct *add(Struct entry) {
     SM_TAB_ADD_IMPL(StructTab, Struct);
 }
 
-void structAdd(SmView name, SmPos pos, SmBufGBuf fields) {
+void structAdd(SmView name, SmPos pos, SmViewBuf fields) {
     add((Struct){
         name,
         pos,

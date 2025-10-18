@@ -29,19 +29,19 @@ static void help() {
         "  -h, --help                   Print help\n");
 }
 
-static FILE     *openFileCstr(char const *path, char const *modes);
-static void      closeFile(FILE *hnd);
-static SmLbl     globalLbl(SmView name);
-static SmExprBuf constExprBuf(I32 num);
-static SmView    intern(SmView view);
-static void      parseCfg();
-static void      loadObj(SmView path);
-static void      allocate(SmSect *sect);
-static void      solveSyms();
-static void      link(SmSect *sect);
-static void      serialize();
-static void      writeSyms();
-static void      writeTags();
+static FILE      *openFileCstr(char const *path, char const *modes);
+static void       closeFile(FILE *hnd);
+static SmLbl      globalLbl(SmView name);
+static SmExprView constExprBuf(I32 num);
+static SmView     intern(SmView view);
+static void       parseCfg();
+static void       loadObj(SmView path);
+static void       allocate(SmSect *sect);
+static void       solveSyms();
+static void       link(SmSect *sect);
+static void       serialize();
+static void       writeSyms();
+static void       writeTags();
 
 static FILE *cfgfile      = NULL;
 static char *cfgfile_name = NULL;
@@ -50,13 +50,13 @@ static char *outfile_name = NULL;
 static char *symfile_name = NULL;
 static char *tagfile_name = NULL;
 
-static SmBufIntern  STRS  = {0};
+static SmViewIntern STRS  = {0};
 static SmSymTab     SYMS  = {0};
 static SmExprIntern EXPRS = {0};
 static SmPathSet    OBJS  = {0};
-static SmSectGBuf   SECTS = {0};
+static SmSectBuf    SECTS = {0};
 
-static CfgOutGBuf CFGS    = {0};
+static CfgOutBuf CFGS     = {0};
 
 static SmView DEFINES_SECTION;
 static SmView STATIC_UNIT;
@@ -178,13 +178,13 @@ int main(int argc, char **argv) {
     return EXIT_SUCCESS;
 }
 
-static SmView intern(SmView view) { return smBufIntern(&STRS, view); }
+static SmView intern(SmView view) { return smViewIntern(&STRS, view); }
 
 static FILE *openFile(SmView path, char const *modes) {
-    static SmGBuf buf = {0};
-    buf.view.len      = 0;
-    smGBufCat(&buf, path);
-    smGBufCat(&buf, SM_VIEW("\0"));
+    static SmBuf buf = {0};
+    buf.view.len     = 0;
+    smBufCat(&buf, path);
+    smBufCat(&buf, SM_VIEW("\0"));
     return openFileCstr((char const *)buf.view.bytes, modes);
 }
 
@@ -218,7 +218,7 @@ static SmSect *findSect(SmView name) {
     return NULL;
 }
 
-static SmExprBuf internExpr(SmExprBuf buf) {
+static SmExprView internExpr(SmExprView buf) {
     for (UInt i = 0; i < buf.len; ++i) {
         SmExpr *expr = buf.items + i;
         switch (expr->kind) {
@@ -248,11 +248,11 @@ static void loadObj(SmView path) {
     if (magic != *(U32 *)"SM00") {
         objFatal(path, "bad magic: $%04x\n", magic);
     }
-    SmBufIntern  tmpstrs  = smDeserializeBufIntern(&ser);
+    SmViewIntern tmpstrs  = smDeserializeViewIntern(&ser);
     SmExprIntern tmpexprs = smDeserializeExprIntern(&ser, &tmpstrs);
     // Fixup addresses to be absolute
     for (UInt i = 0; i < tmpexprs.len; ++i) {
-        SmExprGBuf *gbuf = tmpexprs.bufs + i;
+        SmExprBuf *gbuf = tmpexprs.bufs + i;
         for (UInt j = 0; j < gbuf->view.len; ++j) {
             SmExpr *expr = gbuf->view.items + j;
             if (expr->kind != SM_EXPR_ADDR) {
@@ -271,7 +271,7 @@ static void loadObj(SmView path) {
     }
     SmSymTab tmpsyms = smDeserializeSymTab(&ser, &tmpstrs, &tmpexprs);
     // Merge into main symtab
-    for (UInt i = 0; i < tmpsyms.size; ++i) {
+    for (UInt i = 0; i < tmpsyms.cap; ++i) {
         SmSym *sym = tmpsyms.syms + i;
         if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
             continue;
@@ -309,7 +309,7 @@ static void loadObj(SmView path) {
                                .flags = sym->flags,
                            });
     }
-    SmSectGBuf tmpsects = smDeserializeSectBuf(&ser, &tmpstrs, &tmpexprs);
+    SmSectBuf tmpsects = smDeserializeSectBuf(&ser, &tmpstrs, &tmpexprs);
     closeFile(hnd);
     for (UInt i = 0; i < tmpsects.view.len; ++i) {
         SmSect *sect    = tmpsects.view.items + i;
@@ -330,7 +330,7 @@ static void loadObj(SmView path) {
             } else {
                 unit = EXPORT_UNIT;
             }
-            smRelocGBufAdd(
+            smRelocBufAdd(
                 &dstsect->relocs,
                 (SmReloc){
                     // adjust relocations relative to destination section
@@ -348,16 +348,16 @@ static void loadObj(SmView path) {
                 });
         }
         // extend destination section
-        smGBufCat(&dstsect->data, sect->data.view);
+        smBufCat(&dstsect->data, sect->data.view);
         dstsect->pc += sect->data.view.len;
         // free up
-        smRelocGBufFini(&sect->relocs);
-        smGBufFini(&sect->data);
+        smRelocBufFini(&sect->relocs);
+        smBufFini(&sect->data);
     }
-    smSectGBufFini(&tmpsects);
+    smSectBufFini(&tmpsects);
     smSymTabFini(&tmpsyms);
     smExprInternFini(&tmpexprs);
-    smBufInternFini(&tmpstrs);
+    smViewInternFini(&tmpstrs);
 }
 
 typedef struct {
@@ -369,17 +369,17 @@ typedef struct {
 typedef struct {
     Out *items;
     UInt len;
-} OutBuf;
+} OutView;
 
 typedef struct {
-    OutBuf view;
-    UInt   size;
-} OutGBuf;
+    OutView view;
+    UInt    cap;
+} OutBuf;
 
-static OutGBuf OUTS = {0};
+static OutBuf OUTS = {0};
 
-static void outGBufAdd(Out item) {
-    OutGBuf *buf = &OUTS;
+static void outBufAdd(Out item) {
+    OutBuf *buf = &OUTS;
     SM_GBUF_ADD_IMPL();
 }
 
@@ -431,7 +431,7 @@ static void allocate(SmSect *sect) {
         }
         if (in->fill) {
             while (sect->data.view.len < in->sizeval) {
-                smGBufCat(&sect->data, (SmView){&in->fillval, 1});
+                smBufCat(&sect->data, (SmView){&in->fillval, 1});
             }
         }
     }
@@ -442,10 +442,10 @@ static void allocate(SmSect *sect) {
                 SM_VIEW_FMT_ARG(out->name), SM_VIEW_FMT_ARG(sect->name));
     }
     if (!smViewEqual(in->define, SM_VIEW_NULL)) {
-        static SmGBuf buf = {0};
-        buf.view.len      = 0;
-        smGBufCat(&buf, in->define);
-        smGBufCat(&buf, SM_VIEW("_START"));
+        static SmBuf buf = {0};
+        buf.view.len     = 0;
+        smBufCat(&buf, in->define);
+        smBufCat(&buf, SM_VIEW("_START"));
         SmView start = intern(buf.view);
         smSymTabAdd(&SYMS, (SmSym){
                                .lbl     = globalLbl(start),
@@ -456,8 +456,8 @@ static void allocate(SmSect *sect) {
                                .flags   = SM_SYM_EQU,
                            });
         buf.view.len = 0;
-        smGBufCat(&buf, in->define);
-        smGBufCat(&buf, SM_VIEW("_SIZE"));
+        smBufCat(&buf, in->define);
+        smBufCat(&buf, SM_VIEW("_SIZE"));
         SmView size = intern(buf.view);
         smSymTabAdd(&SYMS, (SmSym){
                                .lbl     = globalLbl(size),
@@ -470,13 +470,13 @@ static void allocate(SmSect *sect) {
     }
 }
 
-static Bool solve(SmExprBuf buf, SmView unit, I32 *num) {
-    SmI32GBuf stack = {0};
+static Bool solve(SmExprView buf, SmView unit, I32 *num) {
+    SmI32Buf stack = {0};
     for (UInt i = 0; i < buf.len; ++i) {
         SmExpr *expr = buf.items + i;
         switch (expr->kind) {
         case SM_EXPR_CONST:
-            smI32GBufAdd(&stack, expr->num);
+            smI32BufAdd(&stack, expr->num);
             break;
         case SM_EXPR_LABEL: {
             SmSym *sym = smSymTabFind(&SYMS, expr->lbl);
@@ -492,7 +492,7 @@ static Bool solve(SmExprBuf buf, SmView unit, I32 *num) {
             if (!solve(sym->value, unit, &num)) {
                 goto fail;
             }
-            smI32GBufAdd(&stack, num);
+            smI32BufAdd(&stack, num);
             break;
         }
         case SM_EXPR_TAG: {
@@ -513,7 +513,7 @@ static Bool solve(SmExprBuf buf, SmView unit, I32 *num) {
             if (!tag) {
                 goto fail;
             }
-            smI32GBufAdd(&stack, tag->num);
+            smI32BufAdd(&stack, tag->num);
             break;
         }
         case SM_EXPR_OP:
@@ -522,25 +522,25 @@ static Bool solve(SmExprBuf buf, SmView unit, I32 *num) {
             if (expr->op.unary) {
                 switch (expr->op.tok) {
                 case '+':
-                    smI32GBufAdd(&stack, rhs);
+                    smI32BufAdd(&stack, rhs);
                     break;
                 case '-':
-                    smI32GBufAdd(&stack, -rhs);
+                    smI32BufAdd(&stack, -rhs);
                     break;
                 case '~':
-                    smI32GBufAdd(&stack, ~rhs);
+                    smI32BufAdd(&stack, ~rhs);
                     break;
                 case '!':
-                    smI32GBufAdd(&stack, !rhs);
+                    smI32BufAdd(&stack, !rhs);
                     break;
                 case '<':
-                    smI32GBufAdd(&stack, ((U32)rhs) & 0xFF);
+                    smI32BufAdd(&stack, ((U32)rhs) & 0xFF);
                     break;
                 case '>':
-                    smI32GBufAdd(&stack, ((U32)rhs & 0xFF00) >> 8);
+                    smI32BufAdd(&stack, ((U32)rhs & 0xFF00) >> 8);
                     break;
                 case '^':
-                    smI32GBufAdd(&stack, ((U32)rhs & 0xFF0000) >> 16);
+                    smI32BufAdd(&stack, ((U32)rhs & 0xFF0000) >> 16);
                     break;
                 default:
                     SM_UNREACHABLE();
@@ -550,61 +550,61 @@ static Bool solve(SmExprBuf buf, SmView unit, I32 *num) {
                 I32 lhs = stack.view.items[stack.view.len];
                 switch (expr->op.tok) {
                 case '+':
-                    smI32GBufAdd(&stack, lhs + rhs);
+                    smI32BufAdd(&stack, lhs + rhs);
                     break;
                 case '-':
-                    smI32GBufAdd(&stack, lhs - rhs);
+                    smI32BufAdd(&stack, lhs - rhs);
                     break;
                 case '*':
-                    smI32GBufAdd(&stack, lhs * rhs);
+                    smI32BufAdd(&stack, lhs * rhs);
                     break;
                 case '/':
-                    smI32GBufAdd(&stack, lhs / rhs);
+                    smI32BufAdd(&stack, lhs / rhs);
                     break;
                 case '%':
-                    smI32GBufAdd(&stack, lhs % rhs);
+                    smI32BufAdd(&stack, lhs % rhs);
                     break;
                 case SM_TOK_ASL:
-                    smI32GBufAdd(&stack, lhs << rhs);
+                    smI32BufAdd(&stack, lhs << rhs);
                     break;
                 case SM_TOK_ASR:
-                    smI32GBufAdd(&stack, lhs >> rhs);
+                    smI32BufAdd(&stack, lhs >> rhs);
                     break;
                 case SM_TOK_LSR:
-                    smI32GBufAdd(&stack, ((U32)lhs) >> ((U32)rhs));
+                    smI32BufAdd(&stack, ((U32)lhs) >> ((U32)rhs));
                     break;
                 case '<':
-                    smI32GBufAdd(&stack, lhs < rhs);
+                    smI32BufAdd(&stack, lhs < rhs);
                     break;
                 case SM_TOK_LTE:
-                    smI32GBufAdd(&stack, lhs <= rhs);
+                    smI32BufAdd(&stack, lhs <= rhs);
                     break;
                 case '>':
-                    smI32GBufAdd(&stack, lhs > rhs);
+                    smI32BufAdd(&stack, lhs > rhs);
                     break;
                 case SM_TOK_GTE:
-                    smI32GBufAdd(&stack, lhs >= rhs);
+                    smI32BufAdd(&stack, lhs >= rhs);
                     break;
                 case SM_TOK_DEQ:
-                    smI32GBufAdd(&stack, lhs == rhs);
+                    smI32BufAdd(&stack, lhs == rhs);
                     break;
                 case SM_TOK_NEQ:
-                    smI32GBufAdd(&stack, lhs != rhs);
+                    smI32BufAdd(&stack, lhs != rhs);
                     break;
                 case '&':
-                    smI32GBufAdd(&stack, lhs & rhs);
+                    smI32BufAdd(&stack, lhs & rhs);
                     break;
                 case '|':
-                    smI32GBufAdd(&stack, lhs | rhs);
+                    smI32BufAdd(&stack, lhs | rhs);
                     break;
                 case '^':
-                    smI32GBufAdd(&stack, lhs ^ rhs);
+                    smI32BufAdd(&stack, lhs ^ rhs);
                     break;
                 case SM_TOK_AND:
-                    smI32GBufAdd(&stack, lhs && rhs);
+                    smI32BufAdd(&stack, lhs && rhs);
                     break;
                 case SM_TOK_OR:
-                    smI32GBufAdd(&stack, lhs || rhs);
+                    smI32BufAdd(&stack, lhs || rhs);
                     break;
                 default:
                     SM_UNREACHABLE();
@@ -616,7 +616,7 @@ static Bool solve(SmExprBuf buf, SmView unit, I32 *num) {
             if (!sect) {
                 goto fail;
             }
-            smI32GBufAdd(&stack, sect->pc + expr->addr.pc);
+            smI32BufAdd(&stack, sect->pc + expr->addr.pc);
             break;
         }
         default:
@@ -625,17 +625,17 @@ static Bool solve(SmExprBuf buf, SmView unit, I32 *num) {
     }
     assert(stack.view.len == 1);
     *num = *stack.view.items;
-    smI32GBufFini(&stack);
+    smI32BufFini(&stack);
     return true;
 fail:
-    smI32GBufFini(&stack);
+    smI32BufFini(&stack);
     return false;
 }
 
 static void solveSyms() {
     // 2 passes over symbol table should be enough to solve all
     for (UInt i = 0; i < 2; ++i) {
-        for (UInt j = 0; j < SYMS.size; ++j) {
+        for (UInt j = 0; j < SYMS.cap; ++j) {
             SmSym *sym = SYMS.syms + j;
             if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
                 continue;
@@ -650,7 +650,7 @@ static void solveSyms() {
             }
         }
     }
-    for (UInt i = 0; i < SYMS.size; ++i) {
+    for (UInt i = 0; i < SYMS.cap; ++i) {
         SmSym *sym = SYMS.syms + i;
         if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
             continue;
@@ -852,8 +852,8 @@ static CfgI32Tab parseTags() {
     }
 }
 
-static CfgInBuf parseInSects(CfgOut const *out) {
-    CfgInGBuf ins = {0};
+static CfgInView parseInSects(CfgOut const *out) {
+    CfgInBuf ins = {0};
     while (true) {
         CfgIn in   = {0};
         in.tags    = out->tags;
@@ -978,7 +978,7 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                 CfgI32Tab oldtags = in.tags;
                 in.tags           = parseTags();
                 // copy base tags
-                for (UInt i = 0; i < oldtags.size; ++i) {
+                for (UInt i = 0; i < oldtags.cap; ++i) {
                     CfgI32Entry *oldtag = oldtags.entries + i;
                     if (smViewEqual(oldtag->name, SM_VIEW_NULL)) {
                         continue;
@@ -1003,7 +1003,7 @@ static CfgInBuf parseInSects(CfgOut const *out) {
         if (!kind) {
             fatalPos(pos, "`kind` attribute is required\n");
         }
-        cfgInGBufAdd(&ins, in);
+        cfgInBufAdd(&ins, in);
         expectEOL();
         eat();
         continue;
@@ -1147,7 +1147,7 @@ static void parseOutSects() {
             if (!kind) {
                 fatalPos(pos, "`kind` attribute is required\n");
             }
-            cfgOutGBufAdd(&CFGS, out);
+            cfgOutBufAdd(&CFGS, out);
             expectEOL();
             eat();
             continue;
@@ -1201,16 +1201,16 @@ static void parseCfg() {
     for (UInt i = 0; i < CFGS.view.len; ++i) {
         CfgOut *out = CFGS.view.items + i;
         // Pre-add the output sections defined in the cfg
-        outGBufAdd((Out){
+        outBufAdd((Out){
             .name = out->name,
             .pc   = out->start,
             .end  = out->start + out->size,
         });
         if (!smViewEqual(out->define, SM_VIEW_NULL)) {
-            static SmGBuf buf = {0};
-            buf.view.len      = 0;
-            smGBufCat(&buf, out->define);
-            smGBufCat(&buf, SM_VIEW("_START"));
+            static SmBuf buf = {0};
+            buf.view.len     = 0;
+            smBufCat(&buf, out->define);
+            smBufCat(&buf, SM_VIEW("_START"));
             SmView start = intern(buf.view);
             smSymTabAdd(&SYMS, (SmSym){
                                    .lbl     = globalLbl(start),
@@ -1221,8 +1221,8 @@ static void parseCfg() {
                                    .flags   = SM_SYM_EQU,
                                });
             buf.view.len = 0;
-            smGBufCat(&buf, out->define);
-            smGBufCat(&buf, SM_VIEW("_SIZE"));
+            smBufCat(&buf, out->define);
+            smBufCat(&buf, SM_VIEW("_SIZE"));
             SmView size = intern(buf.view);
             smSymTabAdd(&SYMS, (SmSym){
                                    .lbl     = globalLbl(size),
@@ -1236,12 +1236,12 @@ static void parseCfg() {
         for (UInt j = 0; j < out->ins.len; ++j) {
             CfgIn *in = out->ins.items + j;
             // Pre-add the sections defined in the cfg
-            smSectGBufAdd(&SECTS, (SmSect){
-                                      .name   = in->name,
-                                      .pc     = 0,
-                                      .data   = {{0}, 0}, // GCC doesnt like {0}
-                                      .relocs = {{0}, 0},
-                                  });
+            smSectBufAdd(&SECTS, (SmSect){
+                                     .name   = in->name,
+                                     .pc     = 0,
+                                     .data   = {{0}, 0}, // GCC doesnt like {0}
+                                     .relocs = {{0}, 0},
+                                 });
             switch (out->kind) {
             case CFG_OUT_READONLY:
                 // TODO could check this while parsing
@@ -1285,9 +1285,9 @@ static void serialize() {
 
 static SmLbl globalLbl(SmView name) { return (SmLbl){{0}, name}; }
 
-static SmExprBuf constExprBuf(I32 num) {
+static SmExprView constExprBuf(I32 num) {
     return smExprIntern(
-        &EXPRS, (SmExprBuf){&(SmExpr){.kind = SM_EXPR_CONST, .num = num}, 1});
+        &EXPRS, (SmExprView){&(SmExpr){.kind = SM_EXPR_CONST, .num = num}, 1});
 }
 
 static FILE *openFileCstr(char const *name, char const *modes) {
@@ -1324,21 +1324,21 @@ static int cmpSym(SmSym const *lhs, SmSym const *rhs) {
 static SmSymTab sortSyms() {
     // Clone and sort the symbol table
     SmSymTab tab = {0};
-    for (UInt i = 0; i < SYMS.size; ++i) {
+    for (UInt i = 0; i < SYMS.cap; ++i) {
         SmSym *sym = SYMS.syms + i;
         if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
             continue;
         }
         smSymTabAdd(&tab, *sym);
     }
-    qsort(tab.syms, tab.size, sizeof(SmSym), (void *)cmpSym);
+    qsort(tab.syms, tab.cap, sizeof(SmSym), (void *)cmpSym);
     return tab;
 }
 
 static void writeSyms() {
     FILE    *hnd = openFileCstr(symfile_name, "wb+");
     SmSymTab tab = sortSyms();
-    for (UInt i = 0; i < tab.size; ++i) {
+    for (UInt i = 0; i < tab.cap; ++i) {
         SmSym *sym = tab.syms + i;
         if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
             continue;
@@ -1376,7 +1376,7 @@ static void writeSyms() {
 static void writeTags() {
     FILE    *hnd = openFileCstr(tagfile_name, "wb+");
     SmSymTab tab = sortSyms();
-    for (UInt i = 0; i < tab.size; ++i) {
+    for (UInt i = 0; i < tab.cap; ++i) {
         SmSym *sym = tab.syms + i;
         if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
             continue;

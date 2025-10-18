@@ -4,7 +4,7 @@
 #include <smasm/path.h>
 #include <smasm/sect.h>
 
-extern SmBufIntern  STRS;
+extern SmViewIntern STRS;
 extern SmSymTab     SYMS;
 extern SmExprIntern EXPRS;
 extern SmPathSet    IPATHS;
@@ -43,7 +43,7 @@ I32    tokNum();
 SmPos  tokPos();
 SmLbl  tokLbl();
 
-extern SmSectGBuf SECTS;
+extern SmSectBuf SECTS;
 
 SmSect *sectGet();
 void    sectSet(SmView name);

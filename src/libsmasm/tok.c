@@ -66,7 +66,7 @@ static struct {
     {SM_TOK_UNIQUE, SM_VIEW("@UNIQUE")},
 };
 
-static SmBufIntern CHAR_NAMES = {0};
+static SmViewIntern CHAR_NAMES = {0};
 
 SmView smTokName(U32 c) {
     for (size_t i = 0; i < (sizeof(TOK_NAMES) / sizeof(TOK_NAMES[0])); ++i) {
@@ -74,40 +74,40 @@ SmView smTokName(U32 c) {
             return TOK_NAMES[i].view;
         }
     }
-    SmGBuf buf = {0};
-    smGBufCat(&buf, SM_VIEW("`"));
+    SmBuf buf = {0};
+    smBufCat(&buf, SM_VIEW("`"));
     smUtf8Cat(&buf, c);
-    smGBufCat(&buf, SM_VIEW("`"));
-    SmView view = smBufIntern(&CHAR_NAMES, buf.view);
-    smGBufFini(&buf);
+    smBufCat(&buf, SM_VIEW("`"));
+    SmView view = smViewIntern(&CHAR_NAMES, buf.view);
+    smBufFini(&buf);
     return view;
 }
 
-void smMacroTokGBufAdd(SmMacroTokGBuf *buf, SmMacroTok item) {
+void smMacroTokBufAdd(SmMacroTokBuf *buf, SmMacroTok item) {
     SM_GBUF_ADD_IMPL();
 }
 
-void smMacroTokGBufFini(SmMacroTokGBuf *buf) { SM_GBUF_FINI_IMPL(); }
+void smMacroTokBufFini(SmMacroTokBuf *buf) { SM_GBUF_FINI_IMPL(); }
 
-SmMacroTokBuf smMacroTokIntern(SmMacroTokIntern *in, SmMacroTokBuf buf) {
+SmMacroTokView smMacroTokIntern(SmMacroTokIntern *in, SmMacroTokView buf) {
     SM_INTERN_IMPL();
 }
 
-void smMacroArgEnqueue(SmMacroArgQueue *q, SmMacroTokBuf toks) {
+void smMacroArgEnqueue(SmMacroArgQueue *q, SmMacroTokView toks) {
     if (!q->buf) {
-        q->buf = malloc(sizeof(SmMacroTokBuf) * 8);
+        q->buf = malloc(sizeof(SmMacroTokView) * 8);
         if (!q->buf) {
             smFatal("out of memory\n");
         }
-        q->len  = 0;
-        q->size = 8;
+        q->len = 0;
+        q->cap = 8;
     }
-    if ((q->size - q->len) == 0) {
-        q->buf = realloc(q->buf, sizeof(SmMacroTokBuf) * q->size * 2);
+    if ((q->cap - q->len) == 0) {
+        q->buf = realloc(q->buf, sizeof(SmMacroTokView) * q->cap * 2);
         if (!q->buf) {
             smFatal("out of memory\n");
         }
-        q->size *= 2;
+        q->cap *= 2;
     }
     q->buf[q->len] = toks;
     ++q->len;
@@ -116,7 +116,7 @@ void smMacroArgEnqueue(SmMacroArgQueue *q, SmMacroTokBuf toks) {
 void smMacroArgDequeue(SmMacroArgQueue *q) {
     if (q->len) {
         --q->len;
-        memmove(q->buf, q->buf + 1, sizeof(SmMacroTokBuf) * q->len);
+        memmove(q->buf, q->buf + 1, sizeof(SmMacroTokView) * q->len);
     }
 }
 
@@ -128,15 +128,15 @@ void smMacroArgQueueFini(SmMacroArgQueue *q) {
     memset(q, 0, sizeof(SmMacroArgQueue));
 }
 
-void smRepeatTokGBufAdd(SmRepeatTokGBuf *buf, SmRepeatTok item) {
+void smRepeatTokBufAdd(SmRepeatTokBuf *buf, SmRepeatTok item) {
     SM_GBUF_ADD_IMPL();
 }
 
-void smRepeatTokGBufFini(SmRepeatTokGBuf *buf) { SM_GBUF_FINI_IMPL(); }
+void smRepeatTokBufFini(SmRepeatTokBuf *buf) { SM_GBUF_FINI_IMPL(); }
 
-void smPosTokGBufAdd(SmPosTokGBuf *buf, SmPosTok item) { SM_GBUF_ADD_IMPL(); }
+void smPosTokBufAdd(SmPosTokBuf *buf, SmPosTok item) { SM_GBUF_ADD_IMPL(); }
 
-void smPosTokGBufFini(SmPosTokGBuf *buf) { SM_GBUF_FINI_IMPL(); }
+void smPosTokBufFini(SmPosTokBuf *buf) { SM_GBUF_FINI_IMPL(); }
 
 _Noreturn void smTokStreamFatal(SmTokStream *ts, char const *fmt, ...) {
     va_list args;
@@ -162,7 +162,7 @@ _Noreturn void smTokStreamFatalV(SmTokStream *ts, char const *fmt,
         smTokStreamFatalPosV(ts, ts->pos, fmt, args);
     case SM_TOK_STREAM_MACRO:
         // TODO macro arg position
-        smTokStreamFatalPosV(ts, ts->macro.buf.items[ts->macro.pos].pos, fmt,
+        smTokStreamFatalPosV(ts, ts->macro.view.items[ts->macro.pos].pos, fmt,
                              args);
     case SM_TOK_STREAM_REPEAT:
         smTokStreamFatalPosV(ts, ts->repeat.buf.view.items[ts->repeat.pos].pos,
@@ -228,17 +228,18 @@ void smTokStreamViewInit(SmTokStream *ts, SmView name, SmView view) {
 }
 
 void smTokStreamMacroInit(SmTokStream *ts, SmView name, SmPos pos,
-                          SmMacroTokBuf buf, SmMacroArgQueue args, UInt nonce) {
+                          SmMacroTokView buf, SmMacroArgQueue args,
+                          UInt nonce) {
     memset(ts, 0, sizeof(SmTokStream));
     ts->kind        = SM_TOK_STREAM_MACRO;
     ts->pos         = pos;
     ts->macro.name  = name;
-    ts->macro.buf   = buf;
+    ts->macro.view  = buf;
     ts->macro.args  = args;
     ts->macro.nonce = nonce;
 }
 
-void smTokStreamRepeatInit(SmTokStream *ts, SmPos pos, SmRepeatTokGBuf buf,
+void smTokStreamRepeatInit(SmTokStream *ts, SmPos pos, SmRepeatTokBuf buf,
                            UInt cnt) {
     memset(ts, 0, sizeof(SmTokStream));
     ts->kind       = SM_TOK_STREAM_REPEAT;
@@ -255,7 +256,7 @@ void smTokStreamFmtInit(SmTokStream *ts, SmPos pos, SmView fmt, U32 tok) {
     ts->fmt.tok  = tok;
 }
 
-void smTokStreamIfElseInit(SmTokStream *ts, SmPos pos, SmPosTokGBuf buf) {
+void smTokStreamIfElseInit(SmTokStream *ts, SmPos pos, SmPosTokBuf buf) {
     memset(ts, 0, sizeof(SmTokStream));
     ts->kind       = SM_TOK_STREAM_IFELSE;
     ts->pos        = pos;
@@ -271,7 +272,7 @@ void smTokStreamFini(SmTokStream *ts) {
                     SM_VIEW_FMT_ARG(ts->pos.file), ts->pos.line, ts->pos.col);
             smFatal("failed to close file: %s\n", strerror(err));
         }
-        smGBufFini(&ts->chardev.buf);
+        smBufFini(&ts->chardev.buf);
         return;
     case SM_TOK_STREAM_VIEW:
         return;
@@ -279,12 +280,12 @@ void smTokStreamFini(SmTokStream *ts) {
         smMacroArgQueueFini(&ts->macro.args);
         return;
     case SM_TOK_STREAM_REPEAT:
-        smRepeatTokGBufFini(&ts->repeat.buf);
+        smRepeatTokBufFini(&ts->repeat.buf);
         return;
     case SM_TOK_STREAM_FMT:
         return;
     case SM_TOK_STREAM_IFELSE:
-        smPosTokGBufFini(&ts->ifelse.buf);
+        smPosTokBufFini(&ts->ifelse.buf);
         return;
     default:
         SM_UNREACHABLE();
@@ -366,7 +367,7 @@ static void pushChar(SmTokStream *ts, U32 c) {
            (ts->kind == SM_TOK_STREAM_VIEW));
     U8   tmp[4];
     UInt len = smUtf8Encode((SmView){tmp, 4}, c);
-    smGBufCat(&ts->chardev.buf, (SmView){tmp, len});
+    smBufCat(&ts->chardev.buf, (SmView){tmp, len});
 }
 
 static char const DIGITS[] = "0123456789ABCDEF";
@@ -721,10 +722,10 @@ static U32 peekChardev(SmTokStream *ts) {
 }
 
 static U32 peekMacro(SmTokStream *ts) {
-    if (ts->macro.pos >= ts->macro.buf.len) {
+    if (ts->macro.pos >= ts->macro.view.len) {
         return SM_TOK_EOF;
     }
-    SmMacroTok *tok = ts->macro.buf.items + ts->macro.pos;
+    SmMacroTok *tok = ts->macro.view.items + ts->macro.pos;
     switch (tok->kind) {
     case SM_MACRO_TOK_TOK:
         return tok->tok;
@@ -818,13 +819,13 @@ void smTokStreamEat(SmTokStream *ts) {
         ts->chardev.buf.view.len = 0;
         return;
     case SM_TOK_STREAM_MACRO: {
-        SmMacroTok *tok = ts->macro.buf.items + ts->macro.pos;
+        SmMacroTok *tok = ts->macro.view.items + ts->macro.pos;
         switch (tok->kind) {
         case SM_MACRO_TOK_SHIFT:
             smMacroArgDequeue(&ts->macro.args);
             break;
         case SM_MACRO_TOK_ARG: {
-            SmMacroTokBuf *buf = ts->macro.args.buf + tok->num;
+            SmMacroTokView *buf = ts->macro.args.buf + tok->num;
             ++ts->macro.argi;
             if (ts->macro.argi < buf->len) {
                 return;
@@ -888,7 +889,7 @@ SmView smTokStreamView(SmTokStream *ts) {
     case SM_TOK_STREAM_VIEW:
         return ts->chardev.buf.view;
     case SM_TOK_STREAM_MACRO: {
-        SmMacroTok *tok = ts->macro.buf.items + ts->macro.pos;
+        SmMacroTok *tok = ts->macro.view.items + ts->macro.pos;
         switch (tok->kind) {
         case SM_MACRO_TOK_STR:
         case SM_MACRO_TOK_ID:
@@ -931,7 +932,7 @@ I32 smTokStreamNum(SmTokStream *ts) {
     case SM_TOK_STREAM_VIEW:
         return ts->chardev.num;
     case SM_TOK_STREAM_MACRO: {
-        SmMacroTok *tok = ts->macro.buf.items + ts->macro.pos;
+        SmMacroTok *tok = ts->macro.view.items + ts->macro.pos;
         switch (tok->kind) {
         case SM_MACRO_TOK_NUM:
             return tok->num;
@@ -977,7 +978,7 @@ SmPos smTokStreamPos(SmTokStream *ts) {
         return ts->pos;
     case SM_TOK_STREAM_MACRO:
         // TODO macro arg pos
-        return ts->macro.buf.items[ts->macro.pos].pos;
+        return ts->macro.view.items[ts->macro.pos].pos;
     case SM_TOK_STREAM_REPEAT:
         return ts->repeat.buf.view.items[ts->repeat.pos].pos;
     case SM_TOK_STREAM_FMT:

@@ -3,13 +3,12 @@
 
 #include <smasm/buf.h>
 
-SmView smPathIntern(SmBufIntern *in, SmView path);
+SmView smPathIntern(SmViewIntern *in, SmView path);
 
-struct SmPathSet {
-    SmBufIntern in;
-    SmBufGBuf   bufs;
-};
-typedef struct SmPathSet SmPathSet;
+typedef struct {
+    SmViewIntern in;
+    SmViewBuf    bufs;
+} SmPathSet;
 
 SmView smPathSetAdd(SmPathSet *set, SmView path);
 Bool   smPathSetContains(SmPathSet *set, SmView path);

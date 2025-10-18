@@ -8,7 +8,7 @@ typedef struct {
 typedef struct {
     CfgI32Entry *entries;
     UInt         len;
-    UInt         size;
+    UInt         cap;
 } CfgI32Tab;
 
 CfgI32Entry *cfgI32TabAdd(CfgI32Tab *tab, CfgI32Entry entry);
@@ -23,30 +23,30 @@ enum CfgInKind {
 };
 
 typedef struct {
-    SmView    name;
-    U8        kind;
-    U32       align;
-    Bool      size;
-    U32       sizeval;
-    Bool      fill;
-    U8        fillval;
-    SmPos     defpos;
-    SmView    define;
-    CfgI32Tab tags;
-    SmBufBuf  files;
+    SmView     name;
+    U8         kind;
+    U32        align;
+    Bool       size;
+    U32        sizeval;
+    Bool       fill;
+    U8         fillval;
+    SmPos      defpos;
+    SmView     define;
+    CfgI32Tab  tags;
+    SmViewView files;
 } CfgIn;
 
 typedef struct {
     CfgIn *items;
     UInt   len;
-} CfgInBuf;
+} CfgInView;
 
 typedef struct {
-    CfgInBuf view;
-    UInt     size;
-} CfgInGBuf;
+    CfgInView view;
+    UInt      cap;
+} CfgInBuf;
 
-void cfgInGBufAdd(CfgInGBuf *buf, CfgIn item);
+void cfgInBufAdd(CfgInBuf *buf, CfgIn item);
 
 enum CfgOutKind {
     CFG_OUT_READONLY,
@@ -62,18 +62,18 @@ typedef struct {
     U8        kind;
     SmPos     defpos;
     SmView    define;
-    CfgInBuf  ins;
+    CfgInView ins;
     CfgI32Tab tags;
 } CfgOut;
 
 typedef struct {
     CfgOut *items;
     UInt    len;
-} CfgOutBuf;
+} CfgOutView;
 
 typedef struct {
-    CfgOutBuf view;
-    UInt      size;
-} CfgOutGBuf;
+    CfgOutView view;
+    UInt       cap;
+} CfgOutBuf;
 
-void cfgOutGBufAdd(CfgOutGBuf *buf, CfgOut item);
+void cfgOutBufAdd(CfgOutBuf *buf, CfgOut item);

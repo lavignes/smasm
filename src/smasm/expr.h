@@ -3,14 +3,14 @@
 
 #include <smasm/sym.h>
 
-SmExprBuf exprEat();
-SmExprBuf exprEatPos(SmPos *pos);
-I32       exprEatSolvedPos(SmPos *pos);
-U8        exprEatSolvedU8();
-U16       exprEatSolvedU16();
+SmExprView exprEat();
+SmExprView exprEatPos(SmPos *pos);
+I32        exprEatSolvedPos(SmPos *pos);
+U8         exprEatSolvedU8();
+U16        exprEatSolvedU16();
 
-Bool exprSolve(SmExprBuf buf, I32 *num);
-Bool exprSolveRelative(SmExprBuf buf, I32 *num);
+Bool exprSolve(SmExprView buf, I32 *num);
+Bool exprSolveRelative(SmExprView view, I32 *num);
 
 Bool exprCanReprU16(I32 num);
 Bool exprCanReprU8(I32 num);

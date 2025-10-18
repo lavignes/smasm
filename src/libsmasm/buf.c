@@ -87,35 +87,35 @@ UInt smViewParse(SmView view) {
     return value;
 }
 
-void smGBufCat(SmGBuf *buf, SmView view) {
+void smBufCat(SmBuf *buf, SmView view) {
     if (!buf->view.bytes) {
         buf->view.bytes = malloc(view.len);
         if (!buf->view.bytes) {
             smFatal("out of memory\n");
         }
         buf->view.len = 0;
-        buf->size     = view.len;
+        buf->cap      = view.len;
     }
-    if ((buf->view.len + view.len) > buf->size) {
-        buf->view.bytes = realloc(buf->view.bytes, buf->size + view.len);
+    if ((buf->view.len + view.len) > buf->cap) {
+        buf->view.bytes = realloc(buf->view.bytes, buf->cap + view.len);
         if (!buf->view.bytes) {
             smFatal("out of memory\n");
         }
-        buf->size += view.len;
+        buf->cap += view.len;
     }
     memcpy(buf->view.bytes + buf->view.len, view.bytes, view.len);
     buf->view.len += view.len;
 }
 
-void smGBufFini(SmGBuf *buf) {
+void smBufFini(SmBuf *buf) {
     if (!buf->view.bytes) {
         return;
     }
     free(buf->view.bytes);
-    memset(buf, 0, sizeof(SmGBuf));
+    memset(buf, 0, sizeof(SmBuf));
 }
 
-void smBufGBufAdd(SmBufGBuf *buf, SmView item) { SM_GBUF_ADD_IMPL(); }
+void smBufGBufAdd(SmViewBuf *buf, SmView item) { SM_GBUF_ADD_IMPL(); }
 
 static UInt roundUp(UInt num) {
     num--;
@@ -131,45 +131,45 @@ static UInt roundUp(UInt num) {
     return num;
 }
 
-SmView smBufIntern(SmBufIntern *in, SmView view) {
+SmView smViewIntern(SmViewIntern *in, SmView view) {
     if (!in->bufs) {
-        in->bufs = malloc(sizeof(SmGBuf) * 16);
+        in->bufs = malloc(sizeof(SmBuf) * 16);
         if (!in->bufs) {
             smFatal("out of memory\n");
         }
-        in->len  = 0;
-        in->size = 16;
+        in->len = 0;
+        in->cap = 16;
     }
-    SmGBuf *has_space = NULL;
+    SmBuf *has_space = NULL;
     for (UInt i = 0; i < in->len; ++i) {
-        SmGBuf *gbuf = in->bufs + i;
-        U8     *bytes =
+        SmBuf *gbuf = in->bufs + i;
+        U8    *bytes =
             memmem(gbuf->view.bytes, gbuf->view.len, view.bytes, view.len);
         if (bytes) {
             return (SmView){bytes, view.len};
         }
         if (!has_space) {
-            if ((gbuf->size - gbuf->view.len) >= view.len) {
+            if ((gbuf->cap - gbuf->view.len) >= view.len) {
                 has_space = gbuf;
             }
         }
     }
     if (!has_space) {
-        if ((in->size - in->len) == 0) {
-            in->bufs = realloc(in->bufs, sizeof(SmGBuf) * in->size * 2);
+        if ((in->cap - in->len) == 0) {
+            in->bufs = realloc(in->bufs, sizeof(SmBuf) * in->cap * 2);
             if (!in->bufs) {
                 smFatal("out of memory\n");
             }
-            in->size *= 2;
+            in->cap *= 2;
         }
-        UInt size             = uIntMax(roundUp(view.len), 256);
+        UInt cap              = uIntMax(roundUp(view.len), 256);
         has_space             = in->bufs + in->len;
-        has_space->view.bytes = malloc(size);
+        has_space->view.bytes = malloc(cap);
         if (!has_space->view.bytes) {
             smFatal("out of memory\n");
         }
         has_space->view.len = 0;
-        has_space->size     = size;
+        has_space->cap      = cap;
         ++in->len;
     }
     U8 *bytes = has_space->view.bytes + has_space->view.len;
@@ -178,4 +178,4 @@ SmView smBufIntern(SmBufIntern *in, SmView view) {
     return (SmView){bytes, view.len};
 }
 
-void smBufInternFini(SmBufIntern *in) { SM_INTERN_FINI_IMPL(smGBufFini); }
+void smViewInternFini(SmViewIntern *in) { SM_INTERN_FINI_IMPL(smBufFini); }
