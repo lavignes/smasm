@@ -3,21 +3,19 @@
 
 #include <smasm/tok.h>
 
-struct Struct {
-    SmBuf     name;
+typedef struct {
+    SmView    name;
     SmPos     pos;
     SmBufGBuf fields;
-};
-typedef struct Struct Struct;
+} Struct;
 
-struct StructTab {
+typedef struct {
     Struct *entries;
     UInt    len;
     UInt    size;
-};
-typedef struct StructTab StructTab;
+} StructTab;
 
-Struct *structFind(SmBuf name);
-void    structAdd(SmBuf name, SmPos pos, SmBufGBuf fields);
+Struct *structFind(SmView name);
+void    structAdd(SmView name, SmPos pos, SmBufGBuf fields);
 
 #endif // STRUCT_H

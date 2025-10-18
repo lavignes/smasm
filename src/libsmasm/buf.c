@@ -6,7 +6,7 @@
 #include <string.h>
 #include <strings.h>
 
-Bool smBufEqual(SmBuf lhs, SmBuf rhs) {
+Bool smViewEqual(SmView lhs, SmView rhs) {
     if (lhs.len != rhs.len) {
         return false;
     }
@@ -16,7 +16,7 @@ Bool smBufEqual(SmBuf lhs, SmBuf rhs) {
     return memcmp(lhs.bytes, rhs.bytes, lhs.len) == 0;
 }
 
-Bool smBufEqualIgnoreAsciiCase(SmBuf lhs, SmBuf rhs) {
+Bool smViewEqualIgnoreAsciiCase(SmView lhs, SmView rhs) {
     if (lhs.len != rhs.len) {
         return false;
     }
@@ -31,91 +31,91 @@ Bool smBufEqualIgnoreAsciiCase(SmBuf lhs, SmBuf rhs) {
     return true;
 }
 
-Bool smBufStartsWith(SmBuf buf, SmBuf prefix) {
-    if (buf.len < prefix.len) {
+Bool smViewStartsWith(SmView view, SmView prefix) {
+    if (view.len < prefix.len) {
         return false;
     }
-    if (buf.bytes == prefix.bytes) {
+    if (view.bytes == prefix.bytes) {
         return true;
     }
-    return memcmp(buf.bytes, prefix.bytes, prefix.len) == 0;
+    return memcmp(view.bytes, prefix.bytes, prefix.len) == 0;
 }
 
-UInt smBufHash(SmBuf buf) {
+UInt smViewHash(SmView view) {
     UInt hash = 5381;
-    for (UInt i = 0; i < buf.len; ++i) {
-        hash = ((hash << 5) + hash) + buf.bytes[i];
+    for (UInt i = 0; i < view.len; ++i) {
+        hash = ((hash << 5) + hash) + view.bytes[i];
     }
     return hash;
 }
 
 static char const DIGITS[] = "0123456789ABCDEF";
 
-UInt smBufParse(SmBuf buf) {
-    if (buf.len == 0) {
+UInt smViewParse(SmView view) {
+    if (view.len == 0) {
         smFatal("empty number\n");
     }
     I32  radix = 10;
     UInt i     = 0;
-    if (buf.bytes[0] == '%') {
+    if (view.bytes[0] == '%') {
         radix = 2;
         ++i;
-    } else if (buf.bytes[0] == '$') {
+    } else if (view.bytes[0] == '$') {
         radix = 16;
         ++i;
     }
-    if (i == buf.len) {
-        smFatal("invalid number: " SM_BUF_FMT "\n", SM_BUF_FMT_ARG(buf));
+    if (i == view.len) {
+        smFatal("invalid number: " SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(view));
     }
     UInt value = 0;
-    for (; i < buf.len; ++i) {
+    for (; i < view.len; ++i) {
         for (UInt j = 0; j < (sizeof(DIGITS) / sizeof(DIGITS[0])); ++j) {
-            if (toupper(buf.bytes[i]) == DIGITS[j]) {
+            if (toupper(view.bytes[i]) == DIGITS[j]) {
                 if (j >= (UInt)radix) {
-                    smFatal("invalid number: " SM_BUF_FMT "\n",
-                            SM_BUF_FMT_ARG(buf));
+                    smFatal("invalid number: " SM_VIEW_FMT "\n",
+                            SM_VIEW_FMT_ARG(view));
                 }
                 value *= radix;
                 value += j;
                 goto next;
             }
         }
-        smFatal("invalid number: " SM_BUF_FMT "\n", SM_BUF_FMT_ARG(buf));
+        smFatal("invalid number: " SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(view));
     next:
         (void)0;
     }
     return value;
 }
 
-void smGBufCat(SmGBuf *buf, SmBuf bytes) {
-    if (!buf->inner.bytes) {
-        buf->inner.bytes = malloc(bytes.len);
-        if (!buf->inner.bytes) {
+void smGBufCat(SmGBuf *buf, SmView view) {
+    if (!buf->view.bytes) {
+        buf->view.bytes = malloc(view.len);
+        if (!buf->view.bytes) {
             smFatal("out of memory\n");
         }
-        buf->inner.len = 0;
-        buf->size      = bytes.len;
+        buf->view.len = 0;
+        buf->size     = view.len;
     }
-    if ((buf->inner.len + bytes.len) > buf->size) {
-        buf->inner.bytes = realloc(buf->inner.bytes, buf->size + bytes.len);
-        if (!buf->inner.bytes) {
+    if ((buf->view.len + view.len) > buf->size) {
+        buf->view.bytes = realloc(buf->view.bytes, buf->size + view.len);
+        if (!buf->view.bytes) {
             smFatal("out of memory\n");
         }
-        buf->size += bytes.len;
+        buf->size += view.len;
     }
-    memcpy(buf->inner.bytes + buf->inner.len, bytes.bytes, bytes.len);
-    buf->inner.len += bytes.len;
+    memcpy(buf->view.bytes + buf->view.len, view.bytes, view.len);
+    buf->view.len += view.len;
 }
 
 void smGBufFini(SmGBuf *buf) {
-    if (!buf->inner.bytes) {
+    if (!buf->view.bytes) {
         return;
     }
-    free(buf->inner.bytes);
+    free(buf->view.bytes);
     memset(buf, 0, sizeof(SmGBuf));
 }
 
-void smBufGBufAdd(SmBufGBuf *buf, SmBuf item) { SM_GBUF_ADD_IMPL(); }
+void smBufGBufAdd(SmBufGBuf *buf, SmView item) { SM_GBUF_ADD_IMPL(); }
 
 static UInt roundUp(UInt num) {
     num--;
@@ -131,7 +131,7 @@ static UInt roundUp(UInt num) {
     return num;
 }
 
-SmBuf smBufIntern(SmBufIntern *in, SmBuf buf) {
+SmView smBufIntern(SmBufIntern *in, SmView view) {
     if (!in->bufs) {
         in->bufs = malloc(sizeof(SmGBuf) * 16);
         if (!in->bufs) {
@@ -144,12 +144,12 @@ SmBuf smBufIntern(SmBufIntern *in, SmBuf buf) {
     for (UInt i = 0; i < in->len; ++i) {
         SmGBuf *gbuf = in->bufs + i;
         U8     *bytes =
-            memmem(gbuf->inner.bytes, gbuf->inner.len, buf.bytes, buf.len);
+            memmem(gbuf->view.bytes, gbuf->view.len, view.bytes, view.len);
         if (bytes) {
-            return (SmBuf){bytes, buf.len};
+            return (SmView){bytes, view.len};
         }
         if (!has_space) {
-            if ((gbuf->size - gbuf->inner.len) >= buf.len) {
+            if ((gbuf->size - gbuf->view.len) >= view.len) {
                 has_space = gbuf;
             }
         }
@@ -162,20 +162,20 @@ SmBuf smBufIntern(SmBufIntern *in, SmBuf buf) {
             }
             in->size *= 2;
         }
-        UInt size              = uIntMax(roundUp(buf.len), 256);
-        has_space              = in->bufs + in->len;
-        has_space->inner.bytes = malloc(size);
-        if (!has_space->inner.bytes) {
+        UInt size             = uIntMax(roundUp(view.len), 256);
+        has_space             = in->bufs + in->len;
+        has_space->view.bytes = malloc(size);
+        if (!has_space->view.bytes) {
             smFatal("out of memory\n");
         }
-        has_space->inner.len = 0;
-        has_space->size      = size;
+        has_space->view.len = 0;
+        has_space->size     = size;
         ++in->len;
     }
-    U8 *bytes = has_space->inner.bytes + has_space->inner.len;
-    memcpy(bytes, buf.bytes, buf.len);
-    has_space->inner.len += buf.len;
-    return (SmBuf){bytes, buf.len};
+    U8 *bytes = has_space->view.bytes + has_space->view.len;
+    memcpy(bytes, view.bytes, view.len);
+    has_space->view.len += view.len;
+    return (SmView){bytes, view.len};
 }
 
 void smBufInternFini(SmBufIntern *in) { SM_INTERN_FINI_IMPL(smGBufFini); }

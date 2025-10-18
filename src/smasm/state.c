@@ -13,21 +13,21 @@ SmExprIntern EXPRS  = {0};
 SmPathSet    IPATHS = {0};
 SmPathSet    INCS   = {0};
 
-SmBuf intern(SmBuf buf) { return smBufIntern(&STRS, buf); }
+SmView intern(SmView view) { return smBufIntern(&STRS, view); }
 
-SmBuf DEFINES_SECTION;
-SmBuf CODE_SECTION;
-SmBuf STATIC_UNIT;
-SmBuf EXPORT_UNIT;
+SmView DEFINES_SECTION;
+SmView CODE_SECTION;
+SmView STATIC_UNIT;
+SmView EXPORT_UNIT;
 
-SmBuf scope     = {0};
-UInt  nonce     = 0;
-Bool  emit      = false;
-Bool  streamdef = false;
+SmView scope     = {0};
+UInt   nonce     = 0;
+Bool   emit      = false;
+Bool   streamdef = false;
 
-SmLbl lblLocal(SmBuf name) { return (SmLbl){scope, name}; }
-SmLbl lblGlobal(SmBuf name) { return (SmLbl){{0}, name}; }
-SmLbl lblAbs(SmBuf scope, SmBuf name) { return (SmLbl){scope, name}; }
+SmLbl lblLocal(SmView name) { return (SmLbl){scope, name}; }
+SmLbl lblGlobal(SmView name) { return (SmLbl){{0}, name}; }
+SmLbl lblAbs(SmView scope, SmView name) { return (SmLbl){scope, name}; }
 
 SmTokStream  STACK[STACK_SIZE] = {0};
 SmTokStream *ts                = STACK - 1;
@@ -65,7 +65,7 @@ U32 peek() {
     }
     switch (tok) {
     case SM_TOK_ID: {
-        Macro *macro = macroFind(tokBuf());
+        Macro *macro = macroFind(tokView());
         if (macro) {
             macroInvoke(*macro);
             return peek(); // yuck
@@ -91,31 +91,31 @@ void eat() { smTokStreamEat(ts); }
 void expect(U32 tok) {
     U32 peeked = peek();
     if (peeked != tok) {
-        SmBuf expected = smTokName(tok);
-        SmBuf found    = smTokName(peeked);
-        fatal("expected " SM_BUF_FMT ", got " SM_BUF_FMT "\n",
-              SM_BUF_FMT_ARG(expected), SM_BUF_FMT_ARG(found));
+        SmView expected = smTokName(tok);
+        SmView found    = smTokName(peeked);
+        fatal("expected " SM_VIEW_FMT ", got " SM_VIEW_FMT "\n",
+              SM_VIEW_FMT_ARG(expected), SM_VIEW_FMT_ARG(found));
     }
 }
 
-SmBuf tokBuf() { return smTokStreamBuf(ts); }
-I32   tokNum() { return smTokStreamNum(ts); }
-SmPos tokPos() { return smTokStreamPos(ts); }
+SmView tokView() { return smTokStreamView(ts); }
+I32    tokNum() { return smTokStreamNum(ts); }
+SmPos  tokPos() { return smTokStreamPos(ts); }
 
 SmLbl tokLbl() {
-    SmBuf buf    = tokBuf();
-    U8   *offset = memchr(buf.bytes, '.', buf.len);
+    SmView view   = tokView();
+    U8    *offset = memchr(view.bytes, '.', view.len);
     if (!offset) {
-        return lblGlobal(intern(buf));
+        return lblGlobal(intern(view));
     }
-    UInt scope_len = offset - buf.bytes;
-    UInt name_len  = buf.len - scope_len - 1;
+    UInt scope_len = offset - view.bytes;
+    UInt name_len  = view.len - scope_len - 1;
     if (name_len == 0) {
-        fatal("label is malformed: " SM_BUF_FMT "\n", SM_BUF_FMT_ARG(buf));
+        fatal("label is malformed: " SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(view));
     }
-    SmBuf name = {.bytes = buf.bytes + scope_len + 1, .len = name_len};
+    SmView name = {view.bytes + scope_len + 1, name_len};
     if (scope_len > 0) {
-        return lblAbs(intern((SmBuf){buf.bytes, scope_len}), intern(name));
+        return lblAbs(intern((SmView){view.bytes, scope_len}), intern(name));
     }
     return lblLocal(intern(name));
 }
@@ -124,18 +124,18 @@ SmSectGBuf SECTS                  = {0};
 UInt       SECT_STACK[STACK_SIZE] = {0};
 UInt      *sect                   = SECT_STACK - 1;
 
-static UInt sectFind(SmBuf name) {
-    for (UInt i = 0; i < SECTS.inner.len; ++i) {
-        if (smBufEqual(SECTS.inner.items[i].name, name)) {
+static UInt sectFind(SmView name) {
+    for (UInt i = 0; i < SECTS.view.len; ++i) {
+        if (smViewEqual(SECTS.view.items[i].name, name)) {
             return i;
         }
     }
     return UINT_MAX;
 }
 
-SmSect *sectGet() { return SECTS.inner.items + *sect; }
+SmSect *sectGet() { return SECTS.view.items + *sect; }
 
-void sectSet(SmBuf name) {
+void sectSet(SmView name) {
     UInt idx = sectFind(name);
     if (idx == UINT_MAX) {
         smSectGBufAdd(&SECTS, (SmSect){
@@ -144,12 +144,12 @@ void sectSet(SmBuf name) {
                                   .data   = {{0}, 0}, // GCC doesnt like {0}
                                   .relocs = {{0}, 0},
                               });
-        idx = SECTS.inner.len - 1;
+        idx = SECTS.view.len - 1;
     }
     *sect = idx;
 }
 
-void sectPush(SmBuf name) {
+void sectPush(SmView name) {
     ++sect;
     if (sect >= (SECT_STACK + STACK_SIZE)) {
         fatal("@SECTION stack overflow\n");
@@ -165,15 +165,15 @@ void sectPop() {
 }
 
 void sectRewind() {
-    for (UInt i = 0; i < SECTS.inner.len; ++i) {
-        SmSect *sect = SECTS.inner.items + i;
+    for (UInt i = 0; i < SECTS.view.len; ++i) {
+        SmSect *sect = SECTS.view.items + i;
         sect->pc     = 0;
     }
     sect = SECT_STACK - 1;
 }
 
-void setPC(U16 num) { SECTS.inner.items[*sect].pc = num; }
-U16  getPC() { return SECTS.inner.items[*sect].pc; }
+void setPC(U16 num) { SECTS.view.items[*sect].pc = num; }
+U16  getPC() { return SECTS.view.items[*sect].pc; }
 
 void addPC(U16 offset) {
     I32 cur = (U32)getPC();

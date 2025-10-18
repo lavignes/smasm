@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-static _Noreturn void fatal(SmSerde *ser, char const *fmt, ...) {
+static _Noreturn void fatal(SmSerde const *ser, char const *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    fprintf(stderr, SM_BUF_FMT ": ", SM_BUF_FMT_ARG(ser->name));
+    fprintf(stderr, SM_VIEW_FMT ": ", SM_VIEW_FMT_ARG(ser->name));
     smFatalV(fmt, args);
 }
 
@@ -32,8 +32,8 @@ void smSerializeU32(SmSerde *ser, U32 num) {
     }
 }
 
-void smSerializeBuf(SmSerde *ser, SmBuf buf) {
-    if (fwrite(buf.bytes, 1, buf.len, ser->hnd) != buf.len) {
+void smSerializeView(SmSerde *ser, SmView view) {
+    if (fwrite(view.bytes, 1, view.len, ser->hnd) != view.len) {
         int err = ferror(ser->hnd);
         fatal(ser, "failed to write file: %s\n", strerror(err));
     }
@@ -42,63 +42,63 @@ void smSerializeBuf(SmSerde *ser, SmBuf buf) {
 void smSerializeBufIntern(SmSerde *ser, SmBufIntern const *in) {
     UInt len = 0;
     for (UInt i = 0; i < in->len; ++i) {
-        len += in->bufs[i].inner.len;
+        len += in->bufs[i].view.len;
     }
     smSerializeU32(ser, len);
     for (UInt i = 0; i < in->len; ++i) {
-        smSerializeBuf(ser, in->bufs[i].inner);
+        smSerializeView(ser, in->bufs[i].view);
     }
 }
 
-static UInt totalBufOffset(SmBufIntern const *in, SmBuf buf) {
+static UInt totalViewOffset(SmBufIntern const *in, SmView view) {
     UInt total = 0;
     for (UInt i = 0; i < in->len; ++i) {
         SmGBuf *gbuf = in->bufs + i;
         U8     *offset =
-            memmem(gbuf->inner.bytes, gbuf->inner.len, buf.bytes, buf.len);
+            memmem(gbuf->view.bytes, gbuf->view.len, view.bytes, view.len);
         if (offset == NULL) {
-            total += gbuf->inner.len;
+            total += gbuf->view.len;
             continue;
         }
-        total += offset - gbuf->inner.bytes;
+        total += offset - gbuf->view.bytes;
         break;
     }
     return total;
 }
 
-static void writeBufRef(SmSerde *ser, SmBufIntern const *in, SmBuf buf) {
-    smSerializeU32(ser, totalBufOffset(in, buf));
-    smSerializeU16(ser, buf.len);
+static void writeViewRef(SmSerde *ser, SmBufIntern const *in, SmView view) {
+    smSerializeU32(ser, totalViewOffset(in, view));
+    smSerializeU16(ser, view.len);
 }
 
 static void writeLbl(SmSerde *ser, SmBufIntern const *in, SmLbl lbl) {
     if (!smLblIsGlobal(lbl)) {
         smSerializeU8(ser, 0);
-        writeBufRef(ser, in, lbl.scope);
+        writeViewRef(ser, in, lbl.scope);
     } else {
         smSerializeU8(ser, 1);
     }
-    writeBufRef(ser, in, lbl.name);
+    writeViewRef(ser, in, lbl.name);
 }
 
 void smSerializeExprIntern(SmSerde *ser, SmExprIntern const *in,
                            SmBufIntern const *strin) {
     UInt len = 0;
     for (UInt i = 0; i < in->len; ++i) {
-        len += in->bufs[i].inner.len;
+        len += in->bufs[i].view.len;
     }
     smSerializeU32(ser, len);
     for (UInt i = 0; i < in->len; ++i) {
         SmExprGBuf *gbuf = in->bufs + i;
-        for (UInt j = 0; j < gbuf->inner.len; ++j) {
-            SmExpr *expr = gbuf->inner.items + j;
+        for (UInt j = 0; j < gbuf->view.len; ++j) {
+            SmExpr *expr = gbuf->view.items + j;
             smSerializeU8(ser, expr->kind);
             switch (expr->kind) {
             case SM_EXPR_CONST:
                 smSerializeU32(ser, expr->num);
                 break;
             case SM_EXPR_ADDR:
-                writeBufRef(ser, strin, expr->addr.sect);
+                writeViewRef(ser, strin, expr->addr.sect);
                 smSerializeU16(ser, expr->addr.pc);
                 break;
             case SM_EXPR_OP:
@@ -111,7 +111,7 @@ void smSerializeExprIntern(SmSerde *ser, SmExprIntern const *in,
                 break;
             case SM_EXPR_TAG:
                 writeLbl(ser, strin, expr->tag.lbl);
-                writeBufRef(ser, strin, expr->tag.name);
+                writeViewRef(ser, strin, expr->tag.name);
                 break;
             default:
                 SM_UNREACHABLE();
@@ -125,13 +125,13 @@ static UInt totalExprBufOffset(SmExprIntern const *in, SmExprBuf buf) {
     for (UInt i = 0; i < in->len; ++i) {
         SmExprGBuf *gbuf = in->bufs + i;
         SmExpr     *offset =
-            memmem(gbuf->inner.items, sizeof(SmExpr) * gbuf->inner.len,
-                   buf.items, sizeof(SmExpr) * buf.len);
+            memmem(gbuf->view.items, sizeof(SmExpr) * gbuf->view.len, buf.items,
+                   sizeof(SmExpr) * buf.len);
         if (offset == NULL) {
-            total += gbuf->inner.len;
+            total += gbuf->view.len;
             continue;
         }
-        total += offset - gbuf->inner.items;
+        total += offset - gbuf->view.items;
         break;
     }
     return total;
@@ -153,9 +153,9 @@ void smSerializeSymTab(SmSerde *ser, SmSymTab const *tab,
         }
         writeLbl(ser, strin, sym->lbl);
         writeExprBufRef(ser, exprin, sym->value);
-        writeBufRef(ser, strin, sym->unit);
-        writeBufRef(ser, strin, sym->section);
-        writeBufRef(ser, strin, sym->pos.file);
+        writeViewRef(ser, strin, sym->unit);
+        writeViewRef(ser, strin, sym->section);
+        writeViewRef(ser, strin, sym->pos.file);
         smSerializeU16(ser, sym->pos.line);
         smSerializeU16(ser, sym->pos.col);
         smSerializeU8(ser, sym->flags);
@@ -167,7 +167,7 @@ void smSerializeSectBuf(SmSerde *ser, SmSectBuf buf, SmBufIntern const *strin,
     UInt len = 0;
     for (UInt i = 0; i < buf.len; ++i) {
         // dont write empty sections
-        if (buf.items[i].data.inner.len == 0) {
+        if (buf.items[i].data.view.len == 0) {
             continue;
         }
         ++len;
@@ -176,20 +176,20 @@ void smSerializeSectBuf(SmSerde *ser, SmSectBuf buf, SmBufIntern const *strin,
     for (UInt i = 0; i < buf.len; ++i) {
         SmSect *sect = buf.items + i;
         // dont write empty sections
-        if (sect->data.inner.len == 0) {
+        if (sect->data.view.len == 0) {
             continue;
         }
-        writeBufRef(ser, strin, sect->name);
-        smSerializeU32(ser, sect->data.inner.len);
-        smSerializeBuf(ser, sect->data.inner);
-        smSerializeU32(ser, sect->relocs.inner.len);
-        for (UInt j = 0; j < sect->relocs.inner.len; ++j) {
-            SmReloc *reloc = sect->relocs.inner.items + j;
+        writeViewRef(ser, strin, sect->name);
+        smSerializeU32(ser, sect->data.view.len);
+        smSerializeView(ser, sect->data.view);
+        smSerializeU32(ser, sect->relocs.view.len);
+        for (UInt j = 0; j < sect->relocs.view.len; ++j) {
+            SmReloc *reloc = sect->relocs.view.items + j;
             smSerializeU16(ser, reloc->offset);
             smSerializeU8(ser, reloc->width);
             writeExprBufRef(ser, exprin, reloc->value);
-            writeBufRef(ser, strin, reloc->unit);
-            writeBufRef(ser, strin, reloc->pos.file);
+            writeViewRef(ser, strin, reloc->unit);
+            writeViewRef(ser, strin, reloc->pos.file);
             smSerializeU16(ser, reloc->pos.line);
             smSerializeU16(ser, reloc->pos.col);
             smSerializeU8(ser, reloc->flags);
@@ -239,8 +239,8 @@ U32 smDeserializeU32(SmSerde *ser) {
     return num;
 }
 
-void smDeserializeBuf(SmSerde *ser, SmBuf *buf) {
-    if (fread(buf->bytes, 1, buf->len, ser->hnd) != buf->len) {
+void smDeserializeView(SmSerde *ser, SmView *view) {
+    if (fread(view->bytes, 1, view->len, ser->hnd) != view->len) {
         int err = ferror(ser->hnd);
         if (err) {
             fatal(ser, "failed to read file: %s\n", strerror(err));
@@ -254,45 +254,45 @@ void smDeserializeBuf(SmSerde *ser, SmBuf *buf) {
 SmBufIntern smDeserializeBufIntern(SmSerde *ser) {
     static SmGBuf buf = {0};
     UInt          len = smDeserializeU32(ser);
-    if (!buf.inner.bytes) {
-        buf.inner.bytes = malloc(len);
-        if (!buf.inner.bytes) {
+    if (!buf.view.bytes) {
+        buf.view.bytes = malloc(len);
+        if (!buf.view.bytes) {
             smFatal("out of memory\n");
         }
         buf.size = len;
     }
     if (len > buf.size) {
-        buf.inner.bytes = realloc(buf.inner.bytes, len);
-        if (!buf.inner.bytes) {
+        buf.view.bytes = realloc(buf.view.bytes, len);
+        if (!buf.view.bytes) {
             smFatal("out of memory\n");
         }
         buf.size = len;
     }
-    buf.inner.len = len;
-    smDeserializeBuf(ser, &buf.inner);
+    buf.view.len = len;
+    smDeserializeView(ser, &buf.view);
     SmBufIntern in = {0};
-    smBufIntern(&in, buf.inner);
+    smBufIntern(&in, buf.view);
     return in;
 }
 
-static SmBuf readBufRef(SmSerde *ser, SmBufIntern const *in) {
+static SmView readViewRef(SmSerde *ser, SmBufIntern const *in) {
     UInt offset = smDeserializeU32(ser);
     UInt len    = smDeserializeU16(ser);
-    return (SmBuf){in->bufs[0].inner.bytes + offset, len};
+    return (SmView){in->bufs[0].view.bytes + offset, len};
 }
 
 static SmLbl readLbl(SmSerde *ser, SmBufIntern const *in) {
     SmLbl lbl = {0};
     if (smDeserializeU8(ser) == 0) {
-        lbl.scope = readBufRef(ser, in);
+        lbl.scope = readViewRef(ser, in);
     }
-    lbl.name = readBufRef(ser, in);
+    lbl.name = readViewRef(ser, in);
     return lbl;
 }
 
 SmExprIntern smDeserializeExprIntern(SmSerde *ser, SmBufIntern const *strin) {
     static SmExprGBuf buf = {0};
-    buf.inner.len         = 0;
+    buf.view.len          = 0;
     UInt len              = smDeserializeU32(ser);
     for (UInt i = 0; i < len; ++i) {
         U8     kind = smDeserializeU8(ser);
@@ -303,7 +303,7 @@ SmExprIntern smDeserializeExprIntern(SmSerde *ser, SmBufIntern const *strin) {
             expr.num = smDeserializeU32(ser);
             break;
         case SM_EXPR_ADDR:
-            expr.addr.sect = readBufRef(ser, strin);
+            expr.addr.sect = readViewRef(ser, strin);
             expr.addr.pc   = smDeserializeU16(ser);
             break;
         case SM_EXPR_OP:
@@ -316,7 +316,7 @@ SmExprIntern smDeserializeExprIntern(SmSerde *ser, SmBufIntern const *strin) {
             break;
         case SM_EXPR_TAG:
             expr.tag.lbl  = readLbl(ser, strin);
-            expr.tag.name = readBufRef(ser, strin);
+            expr.tag.name = readViewRef(ser, strin);
             break;
         default:
             fatal(ser, "unrecognized expression kind: $%02X\n", kind);
@@ -324,14 +324,14 @@ SmExprIntern smDeserializeExprIntern(SmSerde *ser, SmBufIntern const *strin) {
         smExprGBufAdd(&buf, expr);
     }
     SmExprIntern in = {0};
-    smExprIntern(&in, buf.inner);
+    smExprIntern(&in, buf.view);
     return in;
 }
 
 static SmExprBuf readExprBufRef(SmSerde *ser, SmExprIntern const *in) {
     UInt offset = smDeserializeU32(ser);
     UInt len    = smDeserializeU16(ser);
-    return (SmExprBuf){in->bufs[0].inner.items + offset, len};
+    return (SmExprBuf){in->bufs[0].view.items + offset, len};
 }
 
 SmSymTab smDeserializeSymTab(SmSerde *ser, SmBufIntern const *strin,
@@ -342,9 +342,9 @@ SmSymTab smDeserializeSymTab(SmSerde *ser, SmBufIntern const *strin,
         SmSym sym    = {0};
         sym.lbl      = readLbl(ser, strin);
         sym.value    = readExprBufRef(ser, exprin);
-        sym.unit     = readBufRef(ser, strin);
-        sym.section  = readBufRef(ser, strin);
-        sym.pos.file = readBufRef(ser, strin);
+        sym.unit     = readViewRef(ser, strin);
+        sym.section  = readViewRef(ser, strin);
+        sym.pos.file = readViewRef(ser, strin);
         sym.pos.line = smDeserializeU16(ser);
         sym.pos.col  = smDeserializeU16(ser);
         sym.flags    = smDeserializeU8(ser);
@@ -358,24 +358,24 @@ SmSectGBuf smDeserializeSectBuf(SmSerde *ser, SmBufIntern const *strin,
     SmSectGBuf buf = {0};
     UInt       len = smDeserializeU32(ser);
     for (UInt i = 0; i < len; ++i) {
-        SmSect sect           = {0};
-        sect.name             = readBufRef(ser, strin);
-        UInt len              = smDeserializeU32(ser);
-        sect.data.inner.bytes = malloc(len);
-        if (!sect.data.inner.bytes) {
+        SmSect sect          = {0};
+        sect.name            = readViewRef(ser, strin);
+        UInt len             = smDeserializeU32(ser);
+        sect.data.view.bytes = malloc(len);
+        if (!sect.data.view.bytes) {
             smFatal("out of memory\n");
         }
-        sect.data.size      = len;
-        sect.data.inner.len = len;
-        smDeserializeBuf(ser, &sect.data.inner);
+        sect.data.size     = len;
+        sect.data.view.len = len;
+        smDeserializeView(ser, &sect.data.view);
         len = smDeserializeU32(ser);
         for (UInt j = 0; j < len; ++j) {
             SmReloc reloc  = {0};
             reloc.offset   = smDeserializeU16(ser);
             reloc.width    = smDeserializeU8(ser);
             reloc.value    = readExprBufRef(ser, exprin);
-            reloc.unit     = readBufRef(ser, strin);
-            reloc.pos.file = readBufRef(ser, strin);
+            reloc.unit     = readViewRef(ser, strin);
+            reloc.pos.file = readViewRef(ser, strin);
             reloc.pos.line = smDeserializeU16(ser);
             reloc.pos.col  = smDeserializeU16(ser);
             reloc.flags    = smDeserializeU8(ser);
@@ -391,7 +391,7 @@ void smDeserializeToEnd(SmSerde *ser, SmGBuf *buf) {
     while (true) {
         size_t read = fread(tmp, 1, sizeof(tmp), ser->hnd);
         if (read == sizeof(tmp)) {
-            smGBufCat(buf, (SmBuf){tmp, read});
+            smGBufCat(buf, (SmView){tmp, read});
             continue;
         }
         int err = ferror(ser->hnd);
@@ -399,7 +399,7 @@ void smDeserializeToEnd(SmSerde *ser, SmGBuf *buf) {
             fatal(ser, "failed to read file: %s\n", strerror(err));
         }
         if (feof(ser->hnd)) {
-            smGBufCat(buf, (SmBuf){tmp, read});
+            smGBufCat(buf, (SmView){tmp, read});
             break;
         }
     }

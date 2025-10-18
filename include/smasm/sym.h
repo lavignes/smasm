@@ -3,35 +3,31 @@
 
 #include <smasm/tok.h>
 
-struct SmLbl {
-    SmBuf scope;
-    SmBuf name;
-};
-typedef struct SmLbl SmLbl;
+typedef struct {
+    SmView scope;
+    SmView name;
+} SmLbl;
 
 static SmLbl const SM_LBL_NULL = {0};
 
-Bool  smLblEqual(SmLbl lhs, SmLbl rhs);
-Bool  smLblIsGlobal(SmLbl lbl);
-SmBuf smLblFullName(SmLbl lbl, SmBufIntern *in);
+Bool   smLblEqual(SmLbl lhs, SmLbl rhs);
+Bool   smLblIsGlobal(SmLbl lbl);
+SmView smLblFullName(SmLbl lbl, SmBufIntern *in);
 
-struct SmOp {
+typedef struct {
     U32  tok;
     Bool unary;
-};
-typedef struct SmOp SmOp;
+} SmOp;
 
-struct SmOpBuf {
+typedef struct {
     SmOp *items;
     UInt  len;
-};
-typedef struct SmOpBuf SmOpBuf;
+} SmOpBuf;
 
-struct SmOpGBuf {
-    SmOpBuf inner;
+typedef struct {
+    SmOpBuf view;
     UInt    size;
-};
-typedef struct SmOpGBuf SmOpGBuf;
+} SmOpGBuf;
 
 void smOpGBufAdd(SmOpGBuf *buf, SmOp op);
 
@@ -44,7 +40,7 @@ enum SmExprKind {
     SM_EXPR_REL,
 };
 
-struct SmExpr {
+typedef struct {
     U8 kind;
     union {
         I32   num;
@@ -52,76 +48,68 @@ struct SmExpr {
         SmLbl lbl;
 
         struct {
-            SmBuf sect;
-            U32   pc;
+            SmView sect;
+            U32    pc;
         } addr;
 
         struct {
-            SmLbl lbl;
-            SmBuf name;
+            SmLbl  lbl;
+            SmView name;
         } tag;
     };
-};
-typedef struct SmExpr SmExpr;
+} SmExpr;
 
-struct SmExprBuf {
+typedef struct {
     SmExpr *items;
     UInt    len;
-};
-typedef struct SmExprBuf SmExprBuf;
+} SmExprBuf;
 
-struct SmExprGBuf {
-    SmExprBuf inner;
+typedef struct {
+    SmExprBuf view;
     UInt      size;
-};
-typedef struct SmExprGBuf SmExprGBuf;
+} SmExprGBuf;
 
 void smExprGBufAdd(SmExprGBuf *buf, SmExpr expr);
 void smExprGBufFini(SmExprGBuf *buf);
 
-struct SmExprIntern {
+typedef struct {
     SmExprGBuf *bufs;
     UInt        len;
     UInt        size;
-};
-typedef struct SmExprIntern SmExprIntern;
+} SmExprIntern;
 
 SmExprBuf smExprIntern(SmExprIntern *in, SmExprBuf buf);
 void      smExprInternFini(SmExprIntern *in);
 
-struct SmI32Buf {
+typedef struct {
     I32 *items;
     UInt len;
-};
-typedef struct SmI32Buf SmI32Buf;
+} SmI32Buf;
 
-struct SmI32GBuf {
-    SmI32Buf inner;
+typedef struct {
+    SmI32Buf view;
     UInt     size;
-};
-typedef struct SmI32GBuf SmI32GBuf;
+} SmI32GBuf;
 
 void smI32GBufAdd(SmI32GBuf *buf, I32 num);
 void smI32GBufFini(SmI32GBuf *buf);
 
 enum SmSymFlags { SM_SYM_EQU = 1 << 0 };
 
-struct SmSym {
+typedef struct {
     SmLbl     lbl;
     SmExprBuf value;
-    SmBuf     unit;
-    SmBuf     section;
+    SmView    unit;
+    SmView    section;
     SmPos     pos;
     U8        flags;
-};
-typedef struct SmSym SmSym;
+} SmSym;
 
-struct SmSymTab {
+typedef struct {
     SmSym *syms;
     UInt   len;
     UInt   size;
-};
-typedef struct SmSymTab SmSymTab;
+} SmSymTab;
 
 SmSym *smSymTabAdd(SmSymTab *tab, SmSym sym);
 SmSym *smSymTabFind(SmSymTab *tab, SmLbl lbl);

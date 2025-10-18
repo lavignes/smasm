@@ -9,50 +9,44 @@ enum SmRelocFlags {
     SM_RELOC_JP   = 1 << 2,
 };
 
-struct SmReloc {
+typedef struct {
     UInt      offset;
     U8        width;
     SmExprBuf value;
-    SmBuf     unit;
+    SmView    unit;
     SmPos     pos;
     U8        flags;
-};
-typedef struct SmReloc SmReloc;
+} SmReloc;
 
-struct SmRelocBuf {
+typedef struct {
     SmReloc *items;
     UInt     len;
-};
-typedef struct SmRelocBuf SmRelocBuf;
+} SmRelocBuf;
 
-struct SmRelocGBuf {
-    SmRelocBuf inner;
+typedef struct {
+    SmRelocBuf view;
     UInt       size;
-};
-typedef struct SmRelocGBuf SmRelocGBuf;
+} SmRelocGBuf;
 
 void smRelocGBufAdd(SmRelocGBuf *buf, SmReloc reloc);
 void smRelocGBufFini(SmRelocGBuf *buf);
 
-struct SmSect {
-    SmBuf       name;
+typedef struct {
+    SmView      name;
     U32         pc;
     SmGBuf      data;
     SmRelocGBuf relocs;
-};
-typedef struct SmSect SmSect;
+} SmSect;
 
-struct SmSectBuf {
+typedef struct {
     SmSect *items;
     UInt    len;
-};
-typedef struct SmSectBuf SmSectBuf;
+} SmSectBuf;
 
-struct SmSectGBuf {
-    SmSectBuf inner;
+typedef struct {
+    SmSectBuf view;
     UInt      size;
-};
-typedef struct SmSectGBuf SmSectGBuf;
+} SmSectGBuf;
 
 void smSectGBufAdd(SmSectGBuf *buf, SmSect sect);
 void smSectGBufFini(SmSectGBuf *buf);

@@ -36,7 +36,7 @@ static void help() {
 static SmExprBuf constExprBuf(I32 num);
 static FILE     *openFileCstr(char const *name, char const *modes);
 static void      closeFile(FILE *hnd);
-static void      pushFile(SmBuf path);
+static void      pushFile(SmView path);
 static void      pass();
 static void      rewindPass();
 static void      writeDepend();
@@ -55,10 +55,10 @@ int main(int argc, char **argv) {
         help();
         return EXIT_SUCCESS;
     }
-    DEFINES_SECTION = intern(SM_BUF("@DEFINES"));
-    CODE_SECTION    = intern(SM_BUF("CODE"));
-    STATIC_UNIT     = intern(SM_BUF("@STATIC"));
-    EXPORT_UNIT     = intern(SM_BUF("@EXPORT"));
+    DEFINES_SECTION = intern(SM_VIEW("@DEFINES"));
+    CODE_SECTION    = intern(SM_VIEW("CODE"));
+    STATIC_UNIT     = intern(SM_VIEW("@STATIC"));
+    EXPORT_UNIT     = intern(SM_VIEW("@EXPORT"));
     for (int argi = 1; argi < argc; ++argi) {
         if ((strcmp(argv[argi], "-h") == 0) ||
             (strcmp(argv[argi], "--help") == 0)) {
@@ -83,14 +83,14 @@ int main(int argc, char **argv) {
             if (!offset) {
                 smFatal("expected `=` in %s\n", argv[argi]);
             }
-            UInt  name_len  = offset - argv[argi];
-            SmBuf name      = intern((SmBuf){(U8 *)argv[argi], name_len});
-            UInt  value_len = strlen(argv[argi]) - name_len - 1;
+            UInt   name_len  = offset - argv[argi];
+            SmView name      = intern((SmView){(U8 *)argv[argi], name_len});
+            UInt   value_len = strlen(argv[argi]) - name_len - 1;
             // TODO: should expose general-purpose expression parsing
             // for use here and for expressions in the linker scripts
             // Could even use a tok stream here.
-            UInt  num       = smBufParse(
-                (SmBuf){(U8 *)(argv[argi] + name_len + 1), value_len});
+            UInt   num       = smViewParse(
+                (SmView){(U8 *)(argv[argi] + name_len + 1), value_len});
             smSymTabAdd(&SYMS, (SmSym){
                                    .lbl     = lblGlobal(name),
                                    .value   = constExprBuf(num),
@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
                 smFatal("expected file name\n");
             }
             smPathSetAdd(&IPATHS,
-                         (SmBuf){(U8 *)argv[argi], strlen(argv[argi])});
+                         (SmView){(U8 *)argv[argi], strlen(argv[argi])});
             continue;
         }
         if (!strcmp(argv[argi], "-MD")) {
@@ -131,7 +131,7 @@ int main(int argc, char **argv) {
     }
 
     pushFile(
-        smPathIntern(&STRS, (SmBuf){(U8 *)infile_name, strlen(infile_name)}));
+        smPathIntern(&STRS, (SmView){(U8 *)infile_name, strlen(infile_name)}));
     pass();
     rewindPass();
     pass();
@@ -156,7 +156,7 @@ static void rewindPass() {
     smTokStreamRewind(ts);
     sectRewind();
     macroTabFini();
-    scope     = SM_BUF_NULL;
+    scope     = SM_VIEW_NULL;
     nonce     = 0;
     emit      = true;
     streamdef = false;
@@ -184,11 +184,11 @@ static void expectReprU16(SmPos pos, I32 num) {
     }
 }
 
-static void emitBuf(SmBuf buf) { smGBufCat(&sectGet()->data, buf); }
-static void emit8(U8 byte) { emitBuf((SmBuf){&byte, 1}); }
+static void emitView(SmView view) { smGBufCat(&sectGet()->data, view); }
+static void emit8(U8 byte) { emitView((SmView){&byte, 1}); }
 static void emit16(U16 word) {
     U8 bytes[2] = {word & 0x00FF, word >> 8};
-    emitBuf((SmBuf){bytes, 2});
+    emitView((SmView){bytes, 2});
 }
 
 static void reloc(U16 offset, U8 width, SmExprBuf buf, SmPos pos, U8 flags) {
@@ -1188,20 +1188,20 @@ static void eatMne(U8 mne) {
     }
 }
 
-static FILE *openFile(SmBuf path, char const *modes) {
+static FILE *openFile(SmView path, char const *modes) {
     static SmGBuf buf = {0};
-    buf.inner.len     = 0;
+    buf.view.len      = 0;
     smGBufCat(&buf, path);
-    smGBufCat(&buf, SM_BUF("\0"));
-    return openFileCstr((char const *)buf.inner.bytes, modes);
+    smGBufCat(&buf, SM_VIEW("\0"));
+    return openFileCstr((char const *)buf.view.bytes, modes);
 }
 
-static Bool fileExists(SmBuf path) {
+static Bool fileExists(SmView path) {
     static SmGBuf buf = {0};
-    buf.inner.len     = 0;
+    buf.view.len      = 0;
     smGBufCat(&buf, path);
-    smGBufCat(&buf, SM_BUF("\0"));
-    FILE *hnd = fopen((char const *)buf.inner.bytes, "rb");
+    smGBufCat(&buf, SM_VIEW("\0"));
+    FILE *hnd = fopen((char const *)buf.view.bytes, "rb");
     if (hnd) {
         closeFile(hnd);
         return true;
@@ -1209,27 +1209,27 @@ static Bool fileExists(SmBuf path) {
     return false;
 }
 
-static SmBuf findInclude(SmBuf path) {
+static SmView findInclude(SmView path) {
     static SmGBuf buf      = {0};
-    SmBuf         fullpath = smPathIntern(&STRS, path);
+    SmView        fullpath = smPathIntern(&STRS, path);
     if (!fileExists(fullpath)) {
-        for (UInt i = 0; i < IPATHS.bufs.inner.len; ++i) {
-            SmBuf inc     = IPATHS.bufs.inner.items[i];
-            buf.inner.len = 0;
+        for (UInt i = 0; i < IPATHS.bufs.view.len; ++i) {
+            SmView inc   = IPATHS.bufs.view.items[i];
+            buf.view.len = 0;
             smGBufCat(&buf, inc);
-            smGBufCat(&buf, SM_BUF("/"));
+            smGBufCat(&buf, SM_VIEW("/"));
             smGBufCat(&buf, path);
-            fullpath = smPathIntern(&STRS, buf.inner);
+            fullpath = smPathIntern(&STRS, buf.view);
             if (fileExists(fullpath)) {
                 return fullpath;
             }
         }
     }
-    fatal("could not find include file: " SM_BUF_FMT "\n",
-          SM_BUF_FMT_ARG(path));
+    fatal("could not find include file: " SM_VIEW_FMT "\n",
+          SM_VIEW_FMT_ARG(path));
 }
 
-static SmExprBuf addrExprBuf(SmBuf section, U16 offset) {
+static SmExprBuf addrExprBuf(SmView section, U16 offset) {
     return smExprIntern(
         &EXPRS,
         (SmExprBuf){&(SmExpr){.kind = SM_EXPR_ADDR, .addr = {section, offset}},
@@ -1252,9 +1252,9 @@ static void eatDirective() {
             switch (peek()) {
             case SM_TOK_STR:
                 if (emit) {
-                    emitBuf(tokBuf());
+                    emitView(tokView());
                 }
-                addPC(tokBuf().len);
+                addPC(tokView().len);
                 eat();
                 break;
             default: {
@@ -1317,7 +1317,7 @@ static void eatDirective() {
     case SM_TOK_SECTION:
         eat();
         expect(SM_TOK_STR);
-        sectSet(intern(tokBuf()));
+        sectSet(intern(tokView()));
         eat();
         expectEOL();
         eat();
@@ -1325,7 +1325,7 @@ static void eatDirective() {
     case SM_TOK_SECTPUSH:
         eat();
         expect(SM_TOK_STR);
-        sectPush(intern(tokBuf()));
+        sectPush(intern(tokView()));
         eat();
         expectEOL();
         eat();
@@ -1339,7 +1339,7 @@ static void eatDirective() {
     case SM_TOK_INCLUDE: {
         eat();
         expect(SM_TOK_STR);
-        SmBuf path = findInclude(tokBuf());
+        SmView path = findInclude(tokView());
         eat();
         expectEOL();
         eat();
@@ -1349,10 +1349,10 @@ static void eatDirective() {
     }
     case SM_TOK_INCBIN: {
         static SmGBuf buf = {0};
-        buf.inner.len     = 0;
+        buf.view.len      = 0;
         eat();
         expect(SM_TOK_STR);
-        SmBuf path = findInclude(tokBuf());
+        SmView path = findInclude(tokView());
         eat();
         expectEOL();
         eat();
@@ -1360,16 +1360,16 @@ static void eatDirective() {
         SmSerde ser = {hnd, path};
         smDeserializeToEnd(&ser, &buf);
         if (emit) {
-            emitBuf(buf.inner);
+            emitView(buf.view);
         }
-        addPC(buf.inner.len);
+        addPC(buf.view.len);
         smPathSetAdd(&INCS, path);
         return;
     }
     case SM_TOK_MACRO: {
         pos                       = tokPos();
         static SmMacroTokGBuf buf = {0};
-        buf.inner.len             = 0;
+        buf.view.len              = 0;
         eat();
         expect(SM_TOK_ID);
         SmLbl lbl = tokLbl();
@@ -1378,10 +1378,10 @@ static void eatDirective() {
         }
         Macro *macro = macroFind(lbl.name);
         if (macro) {
-            fatal("macro " SM_BUF_FMT
-                  " already defined\n\toriginally defined at " SM_BUF_FMT
+            fatal("macro " SM_VIEW_FMT
+                  " already defined\n\toriginally defined at " SM_VIEW_FMT
                   ":" UINT_FMT ":" UINT_FMT "\n",
-                  SM_BUF_FMT_ARG(lbl.name), SM_BUF_FMT_ARG(macro->pos.file),
+                  SM_VIEW_FMT_ARG(lbl.name), SM_VIEW_FMT_ARG(macro->pos.file),
                   macro->pos.line, macro->pos.col);
         }
         eat();
@@ -1410,9 +1410,10 @@ static void eatDirective() {
             case SM_TOK_EOF:
                 fatal("unexpected end of file\n");
             case SM_TOK_ID:
-                smMacroTokGBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_ID,
-                                                     .pos  = tokPos(),
-                                                     .buf  = intern(tokBuf())});
+                smMacroTokGBufAdd(&buf,
+                                  (SmMacroTok){.kind = SM_MACRO_TOK_ID,
+                                               .pos  = tokPos(),
+                                               .view = intern(tokView())});
                 break;
             case SM_TOK_NUM:
                 smMacroTokGBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_NUM,
@@ -1420,9 +1421,10 @@ static void eatDirective() {
                                                      .num  = tokNum()});
                 break;
             case SM_TOK_STR:
-                smMacroTokGBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_STR,
-                                                     .pos  = tokPos(),
-                                                     .buf  = intern(tokBuf())});
+                smMacroTokGBufAdd(&buf,
+                                  (SmMacroTok){.kind = SM_MACRO_TOK_STR,
+                                               .pos  = tokPos(),
+                                               .view = intern(tokView())});
                 break;
             case SM_TOK_ARG:
                 smMacroTokGBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_ARG,
@@ -1457,7 +1459,7 @@ static void eatDirective() {
         }
     macdone:
         streamdef = false;
-        macroAdd(lbl.name, pos, buf.inner);
+        macroAdd(lbl.name, pos, buf.view);
         return;
     }
     case SM_TOK_REPEAT: {
@@ -1505,7 +1507,7 @@ static void eatDirective() {
                 fatal("unexpected end of file\n");
             case SM_TOK_ID:
                 // referencing the variable
-                if (smBufEqual(tokBuf(), lbl.name)) {
+                if (smViewEqual(tokView(), lbl.name)) {
                     smRepeatTokGBufAdd(&buf,
                                        (SmRepeatTok){.kind = SM_REPEAT_TOK_ITER,
                                                      .pos  = tokPos()});
@@ -1514,7 +1516,7 @@ static void eatDirective() {
                 smRepeatTokGBufAdd(&buf,
                                    (SmRepeatTok){.kind = SM_REPEAT_TOK_ID,
                                                  .pos  = tokPos(),
-                                                 .buf  = intern(tokBuf())});
+                                                 .view = intern(tokView())});
                 break;
             case SM_TOK_NUM:
                 smRepeatTokGBufAdd(&buf,
@@ -1526,7 +1528,7 @@ static void eatDirective() {
                 smRepeatTokGBufAdd(&buf,
                                    (SmRepeatTok){.kind = SM_REPEAT_TOK_STR,
                                                  .pos  = tokPos(),
-                                                 .buf  = intern(tokBuf())});
+                                                 .view = intern(tokView())});
                 break;
             default:
                 smRepeatTokGBufAdd(&buf,
@@ -1586,11 +1588,11 @@ static void eatDirective() {
                 break;
             }
             expect(SM_TOK_ID);
-            if (!smBufStartsWith(tokBuf(), SM_BUF("."))) {
+            if (!smViewStartsWith(tokView(), SM_VIEW("."))) {
                 fatal("structure field name must be local\n");
             }
             SmLbl fieldlbl = tokLbl();
-            if (smBufEqual(fieldlbl.name, SM_BUF("SIZE"))) {
+            if (smViewEqual(fieldlbl.name, SM_VIEW("SIZE"))) {
                 fatal("structure field name cannot be `.SIZE`\n");
             }
             pos = tokPos();
@@ -1620,7 +1622,7 @@ static void eatDirective() {
         }
     structdone:
         if (!emit) {
-            SmLbl sizelbl = lblAbs(lbl.name, intern(SM_BUF("SIZE")));
+            SmLbl sizelbl = lblAbs(lbl.name, intern(SM_VIEW("SIZE")));
             structAdd(lbl.name, pos, fields);
             smSymTabAdd(&SYMS, (SmSym){.lbl     = sizelbl,
                                        .value   = constExprBuf(size),
@@ -1636,7 +1638,7 @@ static void eatDirective() {
     case SM_TOK_ALLOC: {
         pos = tokPos();
         eat();
-        if (smBufEqual(scope, SM_BUF_NULL)) {
+        if (smViewEqual(scope, SM_VIEW_NULL)) {
             fatal("@ALLOC must be used under a global label\n");
         }
         SmSym *scopesym = smSymTabFind(&SYMS, lblGlobal(scope));
@@ -1646,16 +1648,17 @@ static void eatDirective() {
         assert(scopeexpr->kind == SM_EXPR_ADDR);
         I32 base = scopeexpr->addr.pc;
         expect(SM_TOK_ID);
-        SmBuf   name  = intern(tokBuf());
+        SmView  name  = intern(tokView());
         Struct *strct = structFind(name);
         if (!strct) {
-            fatal("structure " SM_BUF_FMT " not found\n", SM_BUF_FMT_ARG(name));
+            fatal("structure " SM_VIEW_FMT " not found\n",
+                  SM_VIEW_FMT_ARG(name));
         }
 
         eat();
         if (!emit) {
-            for (UInt i = 0; i < strct->fields.inner.len; ++i) {
-                SmBuf  field = strct->fields.inner.items[i];
+            for (UInt i = 0; i < strct->fields.view.len; ++i) {
+                SmView field = strct->fields.view.items[i];
                 SmLbl  lbl   = lblAbs(name, field);
                 SmSym *sym   = smSymTabFind(&SYMS, lbl);
                 assert(sym);
@@ -1669,7 +1672,7 @@ static void eatDirective() {
                                            .flags   = 0});
             }
         }
-        SmBuf  size = intern(SM_BUF("SIZE"));
+        SmView size = intern(SM_VIEW("SIZE"));
         SmLbl  lbl  = lblAbs(name, size);
         SmSym *sym  = smSymTabFind(&SYMS, lbl);
         assert(sym);
@@ -1690,20 +1693,20 @@ static void eatDirective() {
     case SM_TOK_FATAL:
         fmtInvoke(SM_TOK_STR);
         expect(SM_TOK_STR);
-        fatal("explicit fatal error: " SM_BUF_FMT, SM_BUF_FMT_ARG(tokBuf()));
+        fatal("explicit fatal error: " SM_VIEW_FMT, SM_VIEW_FMT_ARG(tokView()));
     case SM_TOK_PRINT:
         fmtInvoke(SM_TOK_STR);
         expect(SM_TOK_STR);
         if (emit) {
-            fprintf(stderr, SM_BUF_FMT, SM_BUF_FMT_ARG(tokBuf()));
+            fprintf(stderr, SM_VIEW_FMT, SM_VIEW_FMT_ARG(tokView()));
         }
         eat();
         expectEOL();
         eat();
         return;
     default: {
-        SmBuf name = smTokName(peek());
-        fatal("unexpected: " SM_BUF_FMT "\n", SM_BUF_FMT_ARG(name));
+        SmView name = smTokName(peek());
+        fatal("unexpected: " SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(name));
     }
     }
 }
@@ -1726,7 +1729,7 @@ static void pass() {
             eat();
             continue;
         case SM_TOK_ID: {
-            U8 const *mne = mneFind(tokBuf());
+            U8 const *mne = mneFind(tokView());
             if (mne) {
                 eatMne(*mne);
                 expectEOL();
@@ -1754,9 +1757,9 @@ static void pass() {
                 // never changes.
                 // TODO: also we want to create weak/redefinable symbols
                 fatalPos(pos,
-                         "symbol already defined\n\t" SM_BUF_FMT ":" UINT_FMT
+                         "symbol already defined\n\t" SM_VIEW_FMT ":" UINT_FMT
                          ":" UINT_FMT " : defined previously here\n",
-                         SM_BUF_FMT_ARG(sym->pos.file), sym->pos.line,
+                         SM_VIEW_FMT_ARG(sym->pos.file), sym->pos.line,
                          sym->pos.col);
             }
             switch (peek()) {
@@ -1805,26 +1808,26 @@ static void pass() {
 
 static void writeDepend() {
     static SmGBuf buf = {0};
-    buf.inner.len     = 0;
+    buf.view.len      = 0;
     if (!depfile_name) {
         UInt        len    = strlen(infile_name);
         char const *offset = strchr(infile_name, '.');
         if (offset) {
             len -= (offset - infile_name);
         }
-        smGBufCat(&buf, (SmBuf){(U8 *)infile_name, len});
-        smGBufCat(&buf, SM_BUF(".d"));
+        smGBufCat(&buf, (SmView){(U8 *)infile_name, len});
+        smGBufCat(&buf, SM_VIEW(".d"));
     } else {
-        smGBufCat(&buf, (SmBuf){(U8 *)depfile_name, strlen(depfile_name)});
+        smGBufCat(&buf, (SmView){(U8 *)depfile_name, strlen(depfile_name)});
     }
-    FILE   *hnd = openFile(buf.inner, "wb+");
-    SmSerde ser = {hnd, buf.inner};
-    smSerializeBuf(&ser, (SmBuf){(U8 *)outfile_name, strlen(outfile_name)});
-    smSerializeBuf(&ser, SM_BUF(": \\\n"));
-    for (UInt i = 0; i < INCS.bufs.inner.len; ++i) {
-        smSerializeBuf(&ser, SM_BUF("  "));
-        smSerializeBuf(&ser, INCS.bufs.inner.items[i]);
-        smSerializeBuf(&ser, SM_BUF(" \\\n"));
+    FILE   *hnd = openFile(buf.view, "wb+");
+    SmSerde ser = {hnd, buf.view};
+    smSerializeView(&ser, (SmView){(U8 *)outfile_name, strlen(outfile_name)});
+    smSerializeView(&ser, SM_VIEW(": \\\n"));
+    for (UInt i = 0; i < INCS.bufs.view.len; ++i) {
+        smSerializeView(&ser, SM_VIEW("  "));
+        smSerializeView(&ser, INCS.bufs.view.items[i]);
+        smSerializeView(&ser, SM_VIEW(" \\\n"));
     }
     closeFile(hnd);
 }
@@ -1835,7 +1838,7 @@ static void serialize() {
     smSerializeBufIntern(&ser, &STRS);
     smSerializeExprIntern(&ser, &EXPRS, &STRS);
     smSerializeSymTab(&ser, &SYMS, &STRS, &EXPRS);
-    smSerializeSectBuf(&ser, SECTS.inner, &STRS, &EXPRS);
+    smSerializeSectBuf(&ser, SECTS.view, &STRS, &EXPRS);
 }
 
 static FILE *openFileCstr(char const *name, char const *modes) {
@@ -1852,7 +1855,7 @@ static void closeFile(FILE *hnd) {
     }
 }
 
-static void pushFile(SmBuf path) {
+static void pushFile(SmView path) {
     FILE *hnd = openFile(path, "rb");
     ++ts;
     if (ts >= (STACK + STACK_SIZE)) {

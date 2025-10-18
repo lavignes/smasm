@@ -7,7 +7,6 @@ _Noreturn void smFatal(char const *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     smFatalV(fmt, args);
-    va_end(args);
 }
 
 _Noreturn void smFatalV(char const *fmt, va_list args) {

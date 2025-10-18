@@ -55,9 +55,9 @@ static U8 precedence(SmOp op) {
 
 static void pushApply(SmOp op) {
     // pratt parser magic
-    while (op_stack.inner.len > 0) {
-        --op_stack.inner.len;
-        SmOp top = op_stack.inner.items[op_stack.inner.len];
+    while (op_stack.view.len > 0) {
+        --op_stack.view.len;
+        SmOp top = op_stack.view.items[op_stack.view.len];
         if (precedence(top) >= precedence(op)) {
             smOpGBufAdd(&op_stack, top);
             break;
@@ -72,10 +72,10 @@ static void pushApplyBinary(U32 tok) { pushApply((SmOp){tok, false}); }
 static void pushApplyUnary(U32 tok) { pushApply((SmOp){tok, true}); }
 
 SmExprBuf exprEat() {
-    expr_stack.inner.len = 0;
-    op_stack.inner.len   = 0;
-    Bool seen_value      = false;
-    UInt paren_depth     = 0;
+    expr_stack.view.len = 0;
+    op_stack.view.len   = 0;
+    Bool seen_value     = false;
+    UInt paren_depth    = 0;
     while (true) {
         switch (peek()) {
         case '*':
@@ -164,11 +164,11 @@ SmExprBuf exprEat() {
             }
             --paren_depth;
             while (true) {
-                if (op_stack.inner.len == 0) {
+                if (op_stack.view.len == 0) {
                     fatal("unmatched parentheses\n");
                 }
-                --op_stack.inner.len;
-                SmOp op = op_stack.inner.items[op_stack.inner.len];
+                --op_stack.view.len;
+                SmOp op = op_stack.view.items[op_stack.view.len];
                 if (op.tok == '(') {
                     break;
                 }
@@ -204,7 +204,7 @@ SmExprBuf exprEat() {
             }
             eat();
             expect(SM_TOK_STR);
-            pushExpr((SmExpr){.kind = SM_EXPR_CONST, .num = tokBuf().len});
+            pushExpr((SmExpr){.kind = SM_EXPR_CONST, .num = tokView().len});
             eat();
             seen_value = true;
             continue;
@@ -213,10 +213,10 @@ SmExprBuf exprEat() {
                 fatal("expected an operator\n");
             }
             eat();
-            Bool has_brace = false;
+            Bool braced = false;
             if (peek() == '{') {
                 eat();
-                has_brace = true;
+                braced = true;
             }
             expect(SM_TOK_ID);
             SmLbl lbl = tokLbl();
@@ -225,9 +225,9 @@ SmExprBuf exprEat() {
             eat();
             expect(SM_TOK_STR);
             pushExpr(
-                (SmExpr){.kind = SM_EXPR_TAG, .tag = {lbl, intern(tokBuf())}});
+                (SmExpr){.kind = SM_EXPR_TAG, .tag = {lbl, intern(tokView())}});
             eat();
-            if (has_brace) {
+            if (braced) {
                 expect('}');
                 eat();
             }
@@ -255,12 +255,12 @@ SmExprBuf exprEat() {
         }
     }
 complete:
-    while (op_stack.inner.len > 0) {
-        --op_stack.inner.len;
-        SmOp op = op_stack.inner.items[op_stack.inner.len];
+    while (op_stack.view.len > 0) {
+        --op_stack.view.len;
+        SmOp op = op_stack.view.items[op_stack.view.len];
         pushExpr((SmExpr){.kind = SM_EXPR_OP, .op = op});
     }
-    return smExprIntern(&EXPRS, expr_stack.inner);
+    return smExprIntern(&EXPRS, expr_stack.view);
 }
 
 SmExprBuf exprEatPos(SmPos *pos) {
@@ -320,8 +320,8 @@ static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
         case SM_EXPR_TAG:
             goto fail; // can only solve during link
         case SM_EXPR_OP:
-            --stack.inner.len;
-            I32 rhs = stack.inner.items[stack.inner.len];
+            --stack.view.len;
+            I32 rhs = stack.view.items[stack.view.len];
             if (expr->op.unary) {
                 switch (expr->op.tok) {
                 case '+':
@@ -349,8 +349,8 @@ static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
                     SM_UNREACHABLE();
                 }
             } else {
-                --stack.inner.len;
-                I32 lhs = stack.inner.items[stack.inner.len];
+                --stack.view.len;
+                I32 lhs = stack.view.items[stack.view.len];
                 switch (expr->op.tok) {
                 case '+':
                     smI32GBufAdd(&stack, lhs + rhs);
@@ -416,7 +416,7 @@ static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
             break;
         case SM_EXPR_ADDR:
             // absolute addresses can only be solved at link time
-            if (!smBufEqual(expr->addr.sect, sectGet()->name)) {
+            if (!smViewEqual(expr->addr.sect, sectGet()->name)) {
                 goto fail;
             }
             if (!relative) {
@@ -441,8 +441,8 @@ static Bool exprSolveFull(SmExprBuf buf, I32 *num, Bool relative) {
             SM_UNREACHABLE();
         }
     }
-    assert(stack.inner.len == 1);
-    *num = *stack.inner.items;
+    assert(stack.view.len == 1);
+    *num = *stack.view.items;
     smI32GBufFini(&stack);
     return true;
 fail:

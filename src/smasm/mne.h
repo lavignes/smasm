@@ -52,6 +52,6 @@ enum Mne {
     MNE_XOR,
 };
 
-U8 const *mneFind(SmBuf buf);
+U8 const *mneFind(SmView name);
 
 #endif // MNE_H

@@ -41,9 +41,9 @@ void ifInvoke() {
         case SM_TOK_ID:
         case SM_TOK_STR:
             if (!ignore) {
-                smPosTokGBufAdd(&buf, (SmPosTok){.tok = peek(),
-                                                 .pos = tokPos(),
-                                                 .buf = intern(tokBuf())});
+                smPosTokGBufAdd(&buf, (SmPosTok){.tok  = peek(),
+                                                 .pos  = tokPos(),
+                                                 .view = intern(tokView())});
             }
             break;
         case SM_TOK_NUM:

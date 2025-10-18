@@ -59,16 +59,16 @@ int main(int argc, char **argv) {
     SmSerde serin = {infile, {(U8 *)infile_name, strlen(infile_name)}};
     smDeserializeToEnd(&serin, &buf);
 
-    if (buf.inner.len < 0x014E) {
+    if (buf.view.len < 0x014E) {
         smFatal("ROM file too small\n");
     }
 
     U8 checksum = 0;
     for (UInt i = 0x0134; i < 0x014D; ++i) {
-        checksum -= buf.inner.bytes[i];
+        checksum -= buf.view.bytes[i];
         --checksum;
     }
-    buf.inner.bytes[0x014D] = checksum;
+    buf.view.bytes[0x014D] = checksum;
 
     if (outfile_name) {
         outfile = openFileCstr(outfile_name, "wb+");
@@ -76,20 +76,20 @@ int main(int argc, char **argv) {
         outfile_name = "stdout";
     }
     SmSerde serout = {outfile, {(U8 *)outfile_name, strlen(outfile_name)}};
-    smSerializeBuf(&serout, buf.inner);
+    smSerializeView(&serout, buf.view);
 
-    UInt romsize = buf.inner.bytes[0x0148];
+    UInt romsize = buf.view.bytes[0x0148];
     if (romsize > 0x08) {
         smFatal("invalid ROM size: %02X\n", (U8)romsize);
     }
     UInt romsize_bytes = 0x8000 * (1 << romsize);
-    if (buf.inner.len < romsize_bytes) {
-        UInt len     = romsize_bytes - buf.inner.len;
+    if (buf.view.len < romsize_bytes) {
+        UInt len     = romsize_bytes - buf.view.len;
         U8  *padding = calloc(len, 1);
         if (!padding) {
             smFatal("out of memory");
         }
-        smSerializeBuf(&serout, (SmBuf){padding, len});
+        smSerializeView(&serout, (SmView){padding, len});
         free(padding);
     }
 

@@ -3,7 +3,7 @@
 
 #include <smasm/buf.h>
 
-SmBuf smPathIntern(SmBufIntern *in, SmBuf path);
+SmView smPathIntern(SmBufIntern *in, SmView path);
 
 struct SmPathSet {
     SmBufIntern in;
@@ -11,7 +11,7 @@ struct SmPathSet {
 };
 typedef struct SmPathSet SmPathSet;
 
-SmBuf smPathSetAdd(SmPathSet *set, SmBuf path);
-Bool  smPathSetContains(SmPathSet *set, SmBuf path);
+SmView smPathSetAdd(SmPathSet *set, SmView path);
+Bool   smPathSetContains(SmPathSet *set, SmView path);
 
 #endif // SMASM_PATH_H

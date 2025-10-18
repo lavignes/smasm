@@ -19,7 +19,7 @@ void macroTabFini() {
     SM_TAB_FINI_IMPL(noop);
 }
 
-Macro *macroFind(SmBuf name) {
+Macro *macroFind(SmView name) {
     MacroTab *tab = &MACS;
     SM_TAB_FIND_IMPL(MacroTab, Macro);
 }
@@ -31,7 +31,7 @@ static Macro *add(Macro entry) {
     SM_TAB_ADD_IMPL(MacroTab, Macro);
 }
 
-void macroAdd(SmBuf name, SmPos pos, SmMacroTokBuf buf) {
+void macroAdd(SmView name, SmPos pos, SmMacroTokBuf buf) {
     add((Macro){
         name,
         pos,
@@ -60,7 +60,7 @@ void macroInvoke(Macro macro) {
         case SM_TOK_ID:
             smMacroTokGBufAdd(&toks, (SmMacroTok){.kind = SM_MACRO_TOK_ID,
                                                   .pos  = tokPos(),
-                                                  .buf  = intern(tokBuf())});
+                                                  .view = intern(tokView())});
             break;
         case SM_TOK_NUM:
             smMacroTokGBufAdd(&toks, (SmMacroTok){.kind = SM_MACRO_TOK_NUM,
@@ -70,7 +70,7 @@ void macroInvoke(Macro macro) {
         case SM_TOK_STR:
             smMacroTokGBufAdd(&toks, (SmMacroTok){.kind = SM_MACRO_TOK_STR,
                                                   .pos  = tokPos(),
-                                                  .buf  = intern(tokBuf())});
+                                                  .view = intern(tokView())});
             break;
         default:
             if (depth > 0) {
@@ -92,13 +92,13 @@ void macroInvoke(Macro macro) {
         eat();
         if (peek() == ',') {
             eat();
-            smMacroArgEnqueue(&args, smMacroTokIntern(&MTOKS, toks.inner));
-            toks.inner.len = 0;
+            smMacroArgEnqueue(&args, smMacroTokIntern(&MTOKS, toks.view));
+            toks.view.len = 0;
         }
     }
 flush:
-    if (toks.inner.len > 0) {
-        smMacroArgEnqueue(&args, smMacroTokIntern(&MTOKS, toks.inner));
+    if (toks.view.len > 0) {
+        smMacroArgEnqueue(&args, smMacroTokIntern(&MTOKS, toks.view));
     }
     smMacroTokGBufFini(&toks);
     ++ts;

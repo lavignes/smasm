@@ -3,16 +3,15 @@
 
 #include <smasm/sect.h>
 
-struct SmSerde {
-    FILE *hnd;
-    SmBuf name;
-};
-typedef struct SmSerde SmSerde;
+typedef struct {
+    FILE  *hnd;
+    SmView name;
+} SmSerde;
 
 void smSerializeU8(SmSerde *ser, U8 byte);
 void smSerializeU16(SmSerde *ser, U16 word);
 void smSerializeU32(SmSerde *ser, U32 num);
-void smSerializeBuf(SmSerde *ser, SmBuf buf);
+void smSerializeView(SmSerde *ser, SmView view);
 
 void smSerializeBufIntern(SmSerde *ser, SmBufIntern const *in);
 void smSerializeExprIntern(SmSerde *ser, SmExprIntern const *in,
@@ -25,7 +24,7 @@ void smSerializeSectBuf(SmSerde *ser, SmSectBuf sects, SmBufIntern const *strin,
 U8   smDeserializeU8(SmSerde *ser);
 U16  smDeserializeU16(SmSerde *ser);
 U32  smDeserializeU32(SmSerde *ser);
-void smDeserializeBuf(SmSerde *ser, SmBuf *buf);
+void smDeserializeView(SmSerde *ser, SmView *view);
 
 SmBufIntern  smDeserializeBufIntern(SmSerde *ser);
 SmExprIntern smDeserializeExprIntern(SmSerde *ser, SmBufIntern const *strin);

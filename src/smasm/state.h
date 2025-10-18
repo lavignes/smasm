@@ -10,21 +10,21 @@ extern SmExprIntern EXPRS;
 extern SmPathSet    IPATHS;
 extern SmPathSet    INCS;
 
-SmBuf intern(SmBuf buf);
+SmView intern(SmView view);
 
-extern SmBuf DEFINES_SECTION;
-extern SmBuf CODE_SECTION;
-extern SmBuf STATIC_UNIT;
-extern SmBuf EXPORT_UNIT;
+extern SmView DEFINES_SECTION;
+extern SmView CODE_SECTION;
+extern SmView STATIC_UNIT;
+extern SmView EXPORT_UNIT;
 
-extern SmBuf scope;
-extern UInt  nonce;
-extern Bool  emit;
-extern Bool  streamdef;
+extern SmView scope;
+extern UInt   nonce;
+extern Bool   emit;
+extern Bool   streamdef;
 
-SmLbl lblGlobal(SmBuf name);
-SmLbl lblLocal(SmBuf name);
-SmLbl lblAbs(SmBuf scope, SmBuf name);
+SmLbl lblGlobal(SmView name);
+SmLbl lblLocal(SmView name);
+SmLbl lblAbs(SmView scope, SmView name);
 
 #define STACK_SIZE 64
 extern SmTokStream  STACK[STACK_SIZE];
@@ -38,16 +38,16 @@ U32  peek();
 void eat();
 void expect(U32 tok);
 
-SmBuf tokBuf();
-I32   tokNum();
-SmPos tokPos();
-SmLbl tokLbl();
+SmView tokView();
+I32    tokNum();
+SmPos  tokPos();
+SmLbl  tokLbl();
 
 extern SmSectGBuf SECTS;
 
 SmSect *sectGet();
-void    sectSet(SmBuf name);
-void    sectPush(SmBuf name);
+void    sectSet(SmView name);
+void    sectPush(SmView name);
 void    sectPop();
 void    sectRewind();
 

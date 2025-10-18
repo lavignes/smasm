@@ -4,15 +4,15 @@
 // TODO delete parems from all the macros
 // and infer them like we do for the GBuf macros
 #define SM_TAB_WHENCE_IMPL(Type, EntryType)                                    \
-    static EntryType *Type##Whence(Type *tab, SmBuf name) {                    \
-        UInt       hash  = smBufHash(name);                                    \
+    static EntryType *Type##Whence(Type *tab, SmView name) {                   \
+        UInt       hash  = smViewHash(name);                                   \
         UInt       i     = hash % tab->size;                                   \
         EntryType *entry = tab->entries + i;                                   \
-        while (hash != smBufHash(entry->name)) {                               \
-            if (smBufEqual(entry->name, SM_BUF_NULL)) {                        \
+        while (hash != smViewHash(entry->name)) {                              \
+            if (smViewEqual(entry->name, SM_VIEW_NULL)) {                      \
                 break;                                                         \
             }                                                                  \
-            if (smBufEqual(entry->name, name)) {                               \
+            if (smViewEqual(entry->name, name)) {                              \
                 break;                                                         \
             }                                                                  \
             i     = (i + 1) % tab->size;                                       \
@@ -42,7 +42,7 @@
             }                                                                  \
             for (UInt i = 0; i < old_size; ++i) {                              \
                 EntryType *entry = old_entries + i;                            \
-                if (smBufEqual(entry->name, SM_BUF_NULL)) {                    \
+                if (smViewEqual(entry->name, SM_VIEW_NULL)) {                  \
                     continue;                                                  \
                 }                                                              \
                 *Type##Whence(tab, entry->name) = *entry;                      \
@@ -63,7 +63,7 @@
         return NULL;                                                           \
     }                                                                          \
     EntryType *whence = Type##Whence(tab, name);                               \
-    if (smBufEqual(whence->name, SM_BUF_NULL)) {                               \
+    if (smViewEqual(whence->name, SM_VIEW_NULL)) {                             \
         return NULL;                                                           \
     }                                                                          \
     return whence;
@@ -74,7 +74,7 @@
     }                                                                          \
     for (UInt i = 0; i < tab->size; ++i) {                                     \
         typeof(*tab->entries) *entry = tab->entries + i;                       \
-        if (smBufEqual(entry->name, SM_BUF_NULL)) {                            \
+        if (smViewEqual(entry->name, SM_VIEW_NULL)) {                          \
             continue;                                                          \
         }                                                                      \
         (EntryFiniFn)(entry);                                                  \

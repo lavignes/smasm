@@ -31,11 +31,11 @@ static void help() {
 
 static FILE     *openFileCstr(char const *path, char const *modes);
 static void      closeFile(FILE *hnd);
-static SmLbl     globalLbl(SmBuf name);
+static SmLbl     globalLbl(SmView name);
 static SmExprBuf constExprBuf(I32 num);
-static SmBuf     intern(SmBuf buf);
+static SmView    intern(SmView view);
 static void      parseCfg();
-static void      loadObj(SmBuf path);
+static void      loadObj(SmView path);
 static void      allocate(SmSect *sect);
 static void      solveSyms();
 static void      link(SmSect *sect);
@@ -58,9 +58,9 @@ static SmSectGBuf   SECTS = {0};
 
 static CfgOutGBuf CFGS    = {0};
 
-static SmBuf DEFINES_SECTION;
-static SmBuf STATIC_UNIT;
-static SmBuf EXPORT_UNIT;
+static SmView DEFINES_SECTION;
+static SmView STATIC_UNIT;
+static SmView EXPORT_UNIT;
 
 int main(int argc, char **argv) {
     outfile = stdout;
@@ -68,9 +68,9 @@ int main(int argc, char **argv) {
         help();
         return 0;
     }
-    DEFINES_SECTION = intern(SM_BUF("@DEFINES"));
-    STATIC_UNIT     = intern(SM_BUF("@STATIC"));
-    EXPORT_UNIT     = intern(SM_BUF("@EXPORT"));
+    DEFINES_SECTION = intern(SM_VIEW("@DEFINES"));
+    STATIC_UNIT     = intern(SM_VIEW("@STATIC"));
+    EXPORT_UNIT     = intern(SM_VIEW("@EXPORT"));
     for (int argi = 1; argi < argc; ++argi) {
         if (!strcmp(argv[argi], "-h") || !strcmp(argv[argi], "--help")) {
             help();
@@ -118,14 +118,14 @@ int main(int argc, char **argv) {
             if (!offset) {
                 smFatal("expected `=` in %s\n", argv[argi]);
             }
-            UInt  name_len  = offset - argv[argi];
-            SmBuf name      = intern((SmBuf){(U8 *)argv[argi], name_len});
-            UInt  value_len = strlen(argv[argi]) - name_len - 1;
+            UInt   name_len  = offset - argv[argi];
+            SmView name      = intern((SmView){(U8 *)argv[argi], name_len});
+            UInt   value_len = strlen(argv[argi]) - name_len - 1;
             // TODO: should expose general-purpose expression parsing
             // for use here and for expressions in the linker scripts
             // Could even use a tok stream here.
-            I32   num       = smBufParse(
-                (SmBuf){(U8 *)(argv[argi] + name_len + 1), value_len});
+            I32    num       = smViewParse(
+                (SmView){(U8 *)(argv[argi] + name_len + 1), value_len});
             smSymTabAdd(&SYMS, (SmSym){
                                    .lbl     = globalLbl(name),
                                    .value   = constExprBuf(num),
@@ -136,27 +136,27 @@ int main(int argc, char **argv) {
                                });
             continue;
         }
-        smPathSetAdd(&OBJS, (SmBuf){(U8 *)argv[argi], strlen(argv[argi])});
+        smPathSetAdd(&OBJS, (SmView){(U8 *)argv[argi], strlen(argv[argi])});
     }
     if (!cfgfile) {
         smFatal("config file is required\n");
     }
-    if (OBJS.bufs.inner.len == 0) {
+    if (OBJS.bufs.view.len == 0) {
         smFatal("at least 1 object file is required\n");
     }
 
     parseCfg();
 
-    for (UInt i = 0; i < OBJS.bufs.inner.len; ++i) {
-        loadObj(OBJS.bufs.inner.items[i]);
+    for (UInt i = 0; i < OBJS.bufs.view.len; ++i) {
+        loadObj(OBJS.bufs.view.items[i]);
     }
-    for (UInt i = 0; i < SECTS.inner.len; ++i) {
-        SmSect *sect = SECTS.inner.items + i;
+    for (UInt i = 0; i < SECTS.view.len; ++i) {
+        SmSect *sect = SECTS.view.items + i;
         allocate(sect);
     }
     solveSyms();
-    for (UInt i = 0; i < SECTS.inner.len; ++i) {
-        SmSect *sect = SECTS.inner.items + i;
+    for (UInt i = 0; i < SECTS.view.len; ++i) {
+        SmSect *sect = SECTS.view.items + i;
         link(sect);
     }
 
@@ -178,41 +178,40 @@ int main(int argc, char **argv) {
     return EXIT_SUCCESS;
 }
 
-static SmBuf intern(SmBuf buf) { return smBufIntern(&STRS, buf); }
+static SmView intern(SmView view) { return smBufIntern(&STRS, view); }
 
-static FILE *openFile(SmBuf path, char const *modes) {
+static FILE *openFile(SmView path, char const *modes) {
     static SmGBuf buf = {0};
-    buf.inner.len     = 0;
+    buf.view.len      = 0;
     smGBufCat(&buf, path);
-    smGBufCat(&buf, SM_BUF("\0"));
-    return openFileCstr((char const *)buf.inner.bytes, modes);
+    smGBufCat(&buf, SM_VIEW("\0"));
+    return openFileCstr((char const *)buf.view.bytes, modes);
 }
 
-static _Noreturn void objFatalV(SmBuf path, char const *fmt, va_list args) {
-    fprintf(stderr, SM_BUF_FMT ": ", SM_BUF_FMT_ARG(path));
+static _Noreturn void objFatalV(SmView path, char const *fmt, va_list args) {
+    fprintf(stderr, SM_VIEW_FMT ": ", SM_VIEW_FMT_ARG(path));
     smFatalV(fmt, args);
 }
 
-static _Noreturn void objFatal(SmBuf path, char const *fmt, ...) {
+static _Noreturn void objFatal(SmView path, char const *fmt, ...) {
     va_list args;
     va_start(args, fmt);
     objFatalV(path, fmt, args);
-    va_end(args);
 }
 
 static SmLbl internLbl(SmLbl lbl) {
-    if (smBufEqual(lbl.scope, SM_BUF_NULL)) {
+    if (smViewEqual(lbl.scope, SM_VIEW_NULL)) {
         return globalLbl(intern(lbl.name));
     }
     return (SmLbl){intern(lbl.scope), intern(lbl.name)};
 }
 
-static SmBuf fullLblName(SmLbl lbl) { return smLblFullName(lbl, &STRS); }
+static SmView fullLblName(SmLbl lbl) { return smLblFullName(lbl, &STRS); }
 
-static SmSect *findSect(SmBuf name) {
-    for (UInt i = 0; i < SECTS.inner.len; ++i) {
-        SmSect *sect = SECTS.inner.items + i;
-        if (smBufEqual(sect->name, name)) {
+static SmSect *findSect(SmView name) {
+    for (UInt i = 0; i < SECTS.view.len; ++i) {
+        SmSect *sect = SECTS.view.items + i;
+        if (smViewEqual(sect->name, name)) {
             return sect;
         }
     }
@@ -242,7 +241,7 @@ static SmExprBuf internExpr(SmExprBuf buf) {
     return smExprIntern(&EXPRS, buf);
 }
 
-static void loadObj(SmBuf path) {
+static void loadObj(SmView path) {
     FILE   *hnd   = openFile(path, "rb");
     SmSerde ser   = {hnd, path};
     U32     magic = smDeserializeU32(&ser);
@@ -254,18 +253,18 @@ static void loadObj(SmBuf path) {
     // Fixup addresses to be absolute
     for (UInt i = 0; i < tmpexprs.len; ++i) {
         SmExprGBuf *gbuf = tmpexprs.bufs + i;
-        for (UInt j = 0; j < gbuf->inner.len; ++j) {
-            SmExpr *expr = gbuf->inner.items + j;
+        for (UInt j = 0; j < gbuf->view.len; ++j) {
+            SmExpr *expr = gbuf->view.items + j;
             if (expr->kind != SM_EXPR_ADDR) {
                 continue;
             }
             SmSect *sect = findSect(expr->addr.sect);
             if (!sect) {
                 objFatal(path,
-                         "output section " SM_BUF_FMT
+                         "output section " SM_VIEW_FMT
                          " is not defined in config\n\tyou may have forgot to "
                          "add a @SECTION directive before a label\n",
-                         SM_BUF_FMT_ARG(expr->addr.sect));
+                         SM_VIEW_FMT_ARG(expr->addr.sect));
             }
             expr->addr.pc += sect->pc;
         }
@@ -278,22 +277,22 @@ static void loadObj(SmBuf path) {
             continue;
         }
         // Hide static symbols under file-specific unit
-        SmBuf unit;
-        if (smBufEqual(sym->unit, STATIC_UNIT)) {
+        SmView unit;
+        if (smViewEqual(sym->unit, STATIC_UNIT)) {
             unit = path;
         } else {
             unit = sym->unit;
         }
         SmSym *whence = smSymTabFind(&SYMS, sym->lbl);
-        if (whence && smBufEqual(whence->unit, unit)) {
-            SmBuf name = fullLblName(sym->lbl);
+        if (whence && smViewEqual(whence->unit, unit)) {
+            SmView name = fullLblName(sym->lbl);
             objFatal(path,
-                     "duplicate exported symbol: " SM_BUF_FMT
-                     "\n\tdefined at " SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT
-                     "\n\tagain at " SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT "\n",
-                     SM_BUF_FMT_ARG(name), SM_BUF_FMT_ARG(whence->pos.file),
+                     "duplicate exported symbol: " SM_VIEW_FMT
+                     "\n\tdefined at " SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT
+                     "\n\tagain at " SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT "\n",
+                     SM_VIEW_FMT_ARG(name), SM_VIEW_FMT_ARG(whence->pos.file),
                      whence->pos.line, whence->pos.col,
-                     SM_BUF_FMT_ARG(sym->pos.file), sym->pos.line,
+                     SM_VIEW_FMT_ARG(sym->pos.file), sym->pos.line,
                      sym->pos.col);
         }
         smSymTabAdd(&SYMS, (SmSym){
@@ -312,20 +311,21 @@ static void loadObj(SmBuf path) {
     }
     SmSectGBuf tmpsects = smDeserializeSectBuf(&ser, &tmpstrs, &tmpexprs);
     closeFile(hnd);
-    for (UInt i = 0; i < tmpsects.inner.len; ++i) {
-        SmSect *sect    = tmpsects.inner.items + i;
+    for (UInt i = 0; i < tmpsects.view.len; ++i) {
+        SmSect *sect    = tmpsects.view.items + i;
         SmSect *dstsect = findSect(sect->name);
         if (!dstsect) {
             objFatal(path,
-                     "output section " SM_BUF_FMT " is not defined in config\n",
-                     SM_BUF_FMT_ARG(sect->name));
+                     "output section " SM_VIEW_FMT
+                     " is not defined in config\n",
+                     SM_VIEW_FMT_ARG(sect->name));
         }
         // copy relocations
-        for (UInt j = 0; j < sect->relocs.inner.len; ++j) {
-            SmReloc *reloc = sect->relocs.inner.items + j;
-            SmBuf    unit;
+        for (UInt j = 0; j < sect->relocs.view.len; ++j) {
+            SmReloc *reloc = sect->relocs.view.items + j;
+            SmView   unit;
             // fixup relocation units
-            if (smBufEqual(reloc->unit, STATIC_UNIT)) {
+            if (smViewEqual(reloc->unit, STATIC_UNIT)) {
                 unit = path;
             } else {
                 unit = EXPORT_UNIT;
@@ -348,8 +348,8 @@ static void loadObj(SmBuf path) {
                 });
         }
         // extend destination section
-        smGBufCat(&dstsect->data, sect->data.inner);
-        dstsect->pc += sect->data.inner.len;
+        smGBufCat(&dstsect->data, sect->data.view);
+        dstsect->pc += sect->data.view.len;
         // free up
         smRelocGBufFini(&sect->relocs);
         smGBufFini(&sect->data);
@@ -360,24 +360,21 @@ static void loadObj(SmBuf path) {
     smBufInternFini(&tmpstrs);
 }
 
-struct Out {
-    SmBuf name;
-    U32   pc;
-    U32   end;
-};
-typedef struct Out Out;
+typedef struct {
+    SmView name;
+    U32    pc;
+    U32    end;
+} Out;
 
-struct OutBuf {
+typedef struct {
     Out *items;
     UInt len;
-};
-typedef struct OutBuf OutBuf;
+} OutBuf;
 
-struct OutGBuf {
-    OutBuf inner;
+typedef struct {
+    OutBuf view;
     UInt   size;
-};
-typedef struct OutGBuf OutGBuf;
+} OutGBuf;
 
 static OutGBuf OUTS = {0};
 
@@ -386,22 +383,22 @@ static void outGBufAdd(Out item) {
     SM_GBUF_ADD_IMPL();
 }
 
-static Out *findOut(SmBuf name) {
-    for (UInt i = 0; i < OUTS.inner.len; ++i) {
-        Out *out = OUTS.inner.items + i;
-        if (smBufEqual(out->name, name)) {
+static Out *findOut(SmView name) {
+    for (UInt i = 0; i < OUTS.view.len; ++i) {
+        Out *out = OUTS.view.items + i;
+        if (smViewEqual(out->name, name)) {
             return out;
         }
     }
     return NULL;
 }
 
-static CfgIn *findCfgIn(SmBuf name, CfgOut **out) {
-    for (UInt i = 0; i < CFGS.inner.len; ++i) {
-        *out = CFGS.inner.items + i;
+static CfgIn *findCfgIn(SmView name, CfgOut **out) {
+    for (UInt i = 0; i < CFGS.view.len; ++i) {
+        *out = CFGS.view.items + i;
         for (UInt j = 0; j < (*out)->ins.len; ++j) {
             CfgIn *in = (*out)->ins.items + j;
-            if (smBufEqual(in->name, name)) {
+            if (smViewEqual(in->name, name)) {
                 return in;
             }
         }
@@ -419,36 +416,37 @@ static void allocate(SmSect *sect) {
     // TODO apply and adjust padding
     sect->pc = ((out->pc + in->align - 1) / in->align) * in->align;
     for (UInt i = 0; i < in->files.len; ++i) {
-        SmBuf   path = in->files.items[i];
+        SmView  path = in->files.items[i];
         FILE   *hnd  = openFile(path, "rb");
         SmSerde ser  = {hnd, path};
         smDeserializeToEnd(&ser, &sect->data);
     }
     if (in->size) {
-        if (sect->data.inner.len > in->sizeval) {
-            smFatal("input section " SM_BUF_FMT " size ($%08zX) is larger than "
+        if (sect->data.view.len > in->sizeval) {
+            smFatal("input section " SM_VIEW_FMT
+                    " size ($%08zX) is larger than "
                     "configured size: $%08zX\n",
-                    SM_BUF_FMT_ARG(sect->name), sect->data.inner.len,
+                    SM_VIEW_FMT_ARG(sect->name), sect->data.view.len,
                     (UInt)in->sizeval);
         }
         if (in->fill) {
-            while (sect->data.inner.len < in->sizeval) {
-                smGBufCat(&sect->data, (SmBuf){&in->fillval, 1});
+            while (sect->data.view.len < in->sizeval) {
+                smGBufCat(&sect->data, (SmView){&in->fillval, 1});
             }
         }
     }
-    out->pc = sect->pc + sect->data.inner.len;
+    out->pc = sect->pc + sect->data.view.len;
     if (out->pc > out->end) {
-        smFatal("no room in output section " SM_BUF_FMT
-                " for input section " SM_BUF_FMT "\n",
-                SM_BUF_FMT_ARG(out->name), SM_BUF_FMT_ARG(sect->name));
+        smFatal("no room in output section " SM_VIEW_FMT
+                " for input section " SM_VIEW_FMT "\n",
+                SM_VIEW_FMT_ARG(out->name), SM_VIEW_FMT_ARG(sect->name));
     }
-    if (!smBufEqual(in->define, SM_BUF_NULL)) {
+    if (!smViewEqual(in->define, SM_VIEW_NULL)) {
         static SmGBuf buf = {0};
-        buf.inner.len     = 0;
+        buf.view.len      = 0;
         smGBufCat(&buf, in->define);
-        smGBufCat(&buf, SM_BUF("_START"));
-        SmBuf start = intern(buf.inner);
+        smGBufCat(&buf, SM_VIEW("_START"));
+        SmView start = intern(buf.view);
         smSymTabAdd(&SYMS, (SmSym){
                                .lbl     = globalLbl(start),
                                .value   = constExprBuf(sect->pc),
@@ -457,13 +455,13 @@ static void allocate(SmSect *sect) {
                                .pos     = in->defpos,
                                .flags   = SM_SYM_EQU,
                            });
-        buf.inner.len = 0;
+        buf.view.len = 0;
         smGBufCat(&buf, in->define);
-        smGBufCat(&buf, SM_BUF("_SIZE"));
-        SmBuf size = intern(buf.inner);
+        smGBufCat(&buf, SM_VIEW("_SIZE"));
+        SmView size = intern(buf.view);
         smSymTabAdd(&SYMS, (SmSym){
                                .lbl     = globalLbl(size),
-                               .value   = constExprBuf(sect->data.inner.len),
+                               .value   = constExprBuf(sect->data.view.len),
                                .unit    = EXPORT_UNIT,
                                .section = DEFINES_SECTION,
                                .pos     = in->defpos,
@@ -472,7 +470,7 @@ static void allocate(SmSect *sect) {
     }
 }
 
-static Bool solve(SmExprBuf buf, SmBuf unit, I32 *num) {
+static Bool solve(SmExprBuf buf, SmView unit, I32 *num) {
     SmI32GBuf stack = {0};
     for (UInt i = 0; i < buf.len; ++i) {
         SmExpr *expr = buf.items + i;
@@ -485,8 +483,8 @@ static Bool solve(SmExprBuf buf, SmBuf unit, I32 *num) {
             if (!sym) {
                 goto fail;
             }
-            if (!smBufEqual(sym->unit, unit) &&
-                !smBufEqual(sym->unit, EXPORT_UNIT)) {
+            if (!smViewEqual(sym->unit, unit) &&
+                !smViewEqual(sym->unit, EXPORT_UNIT)) {
                 goto fail;
             }
             I32 num;
@@ -502,8 +500,8 @@ static Bool solve(SmExprBuf buf, SmBuf unit, I32 *num) {
             if (!sym) {
                 goto fail;
             }
-            if (!smBufEqual(sym->unit, unit) &&
-                !smBufEqual(sym->unit, EXPORT_UNIT)) {
+            if (!smViewEqual(sym->unit, unit) &&
+                !smViewEqual(sym->unit, EXPORT_UNIT)) {
                 goto fail;
             }
             CfgOut *cfgout = NULL;
@@ -519,8 +517,8 @@ static Bool solve(SmExprBuf buf, SmBuf unit, I32 *num) {
             break;
         }
         case SM_EXPR_OP:
-            --stack.inner.len;
-            I32 rhs = stack.inner.items[stack.inner.len];
+            --stack.view.len;
+            I32 rhs = stack.view.items[stack.view.len];
             if (expr->op.unary) {
                 switch (expr->op.tok) {
                 case '+':
@@ -548,8 +546,8 @@ static Bool solve(SmExprBuf buf, SmBuf unit, I32 *num) {
                     SM_UNREACHABLE();
                 }
             } else {
-                --stack.inner.len;
-                I32 lhs = stack.inner.items[stack.inner.len];
+                --stack.view.len;
+                I32 lhs = stack.view.items[stack.view.len];
                 switch (expr->op.tok) {
                 case '+':
                     smI32GBufAdd(&stack, lhs + rhs);
@@ -625,8 +623,8 @@ static Bool solve(SmExprBuf buf, SmBuf unit, I32 *num) {
             SM_UNREACHABLE();
         }
     }
-    assert(stack.inner.len == 1);
-    *num = *stack.inner.items;
+    assert(stack.view.len == 1);
+    *num = *stack.view.items;
     smI32GBufFini(&stack);
     return true;
 fail:
@@ -661,10 +659,10 @@ static void solveSyms() {
             (sym->value.items[0].kind == SM_EXPR_CONST)) {
             continue;
         }
-        SmBuf name = fullLblName(sym->lbl);
-        smFatal("undefined symbol: " SM_BUF_FMT "\n\treferenced at " SM_BUF_FMT
-                ":" UINT_FMT ":" UINT_FMT "\n",
-                SM_BUF_FMT_ARG(name), SM_BUF_FMT_ARG(sym->pos.file),
+        SmView name = fullLblName(sym->lbl);
+        smFatal("undefined symbol: " SM_VIEW_FMT
+                "\n\treferenced at " SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT "\n",
+                SM_VIEW_FMT_ARG(name), SM_VIEW_FMT_ARG(sym->pos.file),
                 sym->pos.line, sym->pos.col);
     }
 }
@@ -673,13 +671,13 @@ static Bool canReprU8(I32 num) { return (num >= 0) && (num <= U8_MAX); }
 static Bool canReprU16(I32 num) { return (num >= 0) && (num <= U16_MAX); }
 
 static void link(SmSect *sect) {
-    for (UInt i = 0; i < sect->relocs.inner.len; ++i) {
-        SmReloc *reloc = sect->relocs.inner.items + i;
+    for (UInt i = 0; i < sect->relocs.view.len; ++i) {
+        SmReloc *reloc = sect->relocs.view.items + i;
         I32      num;
         if (!solve(reloc->value, reloc->unit, &num)) {
-            smFatal("expression cannot be solved\n\treferenced at " SM_BUF_FMT
+            smFatal("expression cannot be solved\n\treferenced at " SM_VIEW_FMT
                     ":" UINT_FMT ":" UINT_FMT "\n",
-                    SM_BUF_FMT_ARG(reloc->pos.file), reloc->pos.line,
+                    SM_VIEW_FMT_ARG(reloc->pos.file), reloc->pos.line,
                     reloc->pos.col);
         }
         switch (reloc->width) {
@@ -687,8 +685,8 @@ static void link(SmSect *sect) {
             if (!canReprU8(num)) {
                 Bool legal = false;
                 if (reloc->flags & SM_RELOC_HRAM) {
-                    for (UInt j = 0; j < SECTS.inner.len; ++j) {
-                        SmSect *sect   = SECTS.inner.items + j;
+                    for (UInt j = 0; j < SECTS.view.len; ++j) {
+                        SmSect *sect   = SECTS.view.items + j;
                         CfgOut *cfgout = NULL;
                         CfgIn  *in     = findCfgIn(sect->name, &cfgout);
                         assert(cfgout);
@@ -697,7 +695,7 @@ static void link(SmSect *sect) {
                             continue;
                         }
                         if ((num >= (I32)(sect->pc)) &&
-                            (num < (I32)(sect->pc + sect->data.inner.len))) {
+                            (num < (I32)(sect->pc + sect->data.view.len))) {
                             legal = true;
                             break;
                         }
@@ -705,9 +703,9 @@ static void link(SmSect *sect) {
                 }
                 if (!legal) {
                     smFatal("expression does not fit in a byte: "
-                            "$%08X\n\treferenced at " SM_BUF_FMT ":" UINT_FMT
+                            "$%08X\n\treferenced at " SM_VIEW_FMT ":" UINT_FMT
                             ":" UINT_FMT "\n",
-                            num, SM_BUF_FMT_ARG(reloc->pos.file),
+                            num, SM_VIEW_FMT_ARG(reloc->pos.file),
                             reloc->pos.line, reloc->pos.col);
                 }
             }
@@ -740,27 +738,27 @@ static void link(SmSect *sect) {
                     break;
                 default:
                     smFatal("illegal reset vector: $%08X\n\treferenced "
-                            "at " SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT "\n",
-                            num, SM_BUF_FMT_ARG(reloc->pos.file),
+                            "at " SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT "\n",
+                            num, SM_VIEW_FMT_ARG(reloc->pos.file),
                             reloc->pos.line, reloc->pos.col);
                 }
-                sect->data.inner.bytes[reloc->offset] = op;
+                sect->data.view.bytes[reloc->offset] = op;
                 continue;
             }
-            sect->data.inner.bytes[reloc->offset] = (U8)num;
+            sect->data.view.bytes[reloc->offset] = (U8)num;
             break;
         case 2:
             // TODO check if src and dst banks are the same
             // also a JP within bank0 is always legal for GB
             if (!canReprU16(num)) {
                 smFatal("expression does not fit in a word: "
-                        "$%08X\n\treferenced at " SM_BUF_FMT ":" UINT_FMT
+                        "$%08X\n\treferenced at " SM_VIEW_FMT ":" UINT_FMT
                         ":" UINT_FMT "\n",
-                        num, SM_BUF_FMT_ARG(reloc->pos.file), reloc->pos.line,
+                        num, SM_VIEW_FMT_ARG(reloc->pos.file), reloc->pos.line,
                         reloc->pos.col);
             }
-            sect->data.inner.bytes[reloc->offset]     = (U8)(num & 0xFF);
-            sect->data.inner.bytes[reloc->offset + 1] = (U8)((num >> 8) & 0xFF);
+            sect->data.view.bytes[reloc->offset]     = (U8)(num & 0xFF);
+            sect->data.view.bytes[reloc->offset + 1] = (U8)((num >> 8) & 0xFF);
             break;
         default:
             SM_UNREACHABLE();
@@ -784,19 +782,19 @@ _Noreturn void fatalPos(SmPos pos, char const *fmt, ...) {
     va_end(args);
 }
 
-static U32   peek() { return smTokStreamPeek(&TS); }
-static void  eat() { smTokStreamEat(&TS); }
-static SmPos tokPos() { return smTokStreamPos(&TS); }
-static I32   tokNum() { return smTokStreamNum(&TS); }
-static SmBuf tokBuf() { return smTokStreamBuf(&TS); }
+static U32    peek() { return smTokStreamPeek(&TS); }
+static void   eat() { smTokStreamEat(&TS); }
+static SmPos  tokPos() { return smTokStreamPos(&TS); }
+static I32    tokNum() { return smTokStreamNum(&TS); }
+static SmView tokView() { return smTokStreamView(&TS); }
 
 static void expect(U32 tok) {
     U32 peeked = peek();
     if (peeked != tok) {
-        SmBuf expected = smTokName(tok);
-        SmBuf found    = smTokName(peeked);
-        fatal("expected " SM_BUF_FMT ", got " SM_BUF_FMT "\n",
-              SM_BUF_FMT_ARG(expected), SM_BUF_FMT_ARG(found));
+        SmView expected = smTokName(tok);
+        SmView found    = smTokName(peeked);
+        fatal("expected " SM_VIEW_FMT ", got " SM_VIEW_FMT "\n",
+              SM_VIEW_FMT_ARG(expected), SM_VIEW_FMT_ARG(found));
     }
 }
 
@@ -840,7 +838,7 @@ static CfgI32Tab parseTags() {
             continue;
         case SM_TOK_STR:
         case SM_TOK_ID: {
-            SmBuf name = intern(tokBuf());
+            SmView name = intern(tokView());
             eat();
             expect('=');
             eat();
@@ -873,7 +871,7 @@ static CfgInBuf parseInSects(CfgOut const *out) {
             break;
         case SM_TOK_STR:
         case SM_TOK_ID:
-            in.name = intern(tokBuf());
+            in.name = intern(tokView());
             break;
         }
         SmPos pos = tokPos();
@@ -884,7 +882,7 @@ static CfgInBuf parseInSects(CfgOut const *out) {
             switch (peek()) {
             case SM_TOK_STR:
             case SM_TOK_ID: {
-                if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("kind"))) {
+                if (smViewEqualIgnoreAsciiCase(tokView(), SM_VIEW("kind"))) {
                     eat();
                     expect('=');
                     eat();
@@ -892,40 +890,40 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                     switch (peek()) {
                     case SM_TOK_STR:
                     case SM_TOK_ID: {
-                        if (smBufEqualIgnoreAsciiCase(tokBuf(),
-                                                      SM_BUF("code"))) {
+                        if (smViewEqualIgnoreAsciiCase(tokView(),
+                                                       SM_VIEW("code"))) {
                             eat();
                             in.kind = CFG_IN_CODE;
                             continue;
                         }
-                        if (smBufEqualIgnoreAsciiCase(tokBuf(),
-                                                      SM_BUF("data"))) {
+                        if (smViewEqualIgnoreAsciiCase(tokView(),
+                                                       SM_VIEW("data"))) {
                             eat();
                             in.kind = CFG_IN_DATA;
                             continue;
                         }
-                        if (smBufEqualIgnoreAsciiCase(tokBuf(),
-                                                      SM_BUF("uninit"))) {
+                        if (smViewEqualIgnoreAsciiCase(tokView(),
+                                                       SM_VIEW("uninit"))) {
                             eat();
                             in.kind = CFG_IN_UNINIT;
                             continue;
                         }
-                        if (smBufEqualIgnoreAsciiCase(tokBuf(),
-                                                      SM_BUF("gb_hram"))) {
+                        if (smViewEqualIgnoreAsciiCase(tokView(),
+                                                       SM_VIEW("gb_hram"))) {
                             eat();
                             in.kind = CFG_IN_GB_HRAM;
                             continue;
                         }
-                        SmBuf buf = tokBuf();
-                        fatal("unrecognized input section kind: " SM_BUF_FMT
+                        SmView view = tokView();
+                        fatal("unrecognized input section kind: " SM_VIEW_FMT
                               "\n",
-                              SM_BUF_FMT_ARG(buf));
+                              SM_VIEW_FMT_ARG(view));
                     }
                     default:
                         expect(SM_TOK_STR);
                     }
                 }
-                if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("align"))) {
+                if (smViewEqualIgnoreAsciiCase(tokView(), SM_VIEW("align"))) {
                     eat();
                     expect('=');
                     eat();
@@ -936,7 +934,7 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                     }
                     continue;
                 }
-                if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("size"))) {
+                if (smViewEqualIgnoreAsciiCase(tokView(), SM_VIEW("size"))) {
                     eat();
                     expect('=');
                     eat();
@@ -944,7 +942,7 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                     in.sizeval = eatU16();
                     continue;
                 }
-                if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("fill"))) {
+                if (smViewEqualIgnoreAsciiCase(tokView(), SM_VIEW("fill"))) {
                     eat();
                     in.fill = true;
                     if (peek() == '=') {
@@ -954,14 +952,14 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                     }
                     continue;
                 }
-                if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("define"))) {
+                if (smViewEqualIgnoreAsciiCase(tokView(), SM_VIEW("define"))) {
                     in.defpos = tokPos();
                     eat();
                     in.define = in.name;
                     if (peek() == '=') {
                         eat();
                         if ((peek() == SM_TOK_STR) || (peek() == SM_TOK_ID)) {
-                            in.define = intern(tokBuf());
+                            in.define = intern(tokView());
                             in.defpos = tokPos();
                             eat();
                         } else {
@@ -970,9 +968,9 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                     }
                     continue;
                 }
-                SmBuf buf = tokBuf();
-                fatal("unrecognized input section attribute: " SM_BUF_FMT "\n",
-                      SM_BUF_FMT_ARG(buf));
+                SmView view = tokView();
+                fatal("unrecognized input section attribute: " SM_VIEW_FMT "\n",
+                      SM_VIEW_FMT_ARG(view));
                 continue;
             }
             case '[': {
@@ -982,13 +980,13 @@ static CfgInBuf parseInSects(CfgOut const *out) {
                 // copy base tags
                 for (UInt i = 0; i < oldtags.size; ++i) {
                     CfgI32Entry *oldtag = oldtags.entries + i;
-                    if (smBufEqual(oldtag->name, SM_BUF_NULL)) {
+                    if (smViewEqual(oldtag->name, SM_VIEW_NULL)) {
                         continue;
                     }
                     // only apply tag if the output section does not already
                     // have it
                     CfgI32Entry *newtag = cfgI32TabFind(&in.tags, oldtag->name);
-                    if (smBufEqual(newtag->name, SM_BUF_NULL)) {
+                    if (smViewEqual(newtag->name, SM_VIEW_NULL)) {
                         *newtag = *oldtag;
                     }
                 }
@@ -1011,7 +1009,7 @@ static CfgInBuf parseInSects(CfgOut const *out) {
         continue;
     }
 endsects:
-    return ins.inner;
+    return ins.view;
 }
 
 static void parseOutSects() {
@@ -1031,14 +1029,15 @@ static void parseOutSects() {
             Bool   start = false;
             Bool   size  = false;
             Bool   kind  = false;
-            out.name     = intern(tokBuf());
+            out.name     = intern(tokView());
             SmPos pos    = tokPos();
             eat();
             while (true) {
                 switch (peek()) {
                 case SM_TOK_STR:
                 case SM_TOK_ID: {
-                    if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("start"))) {
+                    if (smViewEqualIgnoreAsciiCase(tokView(),
+                                                   SM_VIEW("start"))) {
                         eat();
                         expect('=');
                         eat();
@@ -1046,7 +1045,8 @@ static void parseOutSects() {
                         out.start = eatU16();
                         continue;
                     }
-                    if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("size"))) {
+                    if (smViewEqualIgnoreAsciiCase(tokView(),
+                                                   SM_VIEW("size"))) {
                         eat();
                         expect('=');
                         eat();
@@ -1054,7 +1054,8 @@ static void parseOutSects() {
                         out.size = eatU16();
                         continue;
                     }
-                    if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("fill"))) {
+                    if (smViewEqualIgnoreAsciiCase(tokView(),
+                                                   SM_VIEW("fill"))) {
                         eat();
                         out.fill = true;
                         if (peek() == '=') {
@@ -1064,7 +1065,8 @@ static void parseOutSects() {
                         }
                         continue;
                     }
-                    if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("kind"))) {
+                    if (smViewEqualIgnoreAsciiCase(tokView(),
+                                                   SM_VIEW("kind"))) {
                         eat();
                         expect('=');
                         eat();
@@ -1072,28 +1074,30 @@ static void parseOutSects() {
                         switch (peek()) {
                         case SM_TOK_STR:
                         case SM_TOK_ID: {
-                            if (smBufEqualIgnoreAsciiCase(tokBuf(),
-                                                          SM_BUF("ro"))) {
+                            if (smViewEqualIgnoreAsciiCase(tokView(),
+                                                           SM_VIEW("ro"))) {
                                 eat();
                                 out.kind = CFG_OUT_READONLY;
                                 continue;
                             }
-                            if (smBufEqualIgnoreAsciiCase(tokBuf(),
-                                                          SM_BUF("rw"))) {
+                            if (smViewEqualIgnoreAsciiCase(tokView(),
+                                                           SM_VIEW("rw"))) {
                                 eat();
                                 out.kind = CFG_OUT_READWRITE;
                                 continue;
                             }
-                            SmBuf buf = tokBuf();
-                            fatal("unrecognized ouput section kind: " SM_BUF_FMT
-                                  "\n",
-                                  SM_BUF_FMT_ARG(buf));
+                            SmView view = tokView();
+                            fatal(
+                                "unrecognized ouput section kind: " SM_VIEW_FMT
+                                "\n",
+                                SM_VIEW_FMT_ARG(view));
                         }
                         default:
                             expect(SM_TOK_STR);
                         }
                     }
-                    if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("define"))) {
+                    if (smViewEqualIgnoreAsciiCase(tokView(),
+                                                   SM_VIEW("define"))) {
                         out.defpos = tokPos();
                         eat();
                         out.define = out.name;
@@ -1101,7 +1105,7 @@ static void parseOutSects() {
                             eat();
                             if ((peek() == SM_TOK_STR) ||
                                 (peek() == SM_TOK_ID)) {
-                                out.define = intern(tokBuf());
+                                out.define = intern(tokView());
                                 out.defpos = tokPos();
                                 eat();
                             } else {
@@ -1110,10 +1114,10 @@ static void parseOutSects() {
                         }
                         continue;
                     }
-                    SmBuf buf = tokBuf();
-                    fatal("unrecognized output section attribute: " SM_BUF_FMT
+                    SmView view = tokView();
+                    fatal("unrecognized output section attribute: " SM_VIEW_FMT
                           "\n",
-                          SM_BUF_FMT_ARG(buf));
+                          SM_VIEW_FMT_ARG(view));
                     continue;
                 }
                 case '[':
@@ -1149,22 +1153,22 @@ static void parseOutSects() {
             continue;
         }
         default: {
-            SmBuf name = smTokName(peek());
-            fatal("unexpected " SM_BUF_FMT "\n", SM_BUF_FMT_ARG(name));
+            SmView view = smTokName(peek());
+            fatal("unexpected " SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(view));
         }
         }
     }
 endsects:
     expect('}');
     eat();
-    if (CFGS.inner.len == 0) {
+    if (CFGS.view.len == 0) {
         fatal("at least 1 output section is required for linking\n");
     }
 }
 
 static void parseCfg() {
-    SmBuf cfgname =
-        smPathIntern(&STRS, (SmBuf){(U8 *)cfgfile_name, strlen(cfgfile_name)});
+    SmView cfgname =
+        smPathIntern(&STRS, (SmView){(U8 *)cfgfile_name, strlen(cfgfile_name)});
     smTokStreamFileInit(&TS, cfgname, cfgfile);
     Bool sections = false;
     while (peek() != SM_TOK_EOF) {
@@ -1175,39 +1179,39 @@ static void parseCfg() {
             continue;
         case SM_TOK_STR:
         case SM_TOK_ID: {
-            if (smBufEqualIgnoreAsciiCase(tokBuf(), SM_BUF("sections"))) {
+            if (smViewEqualIgnoreAsciiCase(tokView(), SM_VIEW("sections"))) {
                 eat();
                 parseOutSects();
                 sections = true;
                 continue;
             }
-            SmBuf buf = tokBuf();
-            fatal("unrecognized config area: " SM_BUF_FMT "\n",
-                  SM_BUF_FMT_ARG(buf));
+            SmView view = tokView();
+            fatal("unrecognized config area: " SM_VIEW_FMT "\n",
+                  SM_VIEW_FMT_ARG(view));
         }
         default: {
-            SmBuf name = smTokName(peek());
-            fatal("unexpected " SM_BUF_FMT "\n", SM_BUF_FMT_ARG(name));
+            SmView view = smTokName(peek());
+            fatal("unexpected " SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(view));
         }
         }
     }
     if (!sections) {
         fatal("no `sections` config area was defined\n");
     }
-    for (UInt i = 0; i < CFGS.inner.len; ++i) {
-        CfgOut *out = CFGS.inner.items + i;
+    for (UInt i = 0; i < CFGS.view.len; ++i) {
+        CfgOut *out = CFGS.view.items + i;
         // Pre-add the output sections defined in the cfg
         outGBufAdd((Out){
             .name = out->name,
             .pc   = out->start,
             .end  = out->start + out->size,
         });
-        if (!smBufEqual(out->define, SM_BUF_NULL)) {
+        if (!smViewEqual(out->define, SM_VIEW_NULL)) {
             static SmGBuf buf = {0};
-            buf.inner.len     = 0;
+            buf.view.len      = 0;
             smGBufCat(&buf, out->define);
-            smGBufCat(&buf, SM_BUF("_START"));
-            SmBuf start = intern(buf.inner);
+            smGBufCat(&buf, SM_VIEW("_START"));
+            SmView start = intern(buf.view);
             smSymTabAdd(&SYMS, (SmSym){
                                    .lbl     = globalLbl(start),
                                    .value   = constExprBuf(out->start),
@@ -1216,10 +1220,10 @@ static void parseCfg() {
                                    .pos     = out->defpos,
                                    .flags   = SM_SYM_EQU,
                                });
-            buf.inner.len = 0;
+            buf.view.len = 0;
             smGBufCat(&buf, out->define);
-            smGBufCat(&buf, SM_BUF("_SIZE"));
-            SmBuf size = intern(buf.inner);
+            smGBufCat(&buf, SM_VIEW("_SIZE"));
+            SmView size = intern(buf.view);
             smSymTabAdd(&SYMS, (SmSym){
                                    .lbl     = globalLbl(size),
                                    .value   = constExprBuf(out->size),
@@ -1242,9 +1246,10 @@ static void parseCfg() {
             case CFG_OUT_READONLY:
                 // TODO could check this while parsing
                 if (in->kind != CFG_IN_CODE) {
-                    fatal("input section " SM_BUF_FMT " is not kind-compatible "
-                          "with output section " SM_BUF_FMT "\n",
-                          SM_BUF_FMT_ARG(in->name), SM_BUF_FMT_ARG(out->name));
+                    fatal(
+                        "input section " SM_VIEW_FMT " is not kind-compatible "
+                        "with output section " SM_VIEW_FMT "\n",
+                        SM_VIEW_FMT_ARG(in->name), SM_VIEW_FMT_ARG(out->name));
                 }
             case CFG_OUT_READWRITE:
                 continue;
@@ -1257,8 +1262,8 @@ static void parseCfg() {
 
 static void serialize() {
     SmSerde ser = {outfile, {(U8 *)outfile_name, strlen(outfile_name)}};
-    for (UInt i = 0; i < CFGS.inner.len; ++i) {
-        CfgOut *cfgout = CFGS.inner.items + i;
+    for (UInt i = 0; i < CFGS.view.len; ++i) {
+        CfgOut *cfgout = CFGS.view.items + i;
         for (UInt j = 0; j < cfgout->ins.len; ++j) {
             CfgIn *in = cfgout->ins.items + j;
             if ((in->kind == CFG_IN_UNINIT) || (in->kind == CFG_IN_GB_HRAM)) {
@@ -1266,7 +1271,7 @@ static void serialize() {
             }
             SmSect *sect = findSect(in->name);
             assert(sect);
-            smSerializeBuf(&ser, sect->data.inner);
+            smSerializeView(&ser, sect->data.view);
         }
         if (cfgout->fill) {
             Out *out = findOut(cfgout->name);
@@ -1278,7 +1283,7 @@ static void serialize() {
     }
 }
 
-static SmLbl globalLbl(SmBuf name) { return (SmLbl){{0}, name}; }
+static SmLbl globalLbl(SmView name) { return (SmLbl){{0}, name}; }
 
 static SmExprBuf constExprBuf(I32 num) {
     return smExprIntern(
@@ -1307,9 +1312,9 @@ static int cmpSym(SmSym const *lhs, SmSym const *rhs) {
     if (smLblEqual(rhs->lbl, SM_LBL_NULL)) {
         return -1;
     }
-    SmBuf lname = fullLblName(lhs->lbl);
-    SmBuf rname = fullLblName(rhs->lbl);
-    int   cmp = memcmp(lname.bytes, rname.bytes, uIntMin(lname.len, rname.len));
+    SmView lname = fullLblName(lhs->lbl);
+    SmView rname = fullLblName(rhs->lbl);
+    int cmp = memcmp(lname.bytes, rname.bytes, uIntMin(lname.len, rname.len));
     if (!cmp) {
         return lname.len - rname.len;
     }
@@ -1345,21 +1350,21 @@ static void writeSyms() {
             (sym->value.items[0].kind != SM_EXPR_CONST)) {
             continue;
         }
-        SmBuf   name   = fullLblName(sym->lbl);
+        SmView  name   = fullLblName(sym->lbl);
         CfgOut *cfgout = NULL;
         CfgIn  *in     = findCfgIn(sym->section, &cfgout);
         assert(in);
         I32          bank = 0;
-        CfgI32Entry *tag  = cfgI32TabFind(&in->tags, SM_BUF("bank"));
+        CfgI32Entry *tag  = cfgI32TabFind(&in->tags, SM_VIEW("bank"));
         if (tag) {
             bank = tag->num;
         }
-        char const *fmt = "%02X:%04X " SM_BUF_FMT "\n";
+        char const *fmt = "%02X:%04X " SM_VIEW_FMT "\n";
         if (bank > 0xFF) {
-            fmt = "%04X:%04X " SM_BUF_FMT "\n";
+            fmt = "%04X:%04X " SM_VIEW_FMT "\n";
         }
         if (fprintf(hnd, fmt, bank, sym->value.items[0].num,
-                    SM_BUF_FMT_ARG(name)) < 0) {
+                    SM_VIEW_FMT_ARG(name)) < 0) {
             smFatal("%s: failed to write file: %s\n", symfile_name,
                     strerror(errno));
         }
@@ -1376,9 +1381,9 @@ static void writeTags() {
         if (smLblEqual(sym->lbl, SM_LBL_NULL)) {
             continue;
         }
-        SmBuf name = fullLblName(sym->lbl);
-        if (fprintf(hnd, SM_BUF_FMT "\t" SM_BUF_FMT "\t" UINT_FMT " \n",
-                    SM_BUF_FMT_ARG(name), SM_BUF_FMT_ARG(sym->pos.file),
+        SmView name = fullLblName(sym->lbl);
+        if (fprintf(hnd, SM_VIEW_FMT "\t" SM_VIEW_FMT "\t" UINT_FMT " \n",
+                    SM_VIEW_FMT_ARG(name), SM_VIEW_FMT_ARG(sym->pos.file),
                     sym->pos.line) < 0) {
             smFatal("%s: failed to write file: %s\n", symfile_name,
                     strerror(errno));

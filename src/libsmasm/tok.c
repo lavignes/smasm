@@ -10,77 +10,77 @@
 #include <string.h>
 
 static struct {
-    U32   tok;
-    SmBuf buf;
+    U32    tok;
+    SmView view;
 } const TOK_NAMES[] = {
-    {SM_TOK_EOF, SM_BUF("end of file")},
-    {SM_TOK_ID, SM_BUF("identifier")},
-    {SM_TOK_NUM, SM_BUF("number")},
-    {SM_TOK_STR, SM_BUF("string")},
-    {SM_TOK_DB, SM_BUF("@DB")},
-    {SM_TOK_DW, SM_BUF("@DW")},
-    {SM_TOK_DS, SM_BUF("@DS")},
-    {SM_TOK_SECTION, SM_BUF("@SECTION")},
-    {SM_TOK_SECTPUSH, SM_BUF("@SECTPUSH")},
-    {SM_TOK_SECTPOP, SM_BUF("@SECTPOP")},
-    {SM_TOK_INCLUDE, SM_BUF("@INCLUDE")},
-    {SM_TOK_INCBIN, SM_BUF("@INCBIN")},
-    {SM_TOK_IF, SM_BUF("@IF")},
-    {SM_TOK_ELSE, SM_BUF("@ELSE")},
-    {SM_TOK_END, SM_BUF("@END")},
-    {SM_TOK_MACRO, SM_BUF("@MACRO")},
-    {SM_TOK_REPEAT, SM_BUF("@REPEAT")},
-    {SM_TOK_STRUCT, SM_BUF("@STRUCT")},
-    {SM_TOK_UNION, SM_BUF("@UNION")},
-    {SM_TOK_STRFMT, SM_BUF("@STRFMT")},
-    {SM_TOK_IDFMT, SM_BUF("@IDFMT")},
-    {SM_TOK_ALLOC, SM_BUF("@ALLOC")},
-    {SM_TOK_FATAL, SM_BUF("@FATAL")},
-    {SM_TOK_PRINT, SM_BUF("@PRINT")},
-    {SM_TOK_DEFINED, SM_BUF("@DEFINED")},
-    {SM_TOK_STRLEN, SM_BUF("@STRLEN")},
-    {SM_TOK_TAG, SM_BUF("@TAG")},
-    {SM_TOK_REL, SM_BUF("@REL")},
-    {SM_TOK_ASL, SM_BUF("`<<`")},
-    {SM_TOK_ASR, SM_BUF("`>>`")},
-    {SM_TOK_LSR, SM_BUF("`~>`")},
-    {SM_TOK_LTE, SM_BUF("`<=`")},
-    {SM_TOK_GTE, SM_BUF("`>=`")},
-    {SM_TOK_DEQ, SM_BUF("`==`")},
-    {SM_TOK_NEQ, SM_BUF("`!=`")},
-    {SM_TOK_AND, SM_BUF("`&&`")},
-    {SM_TOK_OR, SM_BUF("`||`")},
-    {SM_TOK_DCOLON, SM_BUF("`::`")},
-    {SM_TOK_EXPEQU, SM_BUF("`=:`")},
-    {SM_TOK_DSTAR, SM_BUF("`**`")},
-    {SM_TOK_AF, SM_BUF("register `AF`")},
-    {SM_TOK_BC, SM_BUF("register `BC`")},
-    {SM_TOK_DE, SM_BUF("register `DE`")},
-    {SM_TOK_HL, SM_BUF("register `HL`")},
-    {SM_TOK_SP, SM_BUF("register `SP`")},
-    {SM_TOK_NC, SM_BUF("condition `NC`")},
-    {SM_TOK_NZ, SM_BUF("condition `NZ`")},
-    {SM_TOK_ARG, SM_BUF("@ARG")},
-    {SM_TOK_NARG, SM_BUF("@NARG")},
-    {SM_TOK_SHIFT, SM_BUF("@SHIFT")},
-    {SM_TOK_UNIQUE, SM_BUF("@UNIQUE")},
+    {SM_TOK_EOF, SM_VIEW("end of file")},
+    {SM_TOK_ID, SM_VIEW("identifier")},
+    {SM_TOK_NUM, SM_VIEW("number")},
+    {SM_TOK_STR, SM_VIEW("string")},
+    {SM_TOK_DB, SM_VIEW("@DB")},
+    {SM_TOK_DW, SM_VIEW("@DW")},
+    {SM_TOK_DS, SM_VIEW("@DS")},
+    {SM_TOK_SECTION, SM_VIEW("@SECTION")},
+    {SM_TOK_SECTPUSH, SM_VIEW("@SECTPUSH")},
+    {SM_TOK_SECTPOP, SM_VIEW("@SECTPOP")},
+    {SM_TOK_INCLUDE, SM_VIEW("@INCLUDE")},
+    {SM_TOK_INCBIN, SM_VIEW("@INCBIN")},
+    {SM_TOK_IF, SM_VIEW("@IF")},
+    {SM_TOK_ELSE, SM_VIEW("@ELSE")},
+    {SM_TOK_END, SM_VIEW("@END")},
+    {SM_TOK_MACRO, SM_VIEW("@MACRO")},
+    {SM_TOK_REPEAT, SM_VIEW("@REPEAT")},
+    {SM_TOK_STRUCT, SM_VIEW("@STRUCT")},
+    {SM_TOK_UNION, SM_VIEW("@UNION")},
+    {SM_TOK_STRFMT, SM_VIEW("@STRFMT")},
+    {SM_TOK_IDFMT, SM_VIEW("@IDFMT")},
+    {SM_TOK_ALLOC, SM_VIEW("@ALLOC")},
+    {SM_TOK_FATAL, SM_VIEW("@FATAL")},
+    {SM_TOK_PRINT, SM_VIEW("@PRINT")},
+    {SM_TOK_DEFINED, SM_VIEW("@DEFINED")},
+    {SM_TOK_STRLEN, SM_VIEW("@STRLEN")},
+    {SM_TOK_TAG, SM_VIEW("@TAG")},
+    {SM_TOK_REL, SM_VIEW("@REL")},
+    {SM_TOK_ASL, SM_VIEW("`<<`")},
+    {SM_TOK_ASR, SM_VIEW("`>>`")},
+    {SM_TOK_LSR, SM_VIEW("`~>`")},
+    {SM_TOK_LTE, SM_VIEW("`<=`")},
+    {SM_TOK_GTE, SM_VIEW("`>=`")},
+    {SM_TOK_DEQ, SM_VIEW("`==`")},
+    {SM_TOK_NEQ, SM_VIEW("`!=`")},
+    {SM_TOK_AND, SM_VIEW("`&&`")},
+    {SM_TOK_OR, SM_VIEW("`||`")},
+    {SM_TOK_DCOLON, SM_VIEW("`::`")},
+    {SM_TOK_EXPEQU, SM_VIEW("`=:`")},
+    {SM_TOK_DSTAR, SM_VIEW("`**`")},
+    {SM_TOK_AF, SM_VIEW("register `AF`")},
+    {SM_TOK_BC, SM_VIEW("register `BC`")},
+    {SM_TOK_DE, SM_VIEW("register `DE`")},
+    {SM_TOK_HL, SM_VIEW("register `HL`")},
+    {SM_TOK_SP, SM_VIEW("register `SP`")},
+    {SM_TOK_NC, SM_VIEW("condition `NC`")},
+    {SM_TOK_NZ, SM_VIEW("condition `NZ`")},
+    {SM_TOK_ARG, SM_VIEW("@ARG")},
+    {SM_TOK_NARG, SM_VIEW("@NARG")},
+    {SM_TOK_SHIFT, SM_VIEW("@SHIFT")},
+    {SM_TOK_UNIQUE, SM_VIEW("@UNIQUE")},
 };
 
 static SmBufIntern CHAR_NAMES = {0};
 
-SmBuf smTokName(U32 c) {
+SmView smTokName(U32 c) {
     for (size_t i = 0; i < (sizeof(TOK_NAMES) / sizeof(TOK_NAMES[0])); ++i) {
         if (c == TOK_NAMES[i].tok) {
-            return TOK_NAMES[i].buf;
+            return TOK_NAMES[i].view;
         }
     }
     SmGBuf buf = {0};
-    smGBufCat(&buf, SM_BUF("`"));
+    smGBufCat(&buf, SM_VIEW("`"));
     smUtf8Cat(&buf, c);
-    smGBufCat(&buf, SM_BUF("`"));
-    SmBuf name = smBufIntern(&CHAR_NAMES, buf.inner);
+    smGBufCat(&buf, SM_VIEW("`"));
+    SmView view = smBufIntern(&CHAR_NAMES, buf.view);
     smGBufFini(&buf);
-    return name;
+    return view;
 }
 
 void smMacroTokGBufAdd(SmMacroTokGBuf *buf, SmMacroTok item) {
@@ -157,7 +157,7 @@ _Noreturn void smTokStreamFatalV(SmTokStream *ts, char const *fmt,
                                  va_list args) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
-    case SM_TOK_STREAM_BUF:
+    case SM_TOK_STREAM_VIEW:
     case SM_TOK_STREAM_FMT:
         smTokStreamFatalPosV(ts, ts->pos, fmt, args);
     case SM_TOK_STREAM_MACRO:
@@ -165,10 +165,10 @@ _Noreturn void smTokStreamFatalV(SmTokStream *ts, char const *fmt,
         smTokStreamFatalPosV(ts, ts->macro.buf.items[ts->macro.pos].pos, fmt,
                              args);
     case SM_TOK_STREAM_REPEAT:
-        smTokStreamFatalPosV(ts, ts->repeat.buf.inner.items[ts->repeat.pos].pos,
+        smTokStreamFatalPosV(ts, ts->repeat.buf.view.items[ts->repeat.pos].pos,
                              fmt, args);
     case SM_TOK_STREAM_IFELSE:
-        smTokStreamFatalPosV(ts, ts->ifelse.buf.inner.items[ts->ifelse.pos].pos,
+        smTokStreamFatalPosV(ts, ts->ifelse.buf.view.items[ts->ifelse.pos].pos,
                              fmt, args);
     default:
         SM_UNREACHABLE();
@@ -180,28 +180,28 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
 
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
-    case SM_TOK_STREAM_BUF:
+    case SM_TOK_STREAM_VIEW:
     case SM_TOK_STREAM_FMT:
     case SM_TOK_STREAM_IFELSE:
-        fprintf(stderr, SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": ",
-                SM_BUF_FMT_ARG(pos.file), pos.line, pos.col);
+        fprintf(stderr, SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+                SM_VIEW_FMT_ARG(pos.file), pos.line, pos.col);
         break;
     case SM_TOK_STREAM_MACRO:
         // TODO macro arg position
         fprintf(stderr,
-                SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": in macro " SM_BUF_FMT
-                           "\n\t" SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": ",
-                SM_BUF_FMT_ARG(ts->pos.file), ts->pos.line, ts->pos.col,
-                SM_BUF_FMT_ARG(ts->macro.name), SM_BUF_FMT_ARG(pos.file),
+                SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT ": in macro " SM_VIEW_FMT
+                            "\n\t" SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+                SM_VIEW_FMT_ARG(ts->pos.file), ts->pos.line, ts->pos.col,
+                SM_VIEW_FMT_ARG(ts->macro.name), SM_VIEW_FMT_ARG(pos.file),
                 pos.line, pos.col);
         break;
     case SM_TOK_STREAM_REPEAT:
         fprintf(stderr,
-                SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT
-                           ": at repeat index " UINT_FMT "\n\t" SM_BUF_FMT
-                           ":" UINT_FMT ":" UINT_FMT ": ",
-                SM_BUF_FMT_ARG(ts->pos.file), ts->pos.line, ts->pos.col,
-                ts->repeat.idx, SM_BUF_FMT_ARG(pos.file), pos.line, pos.col);
+                SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT
+                            ": at repeat index " UINT_FMT "\n\t" SM_VIEW_FMT
+                            ":" UINT_FMT ":" UINT_FMT ": ",
+                SM_VIEW_FMT_ARG(ts->pos.file), ts->pos.line, ts->pos.col,
+                ts->repeat.idx, SM_VIEW_FMT_ARG(pos.file), pos.line, pos.col);
         break;
     default:
         SM_UNREACHABLE();
@@ -209,30 +209,25 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
     smFatalV(fmt, args);
 }
 
-void smTokStreamFileInit(SmTokStream *ts, SmBuf name, FILE *hnd) {
+void smTokStreamFileInit(SmTokStream *ts, SmView name, FILE *hnd) {
     memset(ts, 0, sizeof(SmTokStream));
     ts->kind             = SM_TOK_STREAM_FILE;
     ts->pos              = (SmPos){name, 1, 1};
     ts->chardev.file.hnd = hnd;
-    ts->chardev.stashed  = false;
-    ts->chardev.cstashed = false;
     ts->chardev.cline    = 1;
     ts->chardev.ccol     = 1;
 }
 
-void smTokStreamBufInit(SmTokStream *ts, SmBuf name, SmBuf buf) {
+void smTokStreamViewInit(SmTokStream *ts, SmView name, SmView view) {
     memset(ts, 0, sizeof(SmTokStream));
-    ts->kind               = SM_TOK_STREAM_BUF;
-    ts->pos                = (SmPos){name, 1, 1};
-    ts->chardev.src.buf    = buf;
-    ts->chardev.src.offset = 0;
-    ts->chardev.stashed    = false;
-    ts->chardev.cstashed   = false;
-    ts->chardev.cline      = 1;
-    ts->chardev.ccol       = 1;
+    ts->kind             = SM_TOK_STREAM_VIEW;
+    ts->pos              = (SmPos){name, 1, 1};
+    ts->chardev.src.view = view;
+    ts->chardev.cline    = 1;
+    ts->chardev.ccol     = 1;
 }
 
-void smTokStreamMacroInit(SmTokStream *ts, SmBuf name, SmPos pos,
+void smTokStreamMacroInit(SmTokStream *ts, SmView name, SmPos pos,
                           SmMacroTokBuf buf, SmMacroArgQueue args, UInt nonce) {
     memset(ts, 0, sizeof(SmTokStream));
     ts->kind        = SM_TOK_STREAM_MACRO;
@@ -252,12 +247,12 @@ void smTokStreamRepeatInit(SmTokStream *ts, SmPos pos, SmRepeatTokGBuf buf,
     ts->repeat.cnt = cnt;
 }
 
-void smTokStreamFmtInit(SmTokStream *ts, SmPos pos, SmBuf buf, U32 tok) {
+void smTokStreamFmtInit(SmTokStream *ts, SmPos pos, SmView fmt, U32 tok) {
     memset(ts, 0, sizeof(SmTokStream));
-    ts->kind    = SM_TOK_STREAM_FMT;
-    ts->pos     = pos;
-    ts->fmt.buf = buf;
-    ts->fmt.tok = tok;
+    ts->kind     = SM_TOK_STREAM_FMT;
+    ts->pos      = pos;
+    ts->fmt.view = fmt;
+    ts->fmt.tok  = tok;
 }
 
 void smTokStreamIfElseInit(SmTokStream *ts, SmPos pos, SmPosTokGBuf buf) {
@@ -272,13 +267,13 @@ void smTokStreamFini(SmTokStream *ts) {
     case SM_TOK_STREAM_FILE:
         if (fclose(ts->chardev.file.hnd) == EOF) {
             int err = errno;
-            fprintf(stderr, SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": ",
-                    SM_BUF_FMT_ARG(ts->pos.file), ts->pos.line, ts->pos.col);
+            fprintf(stderr, SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+                    SM_VIEW_FMT_ARG(ts->pos.file), ts->pos.line, ts->pos.col);
             smFatal("failed to close file: %s\n", strerror(err));
         }
         smGBufFini(&ts->chardev.buf);
         return;
-    case SM_TOK_STREAM_BUF:
+    case SM_TOK_STREAM_VIEW:
         return;
     case SM_TOK_STREAM_MACRO:
         smMacroArgQueueFini(&ts->macro.args);
@@ -297,16 +292,16 @@ void smTokStreamFini(SmTokStream *ts) {
 }
 
 static _Noreturn void fatalChar(SmTokStream *ts, char const *fmt, ...) {
-    fprintf(stderr, SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": ",
-            SM_BUF_FMT_ARG(ts->pos.file), ts->chardev.cline, ts->chardev.ccol);
+    fprintf(stderr, SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+            SM_VIEW_FMT_ARG(ts->pos.file), ts->chardev.cline, ts->chardev.ccol);
     va_list args;
     va_start(args, fmt);
     smFatalV(fmt, args);
-    va_end(args);
 }
 
 static U32 peek(SmTokStream *ts) {
-    assert((ts->kind == SM_TOK_STREAM_FILE) || (ts->kind == SM_TOK_STREAM_BUF));
+    assert((ts->kind == SM_TOK_STREAM_FILE) ||
+           (ts->kind == SM_TOK_STREAM_VIEW));
     if (ts->chardev.cstashed) {
         return ts->chardev.cstash;
     }
@@ -326,13 +321,13 @@ static U32 peek(SmTokStream *ts) {
                 }
             }
         } else {
-            SM_TODO("buf");
+            SM_TODO("STREAM_VIEW");
         }
     }
     UInt len = 0;
     while (len == 0) {
         ts->chardev.cstash =
-            smUtf8Decode((SmBuf){ts->chardev.cbuf, ts->chardev.clen}, &len);
+            smUtf8Decode((SmView){ts->chardev.cbuf, ts->chardev.clen}, &len);
         ts->chardev.clen -= len;
         memmove(ts->chardev.cbuf, ts->chardev.cbuf + len, ts->chardev.clen);
         if (len == 0) {
@@ -367,34 +362,35 @@ static void eat(SmTokStream *ts) {
 }
 
 static void pushChar(SmTokStream *ts, U32 c) {
-    assert((ts->kind == SM_TOK_STREAM_FILE) || (ts->kind == SM_TOK_STREAM_BUF));
+    assert((ts->kind == SM_TOK_STREAM_FILE) ||
+           (ts->kind == SM_TOK_STREAM_VIEW));
     U8   tmp[4];
-    UInt len = smUtf8Encode((SmBuf){tmp, 4}, c);
-    smGBufCat(&ts->chardev.buf, (SmBuf){tmp, len});
+    UInt len = smUtf8Encode((SmView){tmp, 4}, c);
+    smGBufCat(&ts->chardev.buf, (SmView){tmp, len});
 }
 
 static char const DIGITS[] = "0123456789ABCDEF";
 
 static I32 parseChardev(SmTokStream *ts, I32 radix) {
-    I32    value = 0;
-    SmBuf *buf   = &ts->chardev.buf.inner;
-    if (buf->len == 0) {
+    I32     value = 0;
+    SmView *view  = &ts->chardev.buf.view;
+    if (view->len == 0) {
         smTokStreamFatal(ts, "empty number\n");
     }
-    for (UInt i = 0; i < buf->len; ++i) {
+    for (UInt i = 0; i < view->len; ++i) {
         for (UInt j = 0; j < (sizeof(DIGITS) / sizeof(DIGITS[0])); ++j) {
-            if (buf->bytes[i] == DIGITS[j]) {
+            if (view->bytes[i] == DIGITS[j]) {
                 if (j >= (UInt)radix) {
-                    smTokStreamFatal(ts, "invalid number: " SM_BUF_FMT "\n",
-                                     SM_BUF_FMT_ARG(*buf));
+                    smTokStreamFatal(ts, "invalid number: " SM_VIEW_FMT "\n",
+                                     SM_VIEW_FMT_ARG(*view));
                 }
                 value *= radix;
                 value += j;
                 goto next;
             }
         }
-        smTokStreamFatal(ts, "invalid number: " SM_BUF_FMT "\n",
-                         SM_BUF_FMT_ARG(*buf));
+        smTokStreamFatal(ts, "invalid number: " SM_VIEW_FMT "\n",
+                         SM_VIEW_FMT_ARG(*view));
     next:
         (void)0;
     }
@@ -514,22 +510,22 @@ static U32 peekChardev(SmTokStream *ts) {
             pushChar(ts, toupper(c));
             eat(ts);
         }
-        SmBuf *buf = &ts->chardev.buf.inner;
+        SmView *view = &ts->chardev.buf.view;
         for (UInt i = 0; i < (sizeof(DIRECTIVES) / sizeof(DIRECTIVES[0]));
              ++i) {
             char const *name = DIRECTIVES[i].name;
             UInt        len  = strlen(name);
-            if (len != buf->len) {
+            if (len != view->len) {
                 continue;
             }
-            if (memcmp(name, buf->bytes, buf->len) == 0) {
+            if (memcmp(name, view->bytes, view->len) == 0) {
                 ts->chardev.stashed = true;
                 ts->chardev.stash   = DIRECTIVES[i].tok;
                 return ts->chardev.stash;
             }
         }
-        smTokStreamFatal(ts, "unrecognized directive: @" SM_BUF_FMT "\n",
-                         SM_BUF_FMT_ARG(*buf));
+        smTokStreamFatal(ts, "unrecognized directive: @" SM_VIEW_FMT "\n",
+                         SM_VIEW_FMT_ARG(*view));
     }
     if (peek(ts) == '"') {
         eat(ts);
@@ -671,7 +667,7 @@ static U32 peekChardev(SmTokStream *ts) {
             c = peek(ts);
         }
         // doesn't start with ident symbol. digraph?
-        if (ts->chardev.buf.inner.len == 0) {
+        if (ts->chardev.buf.view.len == 0) {
             eat(ts);
             U32 nc = peek(ts);
             for (UInt i = 0; i < (sizeof(DIGRAPHS) / sizeof(DIGRAPHS[0]));
@@ -686,9 +682,9 @@ static U32 peekChardev(SmTokStream *ts) {
             }
         }
         // 1 char identifier?
-        if (ts->chardev.buf.inner.len == 1) {
+        if (ts->chardev.buf.view.len == 1) {
             ts->chardev.stashed = true;
-            U32 upper           = toupper(ts->chardev.buf.inner.bytes[0]);
+            U32 upper           = toupper(ts->chardev.buf.view.bytes[0]);
             for (UInt i = 0; i < sizeof(SINGLES); ++i) {
                 if (SINGLES[i] == upper) {
                     ts->chardev.stash = upper;
@@ -699,10 +695,10 @@ static U32 peekChardev(SmTokStream *ts) {
             return ts->chardev.stash;
         }
         // 2 char ident?
-        if (ts->chardev.buf.inner.len == 2) {
+        if (ts->chardev.buf.view.len == 2) {
             ts->chardev.stashed = true;
-            U32 c0              = toupper(ts->chardev.buf.inner.bytes[0]);
-            U32 c1              = toupper(ts->chardev.buf.inner.bytes[1]);
+            U32 c0              = toupper(ts->chardev.buf.view.bytes[0]);
+            U32 c1              = toupper(ts->chardev.buf.view.bytes[1]);
             for (UInt i = 0; i < (sizeof(PAIRS) / sizeof(PAIRS[0])); ++i) {
                 if ((PAIRS[i].pair[0] == c0) && (PAIRS[i].pair[1] == c1)) {
                     ts->chardev.stashed = true;
@@ -712,7 +708,7 @@ static U32 peekChardev(SmTokStream *ts) {
             }
         }
         // ident?
-        if (ts->chardev.buf.inner.len != 0) {
+        if (ts->chardev.buf.view.len != 0) {
             ts->chardev.stashed = true;
             ts->chardev.stash   = SM_TOK_ID;
             return SM_TOK_ID;
@@ -772,7 +768,7 @@ static U32 peekRepeat(SmTokStream *ts) {
     if (ts->repeat.idx >= ts->repeat.cnt) {
         return SM_TOK_EOF;
     }
-    SmRepeatTok *tok = ts->repeat.buf.inner.items + ts->repeat.pos;
+    SmRepeatTok *tok = ts->repeat.buf.view.items + ts->repeat.pos;
     switch (tok->kind) {
     case SM_REPEAT_TOK_TOK:
         return tok->tok;
@@ -790,16 +786,16 @@ static U32 peekRepeat(SmTokStream *ts) {
 }
 
 static U32 peekIfElse(SmTokStream *ts) {
-    if (ts->ifelse.pos >= ts->ifelse.buf.inner.len) {
+    if (ts->ifelse.pos >= ts->ifelse.buf.view.len) {
         return SM_TOK_EOF;
     }
-    return ts->ifelse.buf.inner.items[ts->ifelse.pos].tok;
+    return ts->ifelse.buf.view.items[ts->ifelse.pos].tok;
 }
 
 U32 smTokStreamPeek(SmTokStream *ts) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
-    case SM_TOK_STREAM_BUF:
+    case SM_TOK_STREAM_VIEW:
         return peekChardev(ts);
     case SM_TOK_STREAM_MACRO:
         return peekMacro(ts);
@@ -817,9 +813,9 @@ U32 smTokStreamPeek(SmTokStream *ts) {
 void smTokStreamEat(SmTokStream *ts) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
-    case SM_TOK_STREAM_BUF:
-        ts->chardev.stashed       = false;
-        ts->chardev.buf.inner.len = 0;
+    case SM_TOK_STREAM_VIEW:
+        ts->chardev.stashed      = false;
+        ts->chardev.buf.view.len = 0;
         return;
     case SM_TOK_STREAM_MACRO: {
         SmMacroTok *tok = ts->macro.buf.items + ts->macro.pos;
@@ -844,7 +840,7 @@ void smTokStreamEat(SmTokStream *ts) {
     }
     case SM_TOK_STREAM_REPEAT:
         ++ts->repeat.pos;
-        if (ts->repeat.pos >= ts->repeat.buf.inner.len) {
+        if (ts->repeat.pos >= ts->repeat.buf.view.len) {
             ts->repeat.pos = 0;
             ++ts->repeat.idx;
         }
@@ -861,18 +857,22 @@ void smTokStreamEat(SmTokStream *ts) {
 }
 
 void smTokStreamRewind(SmTokStream *ts) {
-    assert((ts->kind == SM_TOK_STREAM_FILE) || (ts->kind == SM_TOK_STREAM_BUF));
     smTokStreamEat(ts);
-    if (ts->kind == SM_TOK_STREAM_FILE) {
+    switch (ts->kind) {
+    case SM_TOK_STREAM_FILE:
         if (fseek(ts->chardev.file.hnd, 0, SEEK_SET) < 0) {
             int err = errno;
-            fprintf(stderr, SM_BUF_FMT ":" UINT_FMT ":" UINT_FMT ": ",
-                    SM_BUF_FMT_ARG(ts->pos.file), ts->chardev.cline,
+            fprintf(stderr, SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+                    SM_VIEW_FMT_ARG(ts->pos.file), ts->chardev.cline,
                     ts->chardev.ccol);
             smFatal("failed to rewind file: %s\n", strerror(err));
         }
-    } else {
+        break;
+    case SM_TOK_STREAM_VIEW:
         ts->chardev.src.offset = 0;
+        break;
+    default:
+        SM_UNREACHABLE();
     }
     ts->pos.line         = 1;
     ts->pos.col          = 1;
@@ -882,23 +882,23 @@ void smTokStreamRewind(SmTokStream *ts) {
     return;
 }
 
-SmBuf smTokStreamBuf(SmTokStream *ts) {
+SmView smTokStreamView(SmTokStream *ts) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
-    case SM_TOK_STREAM_BUF:
-        return ts->chardev.buf.inner;
+    case SM_TOK_STREAM_VIEW:
+        return ts->chardev.buf.view;
     case SM_TOK_STREAM_MACRO: {
         SmMacroTok *tok = ts->macro.buf.items + ts->macro.pos;
         switch (tok->kind) {
         case SM_MACRO_TOK_STR:
         case SM_MACRO_TOK_ID:
-            return tok->buf;
+            return tok->view;
         case SM_MACRO_TOK_ARG:
             tok = ts->macro.args.buf[tok->num].items + ts->macro.argi;
             switch (tok->kind) {
             case SM_MACRO_TOK_STR:
             case SM_MACRO_TOK_ID:
-                return tok->buf;
+                return tok->view;
             default:
                 SM_UNREACHABLE();
             }
@@ -907,19 +907,19 @@ SmBuf smTokStreamBuf(SmTokStream *ts) {
         }
     }
     case SM_TOK_STREAM_REPEAT: {
-        SmRepeatTok *tok = ts->repeat.buf.inner.items + ts->repeat.pos;
+        SmRepeatTok *tok = ts->repeat.buf.view.items + ts->repeat.pos;
         switch (tok->kind) {
         case SM_REPEAT_TOK_STR:
         case SM_REPEAT_TOK_ID:
-            return tok->buf;
+            return tok->view;
         default:
             SM_UNREACHABLE();
         }
     }
     case SM_TOK_STREAM_FMT:
-        return ts->fmt.buf;
+        return ts->fmt.view;
     case SM_TOK_STREAM_IFELSE:
-        return ts->ifelse.buf.inner.items[ts->ifelse.pos].buf;
+        return ts->ifelse.buf.view.items[ts->ifelse.pos].view;
     default:
         SM_UNREACHABLE();
     }
@@ -928,7 +928,7 @@ SmBuf smTokStreamBuf(SmTokStream *ts) {
 I32 smTokStreamNum(SmTokStream *ts) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
-    case SM_TOK_STREAM_BUF:
+    case SM_TOK_STREAM_VIEW:
         return ts->chardev.num;
     case SM_TOK_STREAM_MACRO: {
         SmMacroTok *tok = ts->macro.buf.items + ts->macro.pos;
@@ -952,7 +952,7 @@ I32 smTokStreamNum(SmTokStream *ts) {
         }
     }
     case SM_TOK_STREAM_REPEAT: {
-        SmRepeatTok *tok = ts->repeat.buf.inner.items + ts->repeat.pos;
+        SmRepeatTok *tok = ts->repeat.buf.view.items + ts->repeat.pos;
         switch (tok->kind) {
         case SM_REPEAT_TOK_NUM:
             return tok->num;
@@ -963,7 +963,7 @@ I32 smTokStreamNum(SmTokStream *ts) {
         }
     }
     case SM_TOK_STREAM_IFELSE:
-        return ts->ifelse.buf.inner.items[ts->ifelse.pos].num;
+        return ts->ifelse.buf.view.items[ts->ifelse.pos].num;
     case SM_TOK_STREAM_FMT:
     default:
         SM_UNREACHABLE();
@@ -973,17 +973,17 @@ I32 smTokStreamNum(SmTokStream *ts) {
 SmPos smTokStreamPos(SmTokStream *ts) {
     switch (ts->kind) {
     case SM_TOK_STREAM_FILE:
-    case SM_TOK_STREAM_BUF:
+    case SM_TOK_STREAM_VIEW:
         return ts->pos;
     case SM_TOK_STREAM_MACRO:
         // TODO macro arg pos
         return ts->macro.buf.items[ts->macro.pos].pos;
     case SM_TOK_STREAM_REPEAT:
-        return ts->repeat.buf.inner.items[ts->repeat.pos].pos;
+        return ts->repeat.buf.view.items[ts->repeat.pos].pos;
     case SM_TOK_STREAM_FMT:
         return ts->pos;
     case SM_TOK_STREAM_IFELSE:
-        return ts->ifelse.buf.inner.items[ts->ifelse.pos].pos;
+        return ts->ifelse.buf.view.items[ts->ifelse.pos].pos;
     default:
         SM_UNREACHABLE();
     }

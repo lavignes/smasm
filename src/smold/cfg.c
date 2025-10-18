@@ -13,7 +13,7 @@ CfgI32Entry *cfgI32TabAdd(CfgI32Tab *tab, CfgI32Entry entry) {
     SM_TAB_ADD_IMPL(CfgI32Tab, CfgI32Entry);
 }
 
-CfgI32Entry *cfgI32TabFind(CfgI32Tab *tab, SmBuf name) {
+CfgI32Entry *cfgI32TabFind(CfgI32Tab *tab, SmView name) {
     SM_TAB_FIND_IMPL(CfgI32Tab, CfgI32Entry);
 }
 

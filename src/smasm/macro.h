@@ -3,23 +3,21 @@
 
 #include <smasm/tok.h>
 
-struct Macro {
-    SmBuf         name;
+typedef struct {
+    SmView        name;
     SmPos         pos;
     SmMacroTokBuf buf;
-};
-typedef struct Macro Macro;
+} Macro;
 
-struct MacroTab {
+typedef struct {
     Macro *entries;
     UInt   len;
     UInt   size;
-};
-typedef struct MacroTab MacroTab;
+} MacroTab;
 
 void   macroTabFini();
-Macro *macroFind(SmBuf name);
-void   macroAdd(SmBuf name, SmPos pos, SmMacroTokBuf buf);
+Macro *macroFind(SmView name);
+void   macroAdd(SmView name, SmPos pos, SmMacroTokBuf buf);
 
 void macroInvoke(Macro macro);
 

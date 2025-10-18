@@ -3,84 +3,79 @@
 
 #include <smasm/abi.h>
 
-struct SmBuf {
+typedef struct {
     U8  *bytes;
     UInt len;
-};
-typedef struct SmBuf SmBuf;
+} SmView;
 
-static SmBuf const SM_BUF_NULL = {0};
+static SmView const SM_VIEW_NULL = {0};
 
-#define SM_BUF(cstr)        ((SmBuf){(U8 *)(cstr), (sizeof((cstr)) - 1)})
+#define SM_VIEW(cstr)         ((SmView){(U8 *)(cstr), (sizeof((cstr)) - 1)})
 
-#define SM_BUF_FMT          "%.*s"
-#define SM_BUF_FMT_ARG(buf) ((int)(buf).len), ((char *)(buf).bytes)
+#define SM_VIEW_FMT           "%.*s"
+#define SM_VIEW_FMT_ARG(view) ((int)(view).len), ((char *)(view).bytes)
 
-Bool smBufEqual(SmBuf lhs, SmBuf rhs);
-Bool smBufEqualIgnoreAsciiCase(SmBuf lhs, SmBuf rhs);
-Bool smBufStartsWith(SmBuf buf, SmBuf prefix);
-UInt smBufHash(SmBuf buf);
-UInt smBufParse(SmBuf buf);
+Bool smViewEqual(SmView lhs, SmView rhs);
+Bool smViewEqualIgnoreAsciiCase(SmView lhs, SmView rhs);
+Bool smViewStartsWith(SmView view, SmView prefix);
+UInt smViewHash(SmView view);
+UInt smViewParse(SmView view);
 
-struct SmGBuf {
-    SmBuf inner;
-    UInt  size;
-};
-typedef struct SmGBuf SmGBuf;
+typedef struct {
+    SmView view;
+    UInt   size;
+} SmGBuf;
 
-void smGBufCat(SmGBuf *buf, SmBuf bytes);
+void smGBufCat(SmGBuf *buf, SmView bytes);
 void smGBufFini(SmGBuf *buf);
 
-struct SmBufBuf {
-    SmBuf *items;
-    UInt   len;
-};
-typedef struct SmBufBuf SmBufBuf;
+typedef struct {
+    SmView *items;
+    UInt    len;
+} SmBufBuf;
 
-struct SmBufGBuf {
-    SmBufBuf inner;
+typedef struct {
+    SmBufBuf view;
     UInt     size;
-};
-typedef struct SmBufGBuf SmBufGBuf;
+} SmBufGBuf;
 
-void smBufGBufAdd(SmBufGBuf *buf, SmBuf item);
+void smBufGBufAdd(SmBufGBuf *buf, SmView item);
 
 #define SM_GBUF_ADD_IMPL()                                                     \
-    if (!buf->inner.items) {                                                   \
-        buf->inner.items = malloc(sizeof(*buf->inner.items) * 16);             \
-        if (!buf->inner.items) {                                               \
+    if (!buf->view.items) {                                                    \
+        buf->view.items = malloc(sizeof(*buf->view.items) * 16);               \
+        if (!buf->view.items) {                                                \
             smFatal("out of memory\n");                                        \
         }                                                                      \
-        buf->inner.len = 0;                                                    \
-        buf->size      = 16;                                                   \
+        buf->view.len = 0;                                                     \
+        buf->size     = 16;                                                    \
     }                                                                          \
-    if ((buf->size - buf->inner.len) == 0) {                                   \
-        buf->inner.items = realloc(buf->inner.items,                           \
-                                   sizeof(*buf->inner.items) * buf->size * 2); \
-        if (!buf->inner.items) {                                               \
+    if ((buf->size - buf->view.len) == 0) {                                    \
+        buf->view.items = realloc(buf->view.items,                             \
+                                  sizeof(*buf->view.items) * buf->size * 2);   \
+        if (!buf->view.items) {                                                \
             smFatal("out of memory\n");                                        \
         }                                                                      \
         buf->size *= 2;                                                        \
     }                                                                          \
-    buf->inner.items[buf->inner.len] = item;                                   \
-    ++buf->inner.len;
+    buf->view.items[buf->view.len] = item;                                     \
+    ++buf->view.len;
 
 #define SM_GBUF_FINI_IMPL()                                                    \
-    if (!buf->inner.items) {                                                   \
+    if (!buf->view.items) {                                                    \
         return;                                                                \
     }                                                                          \
-    free(buf->inner.items);                                                    \
+    free(buf->view.items);                                                     \
     memset(buf, 0, sizeof(*buf));
 
-struct SmBufIntern {
+typedef struct {
     SmGBuf *bufs;
     UInt    len;
     UInt    size;
-};
-typedef struct SmBufIntern SmBufIntern;
+} SmBufIntern;
 
-SmBuf smBufIntern(SmBufIntern *in, SmBuf buf);
-void  smBufInternFini(SmBufIntern *in);
+SmView smBufIntern(SmBufIntern *in, SmView view);
+void   smBufInternFini(SmBufIntern *in);
 
 #ifndef typeof
 #define typeof __typeof__
@@ -97,15 +92,15 @@ void  smBufInternFini(SmBufIntern *in);
     }                                                                          \
     typeof(*in->bufs) *has_space = NULL;                                       \
     for (UInt i = 0; i < in->len; ++i) {                                       \
-        typeof(*in->bufs)          *gbuf  = in->bufs + i;                      \
-        typeof(*gbuf->inner.items) *items = memmem(                            \
-            gbuf->inner.items, sizeof(*gbuf->inner.items) * gbuf->inner.len,   \
-            buf.items, sizeof(*gbuf->inner.items) * buf.len);                  \
+        typeof(*in->bufs)         *gbuf  = in->bufs + i;                       \
+        typeof(*gbuf->view.items) *items = memmem(                             \
+            gbuf->view.items, sizeof(*gbuf->view.items) * gbuf->view.len,      \
+            buf.items, sizeof(*gbuf->view.items) * buf.len);                   \
         if (items) {                                                           \
-            return (typeof(gbuf->inner)){items, buf.len};                      \
+            return (typeof(gbuf->view)){items, buf.len};                       \
         }                                                                      \
         if (!has_space) {                                                      \
-            if ((gbuf->size - gbuf->inner.len) >= buf.len) {                   \
+            if ((gbuf->size - gbuf->view.len) >= buf.len) {                    \
                 has_space = gbuf;                                              \
             }                                                                  \
         }                                                                      \
@@ -119,20 +114,20 @@ void  smBufInternFini(SmBufIntern *in);
             in->size *= 2;                                                     \
         }                                                                      \
         has_space = in->bufs + in->len;                                        \
-        has_space->inner.items =                                               \
-            malloc(sizeof(*has_space->inner.items) * buf.len);                 \
-        has_space->inner.len = 0;                                              \
-        has_space->size      = buf.len;                                        \
-        if (!has_space->inner.items) {                                         \
+        has_space->view.items =                                                \
+            malloc(sizeof(*has_space->view.items) * buf.len);                  \
+        has_space->view.len = 0;                                               \
+        has_space->size     = buf.len;                                         \
+        if (!has_space->view.items) {                                          \
             smFatal("out of memory\n");                                        \
         }                                                                      \
         ++in->len;                                                             \
     }                                                                          \
-    typeof(*has_space->inner.items) *items =                                   \
-        has_space->inner.items + has_space->inner.len;                         \
-    memcpy(items, buf.items, sizeof(*has_space->inner.items) * buf.len);       \
-    has_space->inner.len += buf.len;                                           \
-    return (typeof(has_space->inner)){items, buf.len};
+    typeof(*has_space->view.items) *items =                                    \
+        has_space->view.items + has_space->view.len;                           \
+    memcpy(items, buf.items, sizeof(*has_space->view.items) * buf.len);        \
+    has_space->view.len += buf.len;                                            \
+    return (typeof(has_space->view)){items, buf.len};
 
 #define SM_INTERN_FINI_IMPL(GBufFiniFn)                                        \
     if (!in->bufs) {                                                           \

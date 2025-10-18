@@ -5,20 +5,20 @@
 #include <string.h>
 
 Bool smLblEqual(SmLbl lhs, SmLbl rhs) {
-    return smBufEqual(lhs.scope, rhs.scope) && smBufEqual(lhs.name, rhs.name);
+    return smViewEqual(lhs.scope, rhs.scope) && smViewEqual(lhs.name, rhs.name);
 }
 
-Bool smLblIsGlobal(SmLbl lbl) { return smBufEqual(lbl.scope, SM_BUF_NULL); }
+Bool smLblIsGlobal(SmLbl lbl) { return smViewEqual(lbl.scope, SM_VIEW_NULL); }
 
-SmBuf smLblFullName(SmLbl lbl, SmBufIntern *in) {
+SmView smLblFullName(SmLbl lbl, SmBufIntern *in) {
     static SmGBuf buf = {0};
-    buf.inner.len     = 0;
-    if (!smBufEqual(lbl.scope, SM_BUF_NULL)) {
+    buf.view.len      = 0;
+    if (!smViewEqual(lbl.scope, SM_VIEW_NULL)) {
         smGBufCat(&buf, lbl.scope);
-        smGBufCat(&buf, SM_BUF("."));
+        smGBufCat(&buf, SM_VIEW("."));
     }
     smGBufCat(&buf, lbl.name);
-    return smBufIntern(in, buf.inner);
+    return smBufIntern(in, buf.view);
 }
 
 void smOpGBufAdd(SmOpGBuf *buf, SmOp item) { SM_GBUF_ADD_IMPL(); }

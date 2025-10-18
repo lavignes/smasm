@@ -66,14 +66,13 @@ enum SmTok {
     SM_TOK_UNIQUE   = 0xF0053,
 };
 
-SmBuf smTokName(U32 c);
+SmView smTokName(U32 c);
 
-struct SmPos {
-    SmBuf file;
-    UInt  line;
-    UInt  col;
-};
-typedef struct SmPos SmPos;
+typedef struct {
+    SmView file;
+    UInt   line;
+    UInt   col;
+} SmPos;
 
 enum SmMacroTokKind {
     SM_MACRO_TOK_TOK,
@@ -86,47 +85,42 @@ enum SmMacroTokKind {
     SM_MACRO_TOK_UNIQUE,
 };
 
-struct SmMacroTok {
+typedef struct {
     U8    kind;
     SmPos pos;
     union {
-        U32   tok;
-        SmBuf buf;
-        I32   num;
+        U32    tok;
+        SmView view;
+        I32    num;
     };
-};
-typedef struct SmMacroTok SmMacroTok;
+} SmMacroTok;
 
-struct SmMacroTokBuf {
+typedef struct {
     SmMacroTok *items;
     UInt        len;
-};
-typedef struct SmMacroTokBuf SmMacroTokBuf;
+} SmMacroTokBuf;
 
-struct SmMacroTokGBuf {
-    SmMacroTokBuf inner;
+typedef struct {
+    SmMacroTokBuf view;
     UInt          size;
-};
-typedef struct SmMacroTokGBuf SmMacroTokGBuf;
+} SmMacroTokGBuf;
 
 void smMacroTokGBufAdd(SmMacroTokGBuf *buf, SmMacroTok tok);
 void smMacroTokGBufFini(SmMacroTokGBuf *buf);
 
-struct SmMacroTokIntern {
+typedef struct {
     SmMacroTokGBuf *bufs;
     UInt            len;
     UInt            size;
-};
-typedef struct SmMacroTokIntern SmMacroTokIntern;
+} SmMacroTokIntern;
 
 SmMacroTokBuf smMacroTokIntern(SmMacroTokIntern *in, SmMacroTokBuf buf);
 
-struct SmMacroArgQueue {
+typedef struct {
     SmMacroTokBuf *buf;
     UInt           len;
     UInt           size;
-};
-typedef struct SmMacroArgQueue SmMacroArgQueue;
+} SmMacroArgQueue;
 
 void smMacroArgEnqueue(SmMacroArgQueue *q, SmMacroTokBuf toks);
 void smMacroArgDequeue(SmMacroArgQueue *q);
@@ -140,61 +134,54 @@ enum SmRepeatTokKind {
     SM_REPEAT_TOK_ITER,
 };
 
-struct SmRepeatTok {
+typedef struct {
     U8    kind;
     SmPos pos;
     union {
-        U32   tok;
-        SmBuf buf;
-        I32   num;
+        U32    tok;
+        SmView view;
+        I32    num;
     };
-};
+} SmRepeatTok;
 
-typedef struct SmRepeatTok SmRepeatTok;
-
-struct SmRepeatTokBuf {
+typedef struct {
     SmRepeatTok *items;
     UInt         len;
-};
-typedef struct SmRepeatTokBuf SmRepeatTokBuf;
+} SmRepeatTokBuf;
 
-struct SmRepeatTokGBuf {
-    SmRepeatTokBuf inner;
+typedef struct {
+    SmRepeatTokBuf view;
     UInt           size;
-};
-typedef struct SmRepeatTokGBuf SmRepeatTokGBuf;
+} SmRepeatTokGBuf;
 
 void smRepeatTokGBufAdd(SmRepeatTokGBuf *buf, SmRepeatTok tok);
 void smRepeatTokGBufFini(SmRepeatTokGBuf *buf);
 
-struct SmPosTok {
+typedef struct {
     U32   tok;
     SmPos pos;
     union {
-        SmBuf buf;
-        I32   num;
+        SmView view;
+        I32    num;
     };
-};
-typedef struct SmPosTok SmPosTok;
+} SmPosTok;
 
-struct SmPosTokBuf {
+typedef struct {
     SmPosTok *items;
     UInt      len;
-};
-typedef struct SmPosTokBuf SmPosTokBuf;
+} SmPosTokBuf;
 
-struct SmPosTokGBuf {
-    SmPosTokBuf inner;
+typedef struct {
+    SmPosTokBuf view;
     UInt        size;
-};
-typedef struct SmPosTokGBuf SmPosTokGBuf;
+} SmPosTokGBuf;
 
 void smPosTokGBufAdd(SmPosTokGBuf *buf, SmPosTok tok);
 void smPosTokGBufFini(SmPosTokGBuf *buf);
 
 enum SmTokStreamKind {
     SM_TOK_STREAM_FILE,
-    SM_TOK_STREAM_BUF,
+    SM_TOK_STREAM_VIEW,
     SM_TOK_STREAM_MACRO,
     SM_TOK_STREAM_REPEAT,
     SM_TOK_STREAM_FMT,
@@ -210,9 +197,10 @@ struct SmTokStream {
                 struct {
                     FILE *hnd;
                 } file;
+
                 struct {
-                    SmBuf buf;
-                    UInt  offset;
+                    SmView view;
+                    UInt   offset;
                 } src;
             };
             U32    stash;
@@ -228,7 +216,7 @@ struct SmTokStream {
         } chardev;
 
         struct {
-            SmBuf           name;
+            SmView          name;
             SmMacroTokBuf   buf;
             UInt            pos;
             SmMacroArgQueue args;
@@ -244,8 +232,8 @@ struct SmTokStream {
         } repeat;
 
         struct {
-            SmBuf buf;
-            U32   tok;
+            SmView view;
+            U32    tok;
         } fmt;
 
         struct {
@@ -267,13 +255,13 @@ _Noreturn void smTokStreamFatalV(SmTokStream *ts, char const *fmt,
 _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
                                     va_list args);
 
-void smTokStreamFileInit(SmTokStream *ts, SmBuf name, FILE *hnd);
-void smTokStreamBufInit(SmTokStream *ts, SmBuf name, SmBuf buf);
-void smTokStreamMacroInit(SmTokStream *ts, SmBuf name, SmPos pos,
+void smTokStreamFileInit(SmTokStream *ts, SmView name, FILE *hnd);
+void smTokStreamViewInit(SmTokStream *ts, SmView name, SmView view);
+void smTokStreamMacroInit(SmTokStream *ts, SmView name, SmPos pos,
                           SmMacroTokBuf buf, SmMacroArgQueue args, UInt nonce);
 void smTokStreamRepeatInit(SmTokStream *ts, SmPos pos, SmRepeatTokGBuf buf,
                            UInt cnt);
-void smTokStreamFmtInit(SmTokStream *ts, SmPos pos, SmBuf buf, U32 tok);
+void smTokStreamFmtInit(SmTokStream *ts, SmPos pos, SmView fmt, U32 tok);
 void smTokStreamIfElseInit(SmTokStream *ts, SmPos pos, SmPosTokGBuf buf);
 void smTokStreamFini(SmTokStream *ts);
 
@@ -281,8 +269,8 @@ U32  smTokStreamPeek(SmTokStream *ts);
 void smTokStreamEat(SmTokStream *ts);
 void smTokStreamRewind(SmTokStream *ts);
 
-SmBuf smTokStreamBuf(SmTokStream *ts);
-I32   smTokStreamNum(SmTokStream *ts);
-SmPos smTokStreamPos(SmTokStream *ts);
+SmView smTokStreamView(SmTokStream *ts);
+I32    smTokStreamNum(SmTokStream *ts);
+SmPos  smTokStreamPos(SmTokStream *ts);
 
 #endif // SMASM_TOK_H

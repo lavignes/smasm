@@ -9,7 +9,7 @@ SM_TAB_TRYGROW_IMPL(StructTab, Struct);
 
 static StructTab STRUCTS = {0};
 
-Struct *structFind(SmBuf name) {
+Struct *structFind(SmView name) {
     StructTab *tab = &STRUCTS;
     SM_TAB_FIND_IMPL(StructTab, Struct);
 }
@@ -19,7 +19,7 @@ static Struct *add(Struct entry) {
     SM_TAB_ADD_IMPL(StructTab, Struct);
 }
 
-void structAdd(SmBuf name, SmPos pos, SmBufGBuf fields) {
+void structAdd(SmView name, SmPos pos, SmBufGBuf fields) {
     add((Struct){
         name,
         pos,

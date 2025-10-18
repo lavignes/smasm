@@ -3,36 +3,36 @@
 #include <stdlib.h>
 #include <string.h>
 
-SmBuf smPathIntern(SmBufIntern *in, SmBuf path) {
+SmView smPathIntern(SmBufIntern *in, SmView path) {
     static SmGBuf buf = {0};
-    buf.inner.len     = 0;
+    buf.view.len      = 0;
     smGBufCat(&buf, path);
-    smGBufCat(&buf, SM_BUF("\0"));
-    char *out = realpath((char *)buf.inner.bytes, NULL);
+    smGBufCat(&buf, SM_VIEW("\0"));
+    char *out = realpath((char *)buf.view.bytes, NULL);
     if (out == NULL) {
         return smBufIntern(in, path);
     }
-    SmBuf result = smBufIntern(in, (SmBuf){(U8 *)out, strlen(out)});
+    SmView result = smBufIntern(in, (SmView){(U8 *)out, strlen(out)});
     free(out);
     return result;
 }
 
-SmBuf smPathSetAdd(SmPathSet *set, SmBuf path) {
-    SmBuf buf = smPathIntern(&set->in, path);
-    for (UInt i = 0; i < set->bufs.inner.len; ++i) {
-        if (smBufEqual(set->bufs.inner.items[i], buf)) {
-            return buf;
+SmView smPathSetAdd(SmPathSet *set, SmView path) {
+    SmView view = smPathIntern(&set->in, path);
+    for (UInt i = 0; i < set->bufs.view.len; ++i) {
+        if (smViewEqual(set->bufs.view.items[i], view)) {
+            return view;
         }
     }
-    smBufGBufAdd(&set->bufs, buf);
-    return buf;
+    smBufGBufAdd(&set->bufs, view);
+    return view;
 }
 
-Bool smPathSetContains(SmPathSet *set, SmBuf path) {
+Bool smPathSetContains(SmPathSet *set, SmView path) {
     // we intern to abs/normalize the path
-    SmBuf buf = smPathIntern(&set->in, path);
-    for (UInt i = 0; i < set->bufs.inner.len; ++i) {
-        if (smBufEqual(set->bufs.inner.items[i], buf)) {
+    SmView view = smPathIntern(&set->in, path);
+    for (UInt i = 0; i < set->bufs.view.len; ++i) {
+        if (smViewEqual(set->bufs.view.items[i], view)) {
             return true;
         }
     }
