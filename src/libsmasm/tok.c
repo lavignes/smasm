@@ -308,7 +308,8 @@ static U32 peek(SmTokStream *ts) {
     }
     ts->chardev.cstashed = true;
     if (ts->chardev.clen == 0) {
-        if (ts->kind == SM_TOK_STREAM_FILE) {
+        switch (ts->kind) {
+        case SM_TOK_STREAM_FILE:
             ts->chardev.clen =
                 fread(ts->chardev.cbuf, 1, 1, ts->chardev.file.hnd);
             if (ts->chardev.clen != 1) {
@@ -321,8 +322,19 @@ static U32 peek(SmTokStream *ts) {
                     return ts->chardev.cstash;
                 }
             }
-        } else {
-            SM_TODO("STREAM_VIEW");
+            break;
+        case SM_TOK_STREAM_VIEW:
+            if (ts->chardev.src.offset >= ts->chardev.src.view.len) {
+                ts->chardev.cstash = SM_TOK_EOF;
+                return ts->chardev.cstash;
+            }
+            ts->chardev.cbuf[0] =
+                ts->chardev.src.view.bytes[ts->chardev.src.offset];
+            ++ts->chardev.src.offset;
+            ts->chardev.clen = 1;
+            break;
+        default:
+            SM_UNREACHABLE();
         }
     }
     UInt len = 0;
@@ -335,25 +347,43 @@ static U32 peek(SmTokStream *ts) {
             if (ts->chardev.clen == 4) {
                 fatalChar(ts, "invalid UTF-8 data\n");
             }
-            UInt read = fread(ts->chardev.cbuf + ts->chardev.clen, 1, 1,
-                              ts->chardev.file.hnd);
-            if (read != 0) {
-                int err = ferror(ts->chardev.file.hnd);
-                if (err) {
-                    fatalChar(ts, "failed to read file: %s\n", strerror(err));
+            switch (ts->kind) {
+            case SM_TOK_STREAM_FILE: {
+                UInt read = fread(ts->chardev.cbuf + ts->chardev.clen, 1, 1,
+                                  ts->chardev.file.hnd);
+                if (read != 0) {
+                    int err = ferror(ts->chardev.file.hnd);
+                    if (err) {
+                        fatalChar(ts, "failed to read file: %s\n",
+                                  strerror(err));
+                    }
+                    if (feof(ts->chardev.file.hnd)) {
+                        fatalChar(ts, "unexpected end of file\n");
+                    }
                 }
-                if (feof(ts->chardev.file.hnd)) {
+                ts->chardev.clen += read;
+                break;
+            }
+            case SM_TOK_STREAM_VIEW:
+                if (ts->chardev.src.offset >= ts->chardev.src.view.len) {
                     fatalChar(ts, "unexpected end of file\n");
                 }
+                ts->chardev.cbuf[ts->chardev.clen] =
+                    ts->chardev.src.view.bytes[ts->chardev.src.offset];
+                ++ts->chardev.src.offset;
+                ts->chardev.clen += 1;
+                break;
+            default:
+                SM_UNREACHABLE();
             }
-            ts->chardev.clen += read;
         }
     }
     return ts->chardev.cstash;
 }
 
 static void eat(SmTokStream *ts) {
-    assert(ts->kind == SM_TOK_STREAM_FILE);
+    assert((ts->kind == SM_TOK_STREAM_FILE) ||
+           (ts->kind == SM_TOK_STREAM_VIEW));
     ts->chardev.cstashed = false;
     ++ts->chardev.ccol;
     if (ts->chardev.cstash == '\n') {

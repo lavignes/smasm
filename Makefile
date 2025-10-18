@@ -31,9 +31,15 @@ DISSRCS = $(call rwildcard,src/smdis,*.c)
 DISOBJS = $(DISSRCS:.c=.o)
 DISDEPS = $(DISSRCS:.c=.d)
 
-.PHONY: all clean examples
+TSTSRCS = $(call rwildcard,tst,*.c)
+TSTOBJS = $(TSTSRCS:.c=.o)
+TSTDEPS = $(TSTSRCS:.c=.d)
+TSTEXES = $(TSTSRCS:.c=.tst)
 
-all: bin/smasm bin/smold bin/smfix bin/smdis
+.PHONY: all test clean examples
+.PRECIOUS: $(TSTOBJS) $(TSTDEPS) $(TSTEXES)
+
+all: bin/smasm bin/smold bin/smfix bin/smdis test
 
 lib/libsmasm.a: $(LIBDEPS) $(LIBOBJS)
 	$(AR) rcs $@ $(LIBOBJS)
@@ -50,11 +56,19 @@ bin/smfix: lib/libsmasm.a $(FIXDEPS) $(FIXOBJS)
 bin/smdis: lib/libsmasm.a $(DISDEPS) $(DISOBJS)
 	$(LD) $(DISOBJS) -o $@ $(LDFLAGS) -lsmasm
 
+%.tst: %.o %.d lib/libsmasm.a
+	$(LD) $< -o $@ $(LDFLAGS) -lsmasm
+	@echo -n "$@..."
+	@$@
+	@echo " OK"
+
 %.o %.d: %.c
 	$(CC) $(CFLAGS) -MD -MF $(addsuffix .d,$(basename $<)) -c $< -o $(addsuffix .o,$(basename $<))
 
 examples: bin/smasm bin/smold bin/smfix
 	$(MAKE) -C examples/hello
+
+test: $(TSTEXES)
 
 clean:
 	$(MAKE) -C examples/hello clean
@@ -62,6 +76,10 @@ clean:
 	rm -f lib/*
 	rm -f $(call rwildcard,src,*.o)
 	rm -f $(call rwildcard,src,*.d)
+	rm -f $(call rwildcard,tst,*.o)
+	rm -f $(call rwildcard,tst,*.d)
+	rm -f $(call rwildcard,tst,*.tst)
+
 
 ifneq ($(MAKECMDGOALS),clean)
 include $(ASMDEPS)
