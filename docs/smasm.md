@@ -405,7 +405,7 @@ Macros are defined using the `@macro` directive:
 ```
 ; Macro to lookup the bank of a subroutine
 @macro BANKOF
-    @tag @1, "bank"
+    @tag @0, "bank"
 @end
 
 Routine:
@@ -502,4 +502,17 @@ CONSTANT = $42
 
 LoadConstant:
     ld a, CONSTANT
+```
+
+Another use for `@if` is performing static assertions in your code:
+
+```
+SomeFunction::
+    ; ... function code ...
+    ret
+.Len = * - @rel SomeFunction
+
+@if SomeFunction.Len > 16
+    @fatal "SomeFuction must be less than 16 bytes. It is currently %d bytes.", SomeFunction.Len
+@end
 ```
