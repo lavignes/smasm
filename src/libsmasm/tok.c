@@ -84,12 +84,12 @@ SmView smTokName(U32 c) {
 }
 
 void smMacroTokBufAdd(SmMacroTokBuf *buf, SmMacroTok item) {
-    SM_GBUF_ADD_IMPL();
+    SM_BUF_ADD_IMPL();
 }
 
-void smMacroTokBufFini(SmMacroTokBuf *buf) { SM_GBUF_FINI_IMPL(); }
+void smMacroTokBufFini(SmMacroTokBuf *buf) { SM_BUF_FINI_IMPL(); }
 
-SmMacroTokView smMacroTokIntern(SmMacroTokIntern *in, SmMacroTokView buf) {
+SmMacroTokView smMacroTokIntern(SmMacroTokIntern *in, SmMacroTokView view) {
     SM_INTERN_IMPL();
 }
 
@@ -129,14 +129,14 @@ void smMacroArgQueueFini(SmMacroArgQueue *q) {
 }
 
 void smRepeatTokBufAdd(SmRepeatTokBuf *buf, SmRepeatTok item) {
-    SM_GBUF_ADD_IMPL();
+    SM_BUF_ADD_IMPL();
 }
 
-void smRepeatTokBufFini(SmRepeatTokBuf *buf) { SM_GBUF_FINI_IMPL(); }
+void smRepeatTokBufFini(SmRepeatTokBuf *buf) { SM_BUF_FINI_IMPL(); }
 
-void smPosTokBufAdd(SmPosTokBuf *buf, SmPosTok item) { SM_GBUF_ADD_IMPL(); }
+void smPosTokBufAdd(SmPosTokBuf *buf, SmPosTok item) { SM_BUF_ADD_IMPL(); }
 
-void smPosTokBufFini(SmPosTokBuf *buf) { SM_GBUF_FINI_IMPL(); }
+void smPosTokBufFini(SmPosTokBuf *buf) { SM_BUF_FINI_IMPL(); }
 
 _Noreturn void smTokStreamFatal(SmTokStream *ts, char const *fmt, ...) {
     va_list args;

@@ -24,7 +24,7 @@ SmView smPathSetAdd(SmPathSet *set, SmView path) {
             return view;
         }
     }
-    smBufGBufAdd(&set->bufs, view);
+    smViewBufAdd(&set->bufs, view);
     return view;
 }
 

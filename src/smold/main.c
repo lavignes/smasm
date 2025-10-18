@@ -252,9 +252,9 @@ static void loadObj(SmView path) {
     SmExprIntern tmpexprs = smDeserializeExprIntern(&ser, &tmpstrs);
     // Fixup addresses to be absolute
     for (UInt i = 0; i < tmpexprs.len; ++i) {
-        SmExprBuf *gbuf = tmpexprs.bufs + i;
-        for (UInt j = 0; j < gbuf->view.len; ++j) {
-            SmExpr *expr = gbuf->view.items + j;
+        SmExprBuf *buf = tmpexprs.bufs + i;
+        for (UInt j = 0; j < buf->view.len; ++j) {
+            SmExpr *expr = buf->view.items + j;
             if (expr->kind != SM_EXPR_ADDR) {
                 continue;
             }
@@ -380,7 +380,7 @@ static OutBuf OUTS = {0};
 
 static void outBufAdd(Out item) {
     OutBuf *buf = &OUTS;
-    SM_GBUF_ADD_IMPL();
+    SM_BUF_ADD_IMPL();
 }
 
 static Out *findOut(SmView name) {

@@ -21,6 +21,6 @@ static void noop(CfgI32Entry *entry) { (void)entry; }
 
 void cfgI32TabFini(CfgI32Tab *tab) { SM_TAB_FINI_IMPL(noop); }
 
-void cfgInBufAdd(CfgInBuf *buf, CfgIn item) { SM_GBUF_ADD_IMPL(); }
+void cfgInBufAdd(CfgInBuf *buf, CfgIn item) { SM_BUF_ADD_IMPL(); }
 
-void cfgOutBufAdd(CfgOutBuf *buf, CfgOut item) { SM_GBUF_ADD_IMPL(); }
+void cfgOutBufAdd(CfgOutBuf *buf, CfgOut item) { SM_BUF_ADD_IMPL(); }

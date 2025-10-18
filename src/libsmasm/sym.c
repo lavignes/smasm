@@ -21,19 +21,19 @@ SmView smLblFullName(SmLbl lbl, SmViewIntern *in) {
     return smViewIntern(in, buf.view);
 }
 
-void smOpBufAdd(SmOpBuf *buf, SmOp item) { SM_GBUF_ADD_IMPL(); }
+void smOpBufAdd(SmOpBuf *buf, SmOp item) { SM_BUF_ADD_IMPL(); }
 
-void smExprBufAdd(SmExprBuf *buf, SmExpr item) { SM_GBUF_ADD_IMPL(); }
+void smExprBufAdd(SmExprBuf *buf, SmExpr item) { SM_BUF_ADD_IMPL(); }
 
-void smExprBufFini(SmExprBuf *buf) { SM_GBUF_FINI_IMPL(); }
+void smExprBufFini(SmExprBuf *buf) { SM_BUF_FINI_IMPL(); }
 
-SmExprView smExprIntern(SmExprIntern *in, SmExprView buf) { SM_INTERN_IMPL(); }
+SmExprView smExprIntern(SmExprIntern *in, SmExprView view) { SM_INTERN_IMPL(); }
 
 void smExprInternFini(SmExprIntern *in) { SM_INTERN_FINI_IMPL(smExprBufFini); }
 
-void smI32BufAdd(SmI32Buf *buf, I32 item) { SM_GBUF_ADD_IMPL(); }
+void smI32BufAdd(SmI32Buf *buf, I32 item) { SM_BUF_ADD_IMPL(); }
 
-void smI32BufFini(SmI32Buf *buf) { SM_GBUF_FINI_IMPL(); }
+void smI32BufFini(SmI32Buf *buf) { SM_BUF_FINI_IMPL(); }
 
 static UInt hashLbl(SmLbl lbl) {
     UInt hash = 5381;

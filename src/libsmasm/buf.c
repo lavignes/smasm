@@ -115,7 +115,7 @@ void smBufFini(SmBuf *buf) {
     memset(buf, 0, sizeof(SmBuf));
 }
 
-void smBufGBufAdd(SmViewBuf *buf, SmView item) { SM_GBUF_ADD_IMPL(); }
+void smViewBufAdd(SmViewBuf *buf, SmView item) { SM_BUF_ADD_IMPL(); }
 
 static UInt roundUp(UInt num) {
     num--;
@@ -142,15 +142,15 @@ SmView smViewIntern(SmViewIntern *in, SmView view) {
     }
     SmBuf *has_space = NULL;
     for (UInt i = 0; i < in->len; ++i) {
-        SmBuf *gbuf = in->bufs + i;
+        SmBuf *buf = in->bufs + i;
         U8    *bytes =
-            memmem(gbuf->view.bytes, gbuf->view.len, view.bytes, view.len);
+            memmem(buf->view.bytes, buf->view.len, view.bytes, view.len);
         if (bytes) {
             return (SmView){bytes, view.len};
         }
         if (!has_space) {
-            if ((gbuf->cap - gbuf->view.len) >= view.len) {
-                has_space = gbuf;
+            if ((buf->cap - buf->view.len) >= view.len) {
+                has_space = buf;
             }
         }
     }

@@ -53,14 +53,14 @@ void smSerializeViewIntern(SmSerde *ser, SmViewIntern const *in) {
 static UInt totalViewOffset(SmViewIntern const *in, SmView view) {
     UInt total = 0;
     for (UInt i = 0; i < in->len; ++i) {
-        SmBuf *gbuf = in->bufs + i;
+        SmBuf *buf = in->bufs + i;
         U8    *offset =
-            memmem(gbuf->view.bytes, gbuf->view.len, view.bytes, view.len);
+            memmem(buf->view.bytes, buf->view.len, view.bytes, view.len);
         if (offset == NULL) {
-            total += gbuf->view.len;
+            total += buf->view.len;
             continue;
         }
-        total += offset - gbuf->view.bytes;
+        total += offset - buf->view.bytes;
         break;
     }
     return total;
@@ -89,9 +89,9 @@ void smSerializeExprIntern(SmSerde *ser, SmExprIntern const *in,
     }
     smSerializeU32(ser, len);
     for (UInt i = 0; i < in->len; ++i) {
-        SmExprBuf *gbuf = in->bufs + i;
-        for (UInt j = 0; j < gbuf->view.len; ++j) {
-            SmExpr *expr = gbuf->view.items + j;
+        SmExprBuf *buf = in->bufs + i;
+        for (UInt j = 0; j < buf->view.len; ++j) {
+            SmExpr *expr = buf->view.items + j;
             smSerializeU8(ser, expr->kind);
             switch (expr->kind) {
             case SM_EXPR_CONST:
@@ -120,18 +120,17 @@ void smSerializeExprIntern(SmSerde *ser, SmExprIntern const *in,
     }
 }
 
-static UInt totalExprBufOffset(SmExprIntern const *in, SmExprView buf) {
+static UInt totalExprBufOffset(SmExprIntern const *in, SmExprView view) {
     UInt total = 0;
     for (UInt i = 0; i < in->len; ++i) {
-        SmExprBuf *gbuf = in->bufs + i;
-        SmExpr    *offset =
-            memmem(gbuf->view.items, sizeof(SmExpr) * gbuf->view.len, buf.items,
-                   sizeof(SmExpr) * buf.len);
+        SmExprBuf *buf = in->bufs + i;
+        SmExpr *offset = memmem(buf->view.items, sizeof(SmExpr) * buf->view.len,
+                                view.items, sizeof(SmExpr) * view.len);
         if (offset == NULL) {
-            total += gbuf->view.len;
+            total += buf->view.len;
             continue;
         }
-        total += offset - gbuf->view.items;
+        total += offset - buf->view.items;
         break;
     }
     return total;

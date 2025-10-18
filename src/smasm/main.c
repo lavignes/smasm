@@ -1600,7 +1600,7 @@ static void eatDirective() {
             if (!emit) {
                 // TODO should probably check for redefinition with different
                 // values
-                smBufGBufAdd(&fields, fieldlbl.name);
+                smViewBufAdd(&fields, fieldlbl.name);
                 smSymTabAdd(&SYMS, (SmSym){.lbl     = fieldlbl,
                                            .value   = constExprBuf(size),
                                            .unit    = STATIC_UNIT,
