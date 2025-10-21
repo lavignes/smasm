@@ -7,7 +7,7 @@
 static _Noreturn void fatal(SmSerde const *ser, char const *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    fprintf(stderr, SM_VIEW_FMT ": ", SM_VIEW_FMT_ARG(ser->name));
+    fprintf(stderr, "%" SM_VIEW_FMT ": ", SM_VIEW_FMT_ARG(ser->name));
     smFatalV(fmt, args);
 }
 

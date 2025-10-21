@@ -5,18 +5,19 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void help() {
+static void help(char const *name) {
     fprintf(stderr,
             "SMFIX: Corrects the header checksum for a Gameboy ROM\n"
             "\n"
-            "Usage: smfix [OPTIONS] <ROM>\n"
+            "Usage: %s [OPTIONS] <ROM>\n"
             "\n"
             "Arguments:\n"
             "  <ROM>  Gameboy ROM\n"
             "\n"
             "Options:\n"
             "  -o, --output <OUTPUT>        Output file (default: stdout)\n"
-            "  -h, --help                   Print help\n");
+            "  -h, --help                   Print help\n",
+            name);
 }
 
 static FILE *openFileCstr(char const *name, char const *modes);
@@ -30,13 +31,13 @@ static char *outfile_name = NULL;
 int main(int argc, char **argv) {
     outfile = stdout;
     if (argc == 1) {
-        help();
+        help(argv[0]);
         return EXIT_SUCCESS;
     }
     for (int argi = 1; argi < argc; ++argi) {
         if ((strcmp(argv[argi], "-h") == 0) ||
             (strcmp(argv[argi], "--help") == 0)) {
-            help();
+            help(argv[0]);
             return EXIT_SUCCESS;
         }
         if ((strcmp(argv[argi], "-o") == 0) ||

@@ -13,11 +13,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void help() {
+static void help(char const *name) {
     fprintf(stderr,
             "SMASM: An assembler for the SM83 (Gameboy) CPU\n"
             "\n"
-            "Usage: smasm [OPTIONS] <SOURCE>\n"
+            "Usage: %s [OPTIONS] <SOURCE>\n"
             "\n"
             "Arguments:\n"
             "  <SOURCE>  Assembly source file\n"
@@ -30,7 +30,8 @@ static void help() {
             "  -MD                          Output Makefile dependencies\n"
             "  -MF <DEPFILE>                Make dependencies file (default: "
             "<SOURCE>.d)\n"
-            "  -h, --help                   Print help\n");
+            "  -h, --help                   Print help\n",
+            name);
 }
 
 static SmExprView constExprBuf(I32 num);
@@ -52,7 +53,7 @@ static Bool  makedepend   = false;
 int main(int argc, char **argv) {
     outfile = stdout;
     if (argc == 1) {
-        help();
+        help(argv[0]);
         return EXIT_SUCCESS;
     }
     DEFINES_SECTION = intern(SM_VIEW("@DEFINES"));
@@ -62,7 +63,7 @@ int main(int argc, char **argv) {
     for (int argi = 1; argi < argc; ++argi) {
         if ((strcmp(argv[argi], "-h") == 0) ||
             (strcmp(argv[argi], "--help") == 0)) {
-            help();
+            help(argv[0]);
             return EXIT_SUCCESS;
         }
         if ((strcmp(argv[argi], "-o") == 0) ||
@@ -174,13 +175,15 @@ static void expectEOL() {
 
 static void expectReprU8(SmPos pos, I32 num) {
     if (!exprCanReprU8(num)) {
-        fatalPos(pos, "expression does not fit in byte: $%08X\n", num);
+        fatalPos(pos, "expression does not fit in byte: $%08" U32_FMTX "\n",
+                 (U32)num);
     }
 }
 
 static void expectReprU16(SmPos pos, I32 num) {
     if (!exprCanReprU16(num)) {
-        fatalPos(pos, "expression does not fit in word: $%08X\n", num);
+        fatalPos(pos, "expression does not fit in word: $%08" U32_FMTX "\n",
+                 (U32)num);
     }
 }
 
@@ -670,8 +673,10 @@ static void eatMne(U8 mne) {
                 emit8(0xF0);
                 if (exprSolve(view, &num)) {
                     if ((num < 0xFF00) || (num > 0xFFFF)) {
-                        fatalPos(pos, "address not in high memory: $%08X\n",
-                                 num);
+                        fatalPos(pos,
+                                 "address not in high memory: $%08" U32_FMTX
+                                 "\n",
+                                 (U32)num);
                     }
                     emit8(num & 0x00FF);
                 } else {
@@ -709,7 +714,9 @@ static void eatMne(U8 mne) {
             emit8(0xE0);
             if (exprSolve(view, &num)) {
                 if ((num < 0xFF00) || (num > 0xFFFF)) {
-                    fatalPos(pos, "address not in high memory: $%08X\n", num);
+                    fatalPos(pos,
+                             "address not in high memory: $%08" U32_FMTX "\n",
+                             (U32)num);
                 }
                 emit8(num & 0x00FF);
             } else {
@@ -1173,7 +1180,8 @@ static void eatMne(U8 mne) {
                 case 0x38:
                     break;
                 default:
-                    fatalPos(pos, "illegal reset vector: $%08X\n", num);
+                    fatalPos(pos, "illegal reset vector: $%08" U32_FMTX "\n",
+                             (U32)num);
                 }
                 emit8(0xC7 + num);
             } else {
@@ -1225,7 +1233,7 @@ static SmView findInclude(SmView path) {
             }
         }
     }
-    fatal("could not find include file: " SM_VIEW_FMT "\n",
+    fatal("could not find include file: %" SM_VIEW_FMT "\n",
           SM_VIEW_FMT_ARG(path));
 }
 
@@ -1378,9 +1386,9 @@ static void eatDirective() {
         }
         Macro *macro = macroFind(lbl.name);
         if (macro) {
-            fatal("macro " SM_VIEW_FMT
-                  " already defined\n\toriginally defined at " SM_VIEW_FMT
-                  ":" UINT_FMT ":" UINT_FMT "\n",
+            fatal("macro %" SM_VIEW_FMT
+                  " already defined\n\toriginally defined at %" SM_VIEW_FMT
+                  ":%" UINT_FMT ":%" UINT_FMT "\n",
                   SM_VIEW_FMT_ARG(lbl.name), SM_VIEW_FMT_ARG(macro->pos.file),
                   macro->pos.line, macro->pos.col);
         }
@@ -1647,7 +1655,7 @@ static void eatDirective() {
         SmView  name  = intern(tokView());
         Struct *strct = structFind(name);
         if (!strct) {
-            fatal("structure " SM_VIEW_FMT " not found\n",
+            fatal("structure %" SM_VIEW_FMT " not found\n",
                   SM_VIEW_FMT_ARG(name));
         }
 
@@ -1689,12 +1697,13 @@ static void eatDirective() {
     case SM_TOK_FATAL:
         fmtInvoke(SM_TOK_STR);
         expect(SM_TOK_STR);
-        fatal("explicit fatal error: " SM_VIEW_FMT, SM_VIEW_FMT_ARG(tokView()));
+        fatal("explicit fatal error: %" SM_VIEW_FMT,
+              SM_VIEW_FMT_ARG(tokView()));
     case SM_TOK_PRINT:
         fmtInvoke(SM_TOK_STR);
         expect(SM_TOK_STR);
         if (emit) {
-            fprintf(stderr, SM_VIEW_FMT, SM_VIEW_FMT_ARG(tokView()));
+            fprintf(stderr, "%" SM_VIEW_FMT, SM_VIEW_FMT_ARG(tokView()));
         }
         eat();
         expectEOL();
@@ -1702,7 +1711,7 @@ static void eatDirective() {
         return;
     default: {
         SmView name = smTokName(peek());
-        fatal("unexpected: " SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(name));
+        fatal("unexpected: %" SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(name));
     }
     }
 }
@@ -1753,8 +1762,8 @@ static void pass() {
                 // never changes.
                 // TODO: also we want to create weak/redefinable symbols
                 fatalPos(pos,
-                         "symbol already defined\n\t" SM_VIEW_FMT ":" UINT_FMT
-                         ":" UINT_FMT " : defined previously here\n",
+                         "symbol already defined\n\t%" SM_VIEW_FMT ":%" UINT_FMT
+                         ":%" UINT_FMT " : defined previously here\n",
                          SM_VIEW_FMT_ARG(sym->pos.file), sym->pos.line,
                          sym->pos.col);
             }

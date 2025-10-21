@@ -10,12 +10,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void help() {
+static void help(char const *name) {
     fprintf(
         stderr,
         "SMOLD: A linker for the SM83 (Gameboy) CPU\n"
         "\n"
-        "Usage: smold [OPTIONS] --config <CONFIG> [OBJECTS]...\n"
+        "Usage: %s [OPTIONS] --config <CONFIG> [OBJECTS]...\n"
         "\n"
         "Arguments:\n"
         "  [OBJECTS]...  Object files\n"
@@ -26,7 +26,8 @@ static void help() {
         "  -g, --debug <DEBUG>          Output file for `SYM` debug symbols\n"
         "      --tags <TAGS>            Output file for ctags\n"
         "  -D, --define <KEY1=val>      Pre-defined symbols (repeatable)\n"
-        "  -h, --help                   Print help\n");
+        "  -h, --help                   Print help\n",
+        name);
 }
 
 static FILE      *openFileCstr(char const *path, char const *modes);
@@ -65,7 +66,7 @@ static SmView EXPORT_UNIT;
 int main(int argc, char **argv) {
     outfile = stdout;
     if (argc == 1) {
-        help();
+        help(argv[0]);
         return 0;
     }
     DEFINES_SECTION = intern(SM_VIEW("@DEFINES"));
@@ -73,7 +74,7 @@ int main(int argc, char **argv) {
     EXPORT_UNIT     = intern(SM_VIEW("@EXPORT"));
     for (int argi = 1; argi < argc; ++argi) {
         if (!strcmp(argv[argi], "-h") || !strcmp(argv[argi], "--help")) {
-            help();
+            help(argv[0]);
             return 0;
         }
         if (!strcmp(argv[argi], "-c") || !strcmp(argv[argi], "--config")) {
@@ -189,7 +190,7 @@ static FILE *openFile(SmView path, char const *modes) {
 }
 
 static _Noreturn void objFatalV(SmView path, char const *fmt, va_list args) {
-    fprintf(stderr, SM_VIEW_FMT ": ", SM_VIEW_FMT_ARG(path));
+    fprintf(stderr, "%" SM_VIEW_FMT ": ", SM_VIEW_FMT_ARG(path));
     smFatalV(fmt, args);
 }
 
@@ -246,7 +247,7 @@ static void loadObj(SmView path) {
     SmSerde ser   = {hnd, path};
     U32     magic = smDeserializeU32(&ser);
     if (magic != *(U32 *)"SM00") {
-        objFatal(path, "bad magic: $%04x\n", magic);
+        objFatal(path, "bad magic: $%04" U32_FMTX "\n", magic);
     }
     SmViewIntern tmpstrs  = smDeserializeViewIntern(&ser);
     SmExprIntern tmpexprs = smDeserializeExprIntern(&ser, &tmpstrs);
@@ -261,7 +262,7 @@ static void loadObj(SmView path) {
             SmSect *sect = findSect(expr->addr.sect);
             if (!sect) {
                 objFatal(path,
-                         "output section " SM_VIEW_FMT
+                         "output section %" SM_VIEW_FMT
                          " is not defined in config\n\tyou may have forgot to "
                          "add a @SECTION directive before a label\n",
                          SM_VIEW_FMT_ARG(expr->addr.sect));
@@ -286,14 +287,14 @@ static void loadObj(SmView path) {
         SmSym *whence = smSymTabFind(&SYMS, sym->lbl);
         if (whence && smViewEqual(whence->unit, unit)) {
             SmView name = fullLblName(sym->lbl);
-            objFatal(path,
-                     "duplicate exported symbol: " SM_VIEW_FMT
-                     "\n\tdefined at " SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT
-                     "\n\tagain at " SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT "\n",
-                     SM_VIEW_FMT_ARG(name), SM_VIEW_FMT_ARG(whence->pos.file),
-                     whence->pos.line, whence->pos.col,
-                     SM_VIEW_FMT_ARG(sym->pos.file), sym->pos.line,
-                     sym->pos.col);
+            objFatal(
+                path,
+                "duplicate exported symbol: %" SM_VIEW_FMT
+                "\n\tdefined at %" SM_VIEW_FMT ":%" UINT_FMT ":%" UINT_FMT
+                "\n\tagain at %" SM_VIEW_FMT ":%" UINT_FMT ":%" UINT_FMT "\n",
+                SM_VIEW_FMT_ARG(name), SM_VIEW_FMT_ARG(whence->pos.file),
+                whence->pos.line, whence->pos.col,
+                SM_VIEW_FMT_ARG(sym->pos.file), sym->pos.line, sym->pos.col);
         }
         smSymTabAdd(&SYMS, (SmSym){
                                .lbl     = internLbl(sym->lbl),
@@ -316,7 +317,7 @@ static void loadObj(SmView path) {
         SmSect *dstsect = findSect(sect->name);
         if (!dstsect) {
             objFatal(path,
-                     "output section " SM_VIEW_FMT
+                     "output section %" SM_VIEW_FMT
                      " is not defined in config\n",
                      SM_VIEW_FMT_ARG(sect->name));
         }
@@ -423,9 +424,9 @@ static void allocate(SmSect *sect) {
     }
     if (in->size) {
         if (sect->data.view.len > in->sizeval) {
-            smFatal("input section " SM_VIEW_FMT
-                    " size ($%08zX) is larger than "
-                    "configured size: $%08zX\n",
+            smFatal("input section %" SM_VIEW_FMT " size ($%08" UINT_FMTX
+                    ") is larger than "
+                    "configured size: $%08" UINT_FMTX "\n",
                     SM_VIEW_FMT_ARG(sect->name), sect->data.view.len,
                     (UInt)in->sizeval);
         }
@@ -437,8 +438,8 @@ static void allocate(SmSect *sect) {
     }
     out->pc = sect->pc + sect->data.view.len;
     if (out->pc > out->end) {
-        smFatal("no room in output section " SM_VIEW_FMT
-                " for input section " SM_VIEW_FMT "\n",
+        smFatal("no room in output section %" SM_VIEW_FMT
+                " for input section %" SM_VIEW_FMT "\n",
                 SM_VIEW_FMT_ARG(out->name), SM_VIEW_FMT_ARG(sect->name));
     }
     if (!smViewEqual(in->define, SM_VIEW_NULL)) {
@@ -660,8 +661,9 @@ static void solveSyms() {
             continue;
         }
         SmView name = fullLblName(sym->lbl);
-        smFatal("undefined symbol: " SM_VIEW_FMT
-                "\n\treferenced at " SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT "\n",
+        smFatal("undefined symbol: %" SM_VIEW_FMT
+                "\n\treferenced at %" SM_VIEW_FMT ":%" UINT_FMT ":%" UINT_FMT
+                "\n",
                 SM_VIEW_FMT_ARG(name), SM_VIEW_FMT_ARG(sym->pos.file),
                 sym->pos.line, sym->pos.col);
     }
@@ -675,8 +677,8 @@ static void link(SmSect *sect) {
         SmReloc *reloc = sect->relocs.view.items + i;
         I32      num;
         if (!solve(reloc->value, reloc->unit, &num)) {
-            smFatal("expression cannot be solved\n\treferenced at " SM_VIEW_FMT
-                    ":" UINT_FMT ":" UINT_FMT "\n",
+            smFatal("expression cannot be solved\n\treferenced at %" SM_VIEW_FMT
+                    ":%" UINT_FMT ":%" UINT_FMT "\n",
                     SM_VIEW_FMT_ARG(reloc->pos.file), reloc->pos.line,
                     reloc->pos.col);
         }
@@ -703,9 +705,9 @@ static void link(SmSect *sect) {
                 }
                 if (!legal) {
                     smFatal("expression does not fit in a byte: "
-                            "$%08X\n\treferenced at " SM_VIEW_FMT ":" UINT_FMT
-                            ":" UINT_FMT "\n",
-                            num, SM_VIEW_FMT_ARG(reloc->pos.file),
+                            "$%08" U32_FMTX "\n\treferenced at %" SM_VIEW_FMT
+                            ":%" UINT_FMT ":%" UINT_FMT "\n",
+                            (U32)num, SM_VIEW_FMT_ARG(reloc->pos.file),
                             reloc->pos.line, reloc->pos.col);
                 }
             }
@@ -737,9 +739,10 @@ static void link(SmSect *sect) {
                     op = 0xFF;
                     break;
                 default:
-                    smFatal("illegal reset vector: $%08X\n\treferenced "
-                            "at " SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT "\n",
-                            num, SM_VIEW_FMT_ARG(reloc->pos.file),
+                    smFatal("illegal reset vector: $%08" U32_FMTX
+                            "\n\treferenced "
+                            "at %" SM_VIEW_FMT ":%" UINT_FMT ":%" UINT_FMT "\n",
+                            (U32)num, SM_VIEW_FMT_ARG(reloc->pos.file),
                             reloc->pos.line, reloc->pos.col);
                 }
                 sect->data.view.bytes[reloc->offset] = op;
@@ -752,10 +755,10 @@ static void link(SmSect *sect) {
             // also a JP within bank0 is always legal for GB
             if (!canReprU16(num)) {
                 smFatal("expression does not fit in a word: "
-                        "$%08X\n\treferenced at " SM_VIEW_FMT ":" UINT_FMT
-                        ":" UINT_FMT "\n",
-                        num, SM_VIEW_FMT_ARG(reloc->pos.file), reloc->pos.line,
-                        reloc->pos.col);
+                        "$%08" U32_FMTX "\n\treferenced at %" SM_VIEW_FMT
+                        ":%" UINT_FMT ":%" UINT_FMT "\n",
+                        (U32)num, SM_VIEW_FMT_ARG(reloc->pos.file),
+                        reloc->pos.line, reloc->pos.col);
             }
             sect->data.view.bytes[reloc->offset]     = (U8)(num & 0xFF);
             sect->data.view.bytes[reloc->offset + 1] = (U8)((num >> 8) & 0xFF);
@@ -791,7 +794,7 @@ static void expect(U32 tok) {
     if (peeked != tok) {
         SmView expected = smTokName(tok);
         SmView found    = smTokName(peeked);
-        fatal("expected " SM_VIEW_FMT ", got " SM_VIEW_FMT "\n",
+        fatal("expected %" SM_VIEW_FMT ", got %" SM_VIEW_FMT "\n",
               SM_VIEW_FMT_ARG(expected), SM_VIEW_FMT_ARG(found));
     }
 }
@@ -810,7 +813,8 @@ static U8 eatU8() {
     expect(SM_TOK_NUM);
     I32 num = tokNum();
     if (!canReprU8(num)) {
-        smTokStreamFatal(&TS, "number does not fit in a byte: $%08X\n", num);
+        smTokStreamFatal(
+            &TS, "number does not fit in a byte: $%08" U32_FMTX "\n", (U32)num);
     }
     eat();
     return (U8)num;
@@ -820,7 +824,8 @@ static U16 eatU16() {
     expect(SM_TOK_NUM);
     I32 num = tokNum();
     if (!canReprU16(num)) {
-        smTokStreamFatal(&TS, "number does not fit in a word: $%08X\n", num);
+        smTokStreamFatal(
+            &TS, "number does not fit in a word: $%08" U32_FMTX "\n", (U32)num);
     }
     eat();
     return (U16)num;
@@ -913,7 +918,7 @@ static CfgInView parseInSects(CfgOut const *out) {
                             continue;
                         }
                         SmView view = tokView();
-                        fatal("unrecognized input section kind: " SM_VIEW_FMT
+                        fatal("unrecognized input section kind: %" SM_VIEW_FMT
                               "\n",
                               SM_VIEW_FMT_ARG(view));
                     }
@@ -967,7 +972,8 @@ static CfgInView parseInSects(CfgOut const *out) {
                     continue;
                 }
                 SmView view = tokView();
-                fatal("unrecognized input section attribute: " SM_VIEW_FMT "\n",
+                fatal("unrecognized input section attribute: %" SM_VIEW_FMT
+                      "\n",
                       SM_VIEW_FMT_ARG(view));
                 continue;
             }
@@ -1086,7 +1092,7 @@ static void parseOutSects() {
                             }
                             SmView view = tokView();
                             fatal(
-                                "unrecognized ouput section kind: " SM_VIEW_FMT
+                                "unrecognized ouput section kind: %" SM_VIEW_FMT
                                 "\n",
                                 SM_VIEW_FMT_ARG(view));
                         }
@@ -1113,7 +1119,7 @@ static void parseOutSects() {
                         continue;
                     }
                     SmView view = tokView();
-                    fatal("unrecognized output section attribute: " SM_VIEW_FMT
+                    fatal("unrecognized output section attribute: %" SM_VIEW_FMT
                           "\n",
                           SM_VIEW_FMT_ARG(view));
                     continue;
@@ -1152,7 +1158,7 @@ static void parseOutSects() {
         }
         default: {
             SmView view = smTokName(peek());
-            fatal("unexpected " SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(view));
+            fatal("unexpected %" SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(view));
         }
         }
     }
@@ -1184,12 +1190,12 @@ static void parseCfg() {
                 continue;
             }
             SmView view = tokView();
-            fatal("unrecognized config area: " SM_VIEW_FMT "\n",
+            fatal("unrecognized config area: %" SM_VIEW_FMT "\n",
                   SM_VIEW_FMT_ARG(view));
         }
         default: {
             SmView view = smTokName(peek());
-            fatal("unexpected " SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(view));
+            fatal("unexpected %" SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(view));
         }
         }
     }
@@ -1245,8 +1251,8 @@ static void parseCfg() {
                 // TODO could check this while parsing
                 if (in->kind != CFG_IN_CODE) {
                     fatal(
-                        "input section " SM_VIEW_FMT " is not kind-compatible "
-                        "with output section " SM_VIEW_FMT "\n",
+                        "input section %" SM_VIEW_FMT " is not kind-compatible "
+                        "with output section %" SM_VIEW_FMT "\n",
                         SM_VIEW_FMT_ARG(in->name), SM_VIEW_FMT_ARG(out->name));
                 }
             case CFG_OUT_READWRITE:
@@ -1357,11 +1363,11 @@ static void writeSyms() {
         if (tag) {
             bank = tag->num;
         }
-        char const *fmt = "%02X:%04X " SM_VIEW_FMT "\n";
+        char const *fmt = "%02" U8_FMTX ":%04" U16_FMTX " %" SM_VIEW_FMT "\n";
         if (bank > 0xFF) {
-            fmt = "%04X:%04X " SM_VIEW_FMT "\n";
+            fmt = "%04" U16_FMTX ":%04" U16_FMTX " %" SM_VIEW_FMT "\n";
         }
-        if (fprintf(hnd, fmt, bank, sym->value.items[0].num,
+        if (fprintf(hnd, fmt, (U8)bank, (U16)sym->value.items[0].num,
                     SM_VIEW_FMT_ARG(name)) < 0) {
             smFatal("%s: failed to write file: %s\n", symfile_name,
                     strerror(errno));
@@ -1380,7 +1386,7 @@ static void writeTags() {
             continue;
         }
         SmView name = fullLblName(sym->lbl);
-        if (fprintf(hnd, SM_VIEW_FMT "\t" SM_VIEW_FMT "\t" UINT_FMT " \n",
+        if (fprintf(hnd, "%" SM_VIEW_FMT "\t%" SM_VIEW_FMT "\t%" UINT_FMT " \n",
                     SM_VIEW_FMT_ARG(name), SM_VIEW_FMT_ARG(sym->pos.file),
                     sym->pos.line) < 0) {
             smFatal("%s: failed to write file: %s\n", symfile_name,

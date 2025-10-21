@@ -91,7 +91,7 @@ void expect(U32 tok) {
     if (peeked != tok) {
         SmView expected = smTokName(tok);
         SmView found    = smTokName(peeked);
-        fatal("expected " SM_VIEW_FMT ", got " SM_VIEW_FMT "\n",
+        fatal("expected %" SM_VIEW_FMT ", got %" SM_VIEW_FMT "\n",
               SM_VIEW_FMT_ARG(expected), SM_VIEW_FMT_ARG(found));
     }
 }
@@ -109,7 +109,7 @@ SmLbl tokLbl() {
     UInt scope_len = offset - view.bytes;
     UInt name_len  = view.len - scope_len - 1;
     if (name_len == 0) {
-        fatal("label is malformed: " SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(view));
+        fatal("label is malformed: %" SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(view));
     }
     SmView name = {view.bytes + scope_len + 1, name_len};
     if (scope_len > 0) {

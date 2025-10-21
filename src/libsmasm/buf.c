@@ -65,14 +65,14 @@ UInt smViewParse(SmView view) {
         ++i;
     }
     if (i == view.len) {
-        smFatal("invalid number: " SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(view));
+        smFatal("invalid number: %" SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(view));
     }
     UInt value = 0;
     for (; i < view.len; ++i) {
         for (UInt j = 0; j < (sizeof(DIGITS) / sizeof(DIGITS[0])); ++j) {
             if (toupper(view.bytes[i]) == DIGITS[j]) {
                 if (j >= (UInt)radix) {
-                    smFatal("invalid number: " SM_VIEW_FMT "\n",
+                    smFatal("invalid number: %" SM_VIEW_FMT "\n",
                             SM_VIEW_FMT_ARG(view));
                 }
                 value *= radix;
@@ -80,7 +80,7 @@ UInt smViewParse(SmView view) {
                 goto next;
             }
         }
-        smFatal("invalid number: " SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(view));
+        smFatal("invalid number: %" SM_VIEW_FMT "\n", SM_VIEW_FMT_ARG(view));
     next:
         (void)0;
     }

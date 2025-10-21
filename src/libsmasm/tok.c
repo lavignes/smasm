@@ -181,23 +181,24 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
     case SM_TOK_STREAM_VIEW:
     case SM_TOK_STREAM_FMT:
     case SM_TOK_STREAM_IFELSE:
-        fprintf(stderr, SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+        fprintf(stderr, "%" SM_VIEW_FMT ":%" UINT_FMT ":%" UINT_FMT ": ",
                 SM_VIEW_FMT_ARG(pos.file), pos.line, pos.col);
         break;
     case SM_TOK_STREAM_MACRO:
         // TODO macro arg position
         fprintf(stderr,
-                SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT ": in macro " SM_VIEW_FMT
-                            "\n\t" SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+                "%" SM_VIEW_FMT ":%" UINT_FMT ":%" UINT_FMT
+                ": in macro %" SM_VIEW_FMT "\n\t%" SM_VIEW_FMT ":%" UINT_FMT
+                ":%" UINT_FMT ": ",
                 SM_VIEW_FMT_ARG(ts->pos.file), ts->pos.line, ts->pos.col,
                 SM_VIEW_FMT_ARG(ts->macro.name), SM_VIEW_FMT_ARG(pos.file),
                 pos.line, pos.col);
         break;
     case SM_TOK_STREAM_REPEAT:
         fprintf(stderr,
-                SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT
-                            ": at repeat index " UINT_FMT "\n\t" SM_VIEW_FMT
-                            ":" UINT_FMT ":" UINT_FMT ": ",
+                "%" SM_VIEW_FMT ":%" UINT_FMT ":%" UINT_FMT
+                ": at repeat index %" UINT_FMT "\n\t%" SM_VIEW_FMT ":%" UINT_FMT
+                ":%" UINT_FMT ": ",
                 SM_VIEW_FMT_ARG(ts->pos.file), ts->pos.line, ts->pos.col,
                 ts->repeat.idx, SM_VIEW_FMT_ARG(pos.file), pos.line, pos.col);
         break;
@@ -266,7 +267,7 @@ void smTokStreamFini(SmTokStream *ts) {
     case SM_TOK_STREAM_FILE:
         if (fclose(ts->chardev.file.hnd) == EOF) {
             int err = errno;
-            fprintf(stderr, SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+            fprintf(stderr, "%" SM_VIEW_FMT ":%" UINT_FMT ":%" UINT_FMT ": ",
                     SM_VIEW_FMT_ARG(ts->pos.file), ts->pos.line, ts->pos.col);
             smFatal("failed to close file: %s\n", strerror(err));
         }
@@ -291,7 +292,7 @@ void smTokStreamFini(SmTokStream *ts) {
 }
 
 static _Noreturn void fatalChar(SmTokStream *ts, char const *fmt, ...) {
-    fprintf(stderr, SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+    fprintf(stderr, "%" SM_VIEW_FMT ":%" UINT_FMT ":%" UINT_FMT ": ",
             SM_VIEW_FMT_ARG(ts->pos.file), ts->chardev.cline, ts->chardev.ccol);
     va_list args;
     va_start(args, fmt);
@@ -410,7 +411,7 @@ static I32 parseChardev(SmTokStream *ts, I32 radix) {
         for (UInt j = 0; j < (sizeof(DIGITS) / sizeof(DIGITS[0])); ++j) {
             if (view->bytes[i] == DIGITS[j]) {
                 if (j >= (UInt)radix) {
-                    smTokStreamFatal(ts, "invalid number: " SM_VIEW_FMT "\n",
+                    smTokStreamFatal(ts, "invalid number: %" SM_VIEW_FMT "\n",
                                      SM_VIEW_FMT_ARG(*view));
                 }
                 value *= radix;
@@ -418,7 +419,7 @@ static I32 parseChardev(SmTokStream *ts, I32 radix) {
                 goto next;
             }
         }
-        smTokStreamFatal(ts, "invalid number: " SM_VIEW_FMT "\n",
+        smTokStreamFatal(ts, "invalid number: %" SM_VIEW_FMT "\n",
                          SM_VIEW_FMT_ARG(*view));
     next:
         (void)0;
@@ -553,7 +554,7 @@ static U32 peekChardev(SmTokStream *ts) {
                 return ts->chardev.stash;
             }
         }
-        smTokStreamFatal(ts, "unrecognized directive: @" SM_VIEW_FMT "\n",
+        smTokStreamFatal(ts, "unrecognized directive: @%" SM_VIEW_FMT "\n",
                          SM_VIEW_FMT_ARG(*view));
     }
     if (peek(ts) == '"') {
@@ -891,7 +892,7 @@ void smTokStreamRewind(SmTokStream *ts) {
     case SM_TOK_STREAM_FILE:
         if (fseek(ts->chardev.file.hnd, 0, SEEK_SET) < 0) {
             int err = errno;
-            fprintf(stderr, SM_VIEW_FMT ":" UINT_FMT ":" UINT_FMT ": ",
+            fprintf(stderr, "%" SM_VIEW_FMT ":%" UINT_FMT ":%" UINT_FMT ": ",
                     SM_VIEW_FMT_ARG(ts->pos.file), ts->chardev.cline,
                     ts->chardev.ccol);
             smFatal("failed to rewind file: %s\n", strerror(err));

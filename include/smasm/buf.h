@@ -12,7 +12,7 @@ static SmView const SM_VIEW_NULL = {0};
 
 #define SM_VIEW(cstr)         ((SmView){(U8 *)(cstr), (sizeof((cstr)) - 1)})
 
-#define SM_VIEW_FMT           "%.*s"
+#define SM_VIEW_FMT           ".*s"
 #define SM_VIEW_FMT_ARG(view) ((int)(view).len), ((char *)(view).bytes)
 
 Bool smViewEqual(SmView lhs, SmView rhs);
