@@ -218,9 +218,9 @@ static SmSect *findSect(SmView name) {
     return NULL;
 }
 
-static SmExprView internExpr(SmExprView buf) {
-    for (UInt i = 0; i < buf.len; ++i) {
-        SmExpr *expr = buf.items + i;
+static SmExprView internExpr(SmExprView view) {
+    for (UInt i = 0; i < view.len; ++i) {
+        SmExpr *expr = view.items + i;
         switch (expr->kind) {
         case SM_EXPR_ADDR:
             expr->addr.sect = intern(expr->addr.sect);
@@ -238,7 +238,7 @@ static SmExprView internExpr(SmExprView buf) {
             break;
         }
     }
-    return smExprIntern(&EXPRS, buf);
+    return smExprIntern(&EXPRS, view);
 }
 
 static void loadObj(SmView path) {
@@ -470,10 +470,10 @@ static void allocate(SmSect *sect) {
     }
 }
 
-static Bool solve(SmExprView buf, SmView unit, I32 *num) {
+static Bool solve(SmExprView view, SmView unit, I32 *num) {
     SmI32Buf stack = {0};
-    for (UInt i = 0; i < buf.len; ++i) {
-        SmExpr *expr = buf.items + i;
+    for (UInt i = 0; i < view.len; ++i) {
+        SmExpr *expr = view.items + i;
         switch (expr->kind) {
         case SM_EXPR_CONST:
             smI32BufAdd(&stack, expr->num);

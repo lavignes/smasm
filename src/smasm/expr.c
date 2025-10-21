@@ -450,12 +450,12 @@ fail:
     return false;
 }
 
-Bool exprSolve(SmExprView buf, I32 *num) {
-    return exprSolveFull(buf, num, false);
+Bool exprSolve(SmExprView view, I32 *num) {
+    return exprSolveFull(view, num, false);
 }
 
-Bool exprSolveRelative(SmExprView buf, I32 *num) {
-    return exprSolveFull(buf, num, true);
+Bool exprSolveRelative(SmExprView view, I32 *num) {
+    return exprSolveFull(view, num, true);
 }
 
 Bool exprCanReprU16(I32 num) { return (num >= 0) && (num <= U16_MAX); }

@@ -80,7 +80,6 @@ clean:
 	rm -f $(call rwildcard,tst,*.d)
 	rm -f $(call rwildcard,tst,*.tst)
 
-
 ifneq ($(MAKECMDGOALS),clean)
 include $(ASMDEPS)
 include $(LIBDEPS)

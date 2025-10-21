@@ -191,11 +191,11 @@ static void emit16(U16 word) {
     emitView((SmView){bytes, 2});
 }
 
-static void reloc(U16 offset, U8 width, SmExprView buf, SmPos pos, U8 flags) {
+static void reloc(U16 offset, U8 width, SmExprView view, SmPos pos, U8 flags) {
     smRelocBufAdd(&sectGet()->relocs, (SmReloc){
                                           .offset = getPC() + offset,
                                           .width  = width,
-                                          .value  = buf,
+                                          .value  = view,
                                           .unit   = STATIC_UNIT,
                                           .pos    = pos,
                                           .flags  = flags,
@@ -350,7 +350,7 @@ static void pushPop(U8 base) {
 static void aluReg8(U8 base, U8 imm) {
     U8         op;
     SmPos      pos;
-    SmExprView buf;
+    SmExprView view;
     I32        num;
     eat();
     expect(',');
@@ -375,15 +375,15 @@ static void aluReg8(U8 base, U8 imm) {
         addPC(1);
         return;
     }
-    buf = exprEatPos(&pos);
+    view = exprEatPos(&pos);
     if (emit) {
         emit8(imm);
-        if (exprSolve(buf, &num)) {
+        if (exprSolve(view, &num)) {
             expectReprU8(pos, num);
             emit8(num);
         } else {
             emit8(0xFD);
-            reloc(1, 1, buf, pos, 0);
+            reloc(1, 1, view, pos, 0);
         }
     }
     addPC(2);
@@ -418,10 +418,10 @@ static void doAluReg8Cb(U8 base) {
 static void doBitCb(U8 base) {
     U8         op;
     SmPos      pos;
-    SmExprView buf;
+    SmExprView view;
     I32        num;
     eat();
-    buf = exprEatPos(&pos);
+    view = exprEatPos(&pos);
     expect(',');
     eat();
     if (reg8Offset(peek(), base, &op)) {
@@ -437,7 +437,7 @@ static void doBitCb(U8 base) {
     }
     if (emit) {
         emit8(0xCB);
-        if (!exprSolve(buf, &num)) {
+        if (!exprSolve(view, &num)) {
             fatalPos(pos, "expression must be constant\n");
         }
         if ((num < 0) || (num > 7)) {
@@ -470,7 +470,7 @@ static Bool flag(U32 tok, U8 base, U8 *op) {
 static void eatMne(U8 mne) {
     U8         op;
     SmPos      pos;
-    SmExprView buf;
+    SmExprView view;
     I32        num;
     switch (mne) {
     case MNE_LD:
@@ -493,17 +493,17 @@ static void eatMne(U8 mne) {
                     addPC(1);
                     return;
                 }
-                buf = exprEatPos(&pos);
+                view = exprEatPos(&pos);
                 expect(']');
                 eat();
                 if (emit) {
                     emit8(0xFA);
-                    if (exprSolve(buf, &num)) {
+                    if (exprSolve(view, &num)) {
                         expectReprU16(pos, num);
                         emit16(num);
                     } else {
                         emit16(0xFDFD);
-                        reloc(1, 2, buf, pos, 0);
+                        reloc(1, 2, view, pos, 0);
                     }
                 }
                 addPC(3);
@@ -517,15 +517,15 @@ static void eatMne(U8 mne) {
                     addPC(1);
                     return;
                 }
-                buf = exprEatPos(&pos);
+                view = exprEatPos(&pos);
                 if (emit) {
                     emit8(0x3E);
-                    if (exprSolve(buf, &num)) {
+                    if (exprSolve(view, &num)) {
                         expectReprU8(pos, num);
                         emit8(num);
                     } else {
                         emit8(0xFD);
-                        reloc(1, 1, buf, pos, 0);
+                        reloc(1, 1, view, pos, 0);
                     }
                 }
                 addPC(2);
@@ -579,21 +579,21 @@ static void eatMne(U8 mne) {
                     addPC(1);
                     return;
                 }
-                buf = exprEatPos(&pos);
+                view = exprEatPos(&pos);
                 if (emit) {
                     emit8(0x36);
-                    if (exprSolve(buf, &num)) {
+                    if (exprSolve(view, &num)) {
                         expectReprU8(pos, num);
                         emit8(num);
                     } else {
                         emit8(0xFD);
-                        reloc(1, 1, buf, pos, 0);
+                        reloc(1, 1, view, pos, 0);
                     }
                 }
                 addPC(2);
                 return;
             }
-            buf = exprEatPos(&pos);
+            view = exprEatPos(&pos);
             expect(']');
             eat();
             expect(',');
@@ -608,12 +608,12 @@ static void eatMne(U8 mne) {
             }
             if (emit) {
                 emit8(op);
-                if (exprSolve(buf, &num)) {
+                if (exprSolve(view, &num)) {
                     expectReprU16(pos, num);
                     emit16(num);
                 } else {
                     emit16(0xFDFD);
-                    reloc(1, 2, buf, pos, 0);
+                    reloc(1, 2, view, pos, 0);
                 }
             }
             addPC(3);
@@ -623,15 +623,15 @@ static void eatMne(U8 mne) {
                 eat();
                 expect(',');
                 eat();
-                buf = exprEatPos(&pos);
+                view = exprEatPos(&pos);
                 if (emit) {
                     emit8(op);
-                    if (exprSolve(buf, &num)) {
+                    if (exprSolve(view, &num)) {
                         expectReprU16(pos, num);
                         emit16(num);
                     } else {
                         emit16(0xFDFD);
-                        reloc(1, 2, buf, pos, 0);
+                        reloc(1, 2, view, pos, 0);
                     }
                 }
                 addPC(3);
@@ -663,12 +663,12 @@ static void eatMne(U8 mne) {
                 addPC(1);
                 return;
             }
-            buf = exprEatPos(&pos);
+            view = exprEatPos(&pos);
             expect(']');
             eat();
             if (emit) {
                 emit8(0xF0);
-                if (exprSolve(buf, &num)) {
+                if (exprSolve(view, &num)) {
                     if ((num < 0xFF00) || (num > 0xFFFF)) {
                         fatalPos(pos, "address not in high memory: $%08X\n",
                                  num);
@@ -676,7 +676,7 @@ static void eatMne(U8 mne) {
                     emit8(num & 0x00FF);
                 } else {
                     emit8(0xFD);
-                    reloc(1, 1, buf, pos, SM_RELOC_HRAM);
+                    reloc(1, 1, view, pos, SM_RELOC_HRAM);
                 }
             }
             addPC(2);
@@ -698,7 +698,7 @@ static void eatMne(U8 mne) {
             addPC(1);
             return;
         }
-        buf = exprEatPos(&pos);
+        view = exprEatPos(&pos);
         expect(']');
         eat();
         expect(',');
@@ -707,14 +707,14 @@ static void eatMne(U8 mne) {
         eat();
         if (emit) {
             emit8(0xE0);
-            if (exprSolve(buf, &num)) {
+            if (exprSolve(view, &num)) {
                 if ((num < 0xFF00) || (num > 0xFFFF)) {
                     fatalPos(pos, "address not in high memory: $%08X\n", num);
                 }
                 emit8(num & 0x00FF);
             } else {
                 emit8(0xFD);
-                reloc(1, 1, buf, pos, SM_RELOC_HRAM);
+                reloc(1, 1, view, pos, SM_RELOC_HRAM);
             }
         }
         addPC(2);
@@ -745,15 +745,15 @@ static void eatMne(U8 mne) {
             eat();
             expect(',');
             eat();
-            buf = exprEatPos(&pos);
+            view = exprEatPos(&pos);
             if (emit) {
                 emit8(0xE8);
-                if (exprSolve(buf, &num)) {
+                if (exprSolve(view, &num)) {
                     expectReprU8(pos, num);
                     emit8(num);
                 } else {
                     emit8(0xFD);
-                    reloc(1, 1, buf, pos, 0);
+                    reloc(1, 1, view, pos, 0);
                 }
             }
             addPC(2);
@@ -1033,15 +1033,15 @@ static void eatMne(U8 mne) {
             eat();
             expect(',');
             eat();
-            buf = exprEatPos(&pos);
+            view = exprEatPos(&pos);
             if (emit) {
                 emit8(op);
-                if (exprSolve(buf, &num)) {
+                if (exprSolve(view, &num)) {
                     expectReprU16(pos, num);
                     emit16(num);
                 } else {
                     emit16(0xFDFD);
-                    reloc(1, 2, buf, pos, SM_RELOC_JP);
+                    reloc(1, 2, view, pos, SM_RELOC_JP);
                 }
             }
             addPC(3);
@@ -1055,14 +1055,14 @@ static void eatMne(U8 mne) {
             addPC(1);
             return;
         }
-        buf = exprEatPos(&pos);
+        view = exprEatPos(&pos);
         if (emit) {
             emit8(0xC3);
-            if (exprSolve(buf, &num)) {
+            if (exprSolve(view, &num)) {
                 expectReprU16(pos, num);
             } else {
                 emit16(0xFDFD);
-                reloc(1, 2, buf, pos, SM_RELOC_JP);
+                reloc(1, 2, view, pos, SM_RELOC_JP);
             }
         }
         addPC(3);
@@ -1073,10 +1073,10 @@ static void eatMne(U8 mne) {
             eat();
             expect(',');
             eat();
-            buf = exprEatPos(&pos);
+            view = exprEatPos(&pos);
             if (emit) {
                 emit8(op);
-                if (!exprSolveRelative(buf, &num)) {
+                if (!exprSolveRelative(view, &num)) {
                     fatalPos(pos, "branch distance must be constant\n");
                 }
                 I32 offset = num - ((I32)(U32)getPC()) - 2;
@@ -1088,10 +1088,10 @@ static void eatMne(U8 mne) {
             addPC(2);
             return;
         }
-        buf = exprEatPos(&pos);
+        view = exprEatPos(&pos);
         if (emit) {
             emit8(0x18);
-            if (!exprSolveRelative(buf, &num)) {
+            if (!exprSolveRelative(view, &num)) {
                 fatalPos(pos, "branch distance must be constant\n");
             }
             I32 offset = num - ((I32)(U32)getPC()) - 2;
@@ -1108,29 +1108,29 @@ static void eatMne(U8 mne) {
             eat();
             expect(',');
             eat();
-            buf = exprEatPos(&pos);
+            view = exprEatPos(&pos);
             if (emit) {
                 emit8(op);
-                if (exprSolve(buf, &num)) {
+                if (exprSolve(view, &num)) {
                     expectReprU16(pos, num);
                     emit16(num);
                 } else {
                     emit16(0xFDFD);
-                    reloc(1, 2, buf, pos, SM_RELOC_JP);
+                    reloc(1, 2, view, pos, SM_RELOC_JP);
                 }
             }
             addPC(3);
             return;
         }
-        buf = exprEatPos(&pos);
+        view = exprEatPos(&pos);
         if (emit) {
             emit8(0xCD);
-            if (exprSolve(buf, &num)) {
+            if (exprSolve(view, &num)) {
                 expectReprU16(pos, num);
                 emit16(num);
             } else {
                 emit16(0xFDFD);
-                reloc(1, 2, buf, pos, SM_RELOC_JP);
+                reloc(1, 2, view, pos, SM_RELOC_JP);
             }
         }
         addPC(3);
@@ -1152,9 +1152,9 @@ static void eatMne(U8 mne) {
         return;
     case MNE_RST:
         eat();
-        buf = exprEatPos(&pos);
+        view = exprEatPos(&pos);
         if (emit) {
-            if (exprSolve(buf, &num)) {
+            if (exprSolve(view, &num)) {
                 switch (num) {
                 case 0x00:
                     break;
@@ -1178,7 +1178,7 @@ static void eatMne(U8 mne) {
                 emit8(0xC7 + num);
             } else {
                 emit8(0xFD);
-                reloc(0, 1, buf, pos, SM_RELOC_RST);
+                reloc(0, 1, view, pos, SM_RELOC_RST);
             }
         }
         addPC(1);
@@ -1243,7 +1243,7 @@ static SmExprView constExprBuf(I32 num) {
 
 static void eatDirective() {
     SmPos      pos;
-    SmExprView buf;
+    SmExprView view;
     I32        num;
     switch (peek()) {
     case SM_TOK_DB:
@@ -1258,14 +1258,14 @@ static void eatDirective() {
                 eat();
                 break;
             default: {
-                buf = exprEatPos(&pos);
+                view = exprEatPos(&pos);
                 if (emit) {
-                    if (exprSolve(buf, &num)) {
+                    if (exprSolve(view, &num)) {
                         expectReprU8(pos, num);
                         emit8(num);
                     } else {
                         emit8(0xFD);
-                        reloc(0, 1, buf, pos, 0);
+                        reloc(0, 1, view, pos, 0);
                     }
                 }
                 addPC(1);
@@ -1282,14 +1282,14 @@ static void eatDirective() {
     case SM_TOK_DW:
         eat();
         while (true) {
-            buf = exprEatPos(&pos);
+            view = exprEatPos(&pos);
             if (emit) {
-                if (exprSolve(buf, &num)) {
+                if (exprSolve(view, &num)) {
                     expectReprU16(pos, num);
                     emit16(num);
                 } else {
                     emit16(0xFDFD);
-                    reloc(0, 2, buf, pos, 0);
+                    reloc(0, 2, view, pos, 0);
                 }
             }
             addPC(2);
