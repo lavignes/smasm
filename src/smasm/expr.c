@@ -12,10 +12,6 @@ static void pushExpr(SmExpr expr) { smExprBufAdd(&expr_stack, expr); }
 
 static U8 precedence(SmOp op) {
     if (op.unary) {
-        // lowest precedence
-        if (op.tok == '(') {
-            return U8_MAX;
-        }
         return 0;
     }
     switch (op.tok) {
@@ -55,6 +51,10 @@ static U8 precedence(SmOp op) {
 
 static void pushApply(SmOp op) {
     // pratt parser magic
+    if (op.tok == '(') {
+        smOpBufAdd(&op_stack, op);
+        return;
+    }
     while (op_stack.view.len > 0) {
         --op_stack.view.len;
         SmOp top = op_stack.view.items[op_stack.view.len];
