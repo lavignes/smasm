@@ -227,13 +227,13 @@ void smTokStreamViewInit(SmTokStream *ts, SmView name, SmView view) {
 }
 
 void smTokStreamMacroInit(SmTokStream *ts, SmView name, SmPos pos,
-                          SmMacroTokView buf, SmMacroArgQueue args,
+                          SmMacroTokView view, SmMacroArgQueue args,
                           UInt nonce) {
     memset(ts, 0, sizeof(SmTokStream));
     ts->kind        = SM_TOK_STREAM_MACRO;
     ts->pos         = pos;
     ts->macro.name  = name;
-    ts->macro.view  = buf;
+    ts->macro.view  = view;
     ts->macro.args  = args;
     ts->macro.nonce = nonce;
 }
@@ -409,7 +409,7 @@ static I32 parseChardev(SmTokStream *ts, I32 radix) {
     }
     for (UInt i = 0; i < view->len; ++i) {
         for (UInt j = 0; j < (sizeof(DIGITS) / sizeof(DIGITS[0])); ++j) {
-            if (view->bytes[i] == DIGITS[j]) {
+            if (toupper(view->bytes[i]) == DIGITS[j]) {
                 if (j >= (UInt)radix) {
                     smTokStreamFatal(ts, "invalid number: %" SM_VIEW_FMT "\n",
                                      SM_VIEW_FMT_ARG(*view));

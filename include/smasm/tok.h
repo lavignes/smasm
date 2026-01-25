@@ -257,7 +257,8 @@ _Noreturn void smTokStreamFatalPosV(SmTokStream *ts, SmPos pos, char const *fmt,
 void smTokStreamFileInit(SmTokStream *ts, SmView name, FILE *hnd);
 void smTokStreamViewInit(SmTokStream *ts, SmView name, SmView view);
 void smTokStreamMacroInit(SmTokStream *ts, SmView name, SmPos pos,
-                          SmMacroTokView buf, SmMacroArgQueue args, UInt nonce);
+                          SmMacroTokView view, SmMacroArgQueue args,
+                          UInt nonce);
 void smTokStreamRepeatInit(SmTokStream *ts, SmPos pos, SmRepeatTokBuf buf,
                            UInt cnt);
 void smTokStreamFmtInit(SmTokStream *ts, SmPos pos, SmView fmt, U32 tok);
