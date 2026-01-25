@@ -58,7 +58,7 @@ static void pushApply(SmOp op) {
     while (op_stack.view.len > 0) {
         --op_stack.view.len;
         SmOp top = op_stack.view.items[op_stack.view.len];
-        if (precedence(top) >= precedence(op)) {
+        if ((top.tok == '(') || precedence(top) >= precedence(op)) {
             smOpBufAdd(&op_stack, top);
             break;
         }
