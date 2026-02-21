@@ -9,7 +9,7 @@ void ifInvoke() {
     streamdef          = true;
     Bool        ignore = (exprEatSolvedPos(&pos) == 0);
     UInt        depth  = 0;
-    SmPosTokBuf buf    = {0};
+    SmPosTokBuf buf    = {};
     while (true) {
         switch (peek()) {
         case SM_TOK_IF:

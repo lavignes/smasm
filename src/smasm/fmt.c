@@ -148,10 +148,10 @@ void fmtInvoke(U32 tok) {
         braced = true;
     }
     expect(SM_TOK_STR);
-    SmBuf fmt = {0};
+    SmBuf fmt = {};
     smBufCat(&fmt, tokView());
     eat();
-    SmBuf buf      = {0};
+    SmBuf buf      = {};
     U8    stack[6] = {FMT_STATE_INIT};
     U8    top      = 0;
     U8    flags    = 0;

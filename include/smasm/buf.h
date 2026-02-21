@@ -8,7 +8,7 @@ typedef struct {
     UInt len;
 } SmView;
 
-static SmView const SM_VIEW_NULL = {0};
+static SmView const SM_VIEW_NULL = {};
 
 #define SM_VIEW(cstr)         ((SmView){(U8 *)(cstr), (sizeof((cstr)) - 1)})
 
@@ -40,6 +40,7 @@ typedef struct {
 } SmViewBuf;
 
 void smViewBufAdd(SmViewBuf *buf, SmView item);
+void smViewBufFini(SmViewBuf *buf);
 
 #define SM_BUF_ADD_IMPL()                                                      \
     if (!buf->view.items) {                                                    \

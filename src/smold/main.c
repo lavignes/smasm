@@ -51,13 +51,13 @@ static char *outfile_name = NULL;
 static char *symfile_name = NULL;
 static char *tagfile_name = NULL;
 
-static SmViewIntern STRS  = {0};
-static SmSymTab     SYMS  = {0};
-static SmExprIntern EXPRS = {0};
-static SmPathSet    OBJS  = {0};
-static SmSectBuf    SECTS = {0};
+static SmViewIntern STRS  = {};
+static SmSymTab     SYMS  = {};
+static SmExprIntern EXPRS = {};
+static SmPathSet    OBJS  = {};
+static SmSectBuf    SECTS = {};
 
-static CfgOutBuf CFGS     = {0};
+static CfgOutBuf CFGS     = {};
 
 static SmView DEFINES_SECTION;
 static SmView STATIC_UNIT;
@@ -182,7 +182,7 @@ int main(int argc, char **argv) {
 static SmView intern(SmView view) { return smViewIntern(&STRS, view); }
 
 static FILE *openFile(SmView path, char const *modes) {
-    static SmBuf buf = {0};
+    static SmBuf buf = {};
     buf.view.len     = 0;
     smBufCat(&buf, path);
     smBufCat(&buf, SM_VIEW("\0"));
@@ -377,7 +377,7 @@ typedef struct {
     UInt    cap;
 } OutBuf;
 
-static OutBuf OUTS = {0};
+static OutBuf OUTS = {};
 
 static void outBufAdd(Out item) {
     OutBuf *buf = &OUTS;
@@ -443,7 +443,7 @@ static void allocate(SmSect *sect) {
                 SM_VIEW_FMT_ARG(out->name), SM_VIEW_FMT_ARG(sect->name));
     }
     if (!smViewEqual(in->define, SM_VIEW_NULL)) {
-        static SmBuf buf = {0};
+        static SmBuf buf = {};
         buf.view.len     = 0;
         smBufCat(&buf, in->define);
         smBufCat(&buf, SM_VIEW("_START"));
@@ -472,7 +472,7 @@ static void allocate(SmSect *sect) {
 }
 
 static Bool solve(SmExprView view, SmView unit, I32 *num) {
-    SmI32Buf stack = {0};
+    SmI32Buf stack = {};
     for (UInt i = 0; i < view.len; ++i) {
         SmExpr *expr = view.items + i;
         switch (expr->kind) {
@@ -769,7 +769,7 @@ static void link(SmSect *sect) {
     }
 }
 
-static SmTokStream TS = {0};
+static SmTokStream TS = {};
 
 _Noreturn void fatal(char const *fmt, ...) {
     va_list args;
@@ -832,7 +832,7 @@ static U16 eatU16() {
 }
 
 static CfgI32Tab parseTags() {
-    CfgI32Tab tags = {0};
+    CfgI32Tab tags = {};
     while (true) {
         switch (peek()) {
         case '\n':
@@ -856,9 +856,9 @@ static CfgI32Tab parseTags() {
 }
 
 static CfgInView parseInSects(CfgOut const *out) {
-    CfgInBuf ins = {0};
+    CfgInBuf ins = {};
     while (true) {
-        CfgIn in   = {0};
+        CfgIn in   = {};
         in.tags    = out->tags;
         in.fill    = out->fill;
         in.fillval = out->fillval;
@@ -1029,7 +1029,7 @@ static void parseOutSects() {
             goto endsects;
         case SM_TOK_STR:
         case SM_TOK_ID: {
-            CfgOut out   = {0};
+            CfgOut out   = {};
             Bool   start = false;
             Bool   size  = false;
             Bool   kind  = false;
@@ -1211,7 +1211,7 @@ static void parseCfg() {
             .end  = out->start + out->size,
         });
         if (!smViewEqual(out->define, SM_VIEW_NULL)) {
-            static SmBuf buf = {0};
+            static SmBuf buf = {};
             buf.view.len     = 0;
             smBufCat(&buf, out->define);
             smBufCat(&buf, SM_VIEW("_START"));
@@ -1243,8 +1243,8 @@ static void parseCfg() {
             smSectBufAdd(&SECTS, (SmSect){
                                      .name   = in->name,
                                      .pc     = 0,
-                                     .data   = {{0}, 0}, // GCC doesnt like {0}
-                                     .relocs = {{0}, 0},
+                                     .data   = {},
+                                     .relocs = {},
                                  });
             switch (out->kind) {
             case CFG_OUT_READONLY:
@@ -1287,7 +1287,7 @@ static void serialize() {
     }
 }
 
-static SmLbl globalLbl(SmView name) { return (SmLbl){{0}, name}; }
+static SmLbl globalLbl(SmView name) { return (SmLbl){{}, name}; }
 
 static SmExprView constExprBuf(I32 num) {
     return smExprIntern(
@@ -1327,7 +1327,7 @@ static int cmpSym(SmSym const *lhs, SmSym const *rhs) {
 
 static SmSymTab sortSyms() {
     // Clone and sort the symbol table
-    SmSymTab tab = {0};
+    SmSymTab tab = {};
     for (UInt i = 0; i < SYMS.cap; ++i) {
         SmSym *sym = SYMS.syms + i;
         if (smLblEqual(sym->lbl, SM_LBL_NULL)) {

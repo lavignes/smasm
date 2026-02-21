@@ -7,7 +7,7 @@
 SM_TAB_WHENCE_IMPL(StructTab, Struct);
 SM_TAB_TRYGROW_IMPL(StructTab, Struct);
 
-static StructTab STRUCTS = {0};
+static StructTab STRUCTS = {};
 
 Struct *structFind(SmView name) {
     StructTab *tab = &STRUCTS;

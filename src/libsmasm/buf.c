@@ -117,6 +117,8 @@ void smBufFini(SmBuf *buf) {
 
 void smViewBufAdd(SmViewBuf *buf, SmView item) { SM_BUF_ADD_IMPL(); }
 
+void smViewBufFini(SmViewBuf *buf) { SM_BUF_FINI_IMPL(); }
+
 static UInt roundUp(UInt num) {
     num--;
     num |= num >> 1;

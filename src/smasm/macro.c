@@ -10,7 +10,7 @@
 SM_TAB_WHENCE_IMPL(MacroTab, Macro);
 SM_TAB_TRYGROW_IMPL(MacroTab, Macro);
 
-static MacroTab MACS = {0};
+static MacroTab MACS = {};
 
 static void noop(Macro *entry) { (void)entry; }
 
@@ -24,7 +24,7 @@ Macro *macroFind(SmView name) {
     SM_TAB_FIND_IMPL(MacroTab, Macro);
 }
 
-static SmMacroTokIntern MTOKS = {0};
+static SmMacroTokIntern MTOKS = {};
 
 static Macro *add(Macro entry) {
     MacroTab *tab = &MACS;
@@ -42,8 +42,8 @@ void macroAdd(SmView name, SmPos pos, SmMacroTokView view) {
 void macroInvoke(Macro macro) {
     SmPos pos = tokPos();
     eat();
-    SmMacroArgQueue args  = {0};
-    SmMacroTokBuf   toks  = {0};
+    SmMacroArgQueue args  = {};
+    SmMacroTokBuf   toks  = {};
     UInt            depth = 0;
     if (peek() == '{') {
         eat();

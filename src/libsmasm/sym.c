@@ -11,7 +11,7 @@ Bool smLblEqual(SmLbl lhs, SmLbl rhs) {
 Bool smLblIsGlobal(SmLbl lbl) { return smViewEqual(lbl.scope, SM_VIEW_NULL); }
 
 SmView smLblFullName(SmLbl lbl, SmViewIntern *in) {
-    static SmBuf buf = {0};
+    static SmBuf buf = {};
     buf.view.len     = 0;
     if (!smViewEqual(lbl.scope, SM_VIEW_NULL)) {
         smBufCat(&buf, lbl.scope);

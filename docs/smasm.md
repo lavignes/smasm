@@ -477,34 +477,7 @@ Combine `@unique` with `@idfmt` to synthesize unique symbol names:
 
 Entire blocks of code can be "turned off" using the `@if` directive.
 
-The most common use-case for this is to implement [include guards](https://en.wikipedia.org/wiki/Include_guard)
-for header files.
-
-The syntax for this is essentially the same as a C include guard:
-
-`example.ssi`:
-```
-; If the symbol EXAMPLE_SSI is not yet defined in this translation unit
-; define it to the value 1.
-; If the symbol is already defined, the assembler will ignore all tokens in
-; the file until it finds the matching @end. 
-@if !@defined EXAMPLE_SSI
-EXAMPLE_SSI = 1
-
-CONSTANT = $42
-
-@end
-```
-
-`source.ssm`:
-```
-@include "example.ssi"
-
-LoadConstant:
-    ld a, CONSTANT
-```
-
-Another use for `@if` is performing static assertions in your code:
+A common use for `@if` is performing static assertions in your code:
 
 ```
 SomeFunction::
@@ -515,4 +488,27 @@ SomeFunction::
 @if SomeFunction.Len > 16
     @fatal "SomeFuction must be less than 16 bytes. It is currently %d bytes.", SomeFunction.Len
 @end
+```
+
+Use `@once` to skip assembly of an entire file if its already been `@include`-ed
+at least once before. This is identical to ["#pragma once"](https://en.wikipedia.org/wiki/Pragma_once),
+common in C and C++ header files:
+
+`example.ssi`:
+```
+@once
+
+@macro FOO
+    ld a, @0
+@end
+```
+
+`source.ssm`:
+```
+@include "example.ssi"
+@include "example.ssi" ; This second include will be ignored because of @once
+
+LoadConstant:
+    FOO 42
+    ret
 ```

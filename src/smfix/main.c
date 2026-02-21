@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
             smFatal("unexpected option: %s\n", argv[argi]);
         }
     }
-    SmBuf   buf   = {0};
+    SmBuf   buf   = {};
     SmSerde serin = {infile, {(U8 *)infile_name, strlen(infile_name)}};
     smDeserializeToEnd(&serin, &buf);
 

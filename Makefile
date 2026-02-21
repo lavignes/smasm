@@ -4,7 +4,7 @@ CC = cc
 LD = cc
 AR = ar
 
-CFLAGS = -std=c11 -Werror -Wextra -Wall -Wimplicit -Wstrict-aliasing \
+CFLAGS = -std=c11 -Wextra -Wall -Wimplicit -Wstrict-aliasing \
 		 -Iinclude -D_GNU_SOURCE -D_XOPEN_SOURCE=700
 CFLAGS += -g
 

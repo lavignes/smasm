@@ -5,8 +5,8 @@
 
 #include <assert.h>
 
-static SmExprBuf expr_stack = {0};
-static SmOpBuf   op_stack   = {0};
+static SmExprBuf expr_stack = {};
+static SmOpBuf   op_stack   = {};
 
 static void pushExpr(SmExpr expr) { smExprBufAdd(&expr_stack, expr); }
 
@@ -297,7 +297,7 @@ U16 exprEatSolvedU16() {
 }
 
 static Bool exprSolveFull(SmExprView view, I32 *num, Bool relative) {
-    SmI32Buf stack = {0};
+    SmI32Buf stack = {};
     for (UInt i = 0; i < view.len; ++i) {
         SmExpr *expr = view.items + i;
         switch (expr->kind) {

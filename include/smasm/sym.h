@@ -8,7 +8,7 @@ typedef struct {
     SmView name;
 } SmLbl;
 
-static SmLbl const SM_LBL_NULL = {0};
+static SmLbl const SM_LBL_NULL = {};
 
 Bool   smLblEqual(SmLbl lhs, SmLbl rhs);
 Bool   smLblIsGlobal(SmLbl lbl);

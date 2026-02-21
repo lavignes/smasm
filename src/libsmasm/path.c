@@ -4,7 +4,7 @@
 #include <string.h>
 
 SmView smPathIntern(SmViewIntern *in, SmView path) {
-    static SmBuf buf = {0};
+    static SmBuf buf = {};
     buf.view.len     = 0;
     smBufCat(&buf, path);
     smBufCat(&buf, SM_VIEW("\0"));
@@ -37,4 +37,9 @@ Bool smPathSetContains(SmPathSet *set, SmView path) {
         }
     }
     return false;
+}
+
+void smPathSetFini(SmPathSet *set) {
+    smViewBufFini(&set->bufs);
+    smViewInternFini(&set->in);
 }

@@ -12,5 +12,6 @@ typedef struct {
 
 SmView smPathSetAdd(SmPathSet *set, SmView path);
 Bool   smPathSetContains(SmPathSet *set, SmView path);
+void   smPathSetFini(SmPathSet *set);
 
 #endif // SMASM_PATH_H

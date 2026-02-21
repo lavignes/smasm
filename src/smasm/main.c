@@ -157,6 +157,7 @@ static void rewindPass() {
     smTokStreamRewind(ts);
     sectRewind();
     macroTabFini();
+    smPathSetFini(&INCS);
     scope     = SM_VIEW_NULL;
     nonce     = 0;
     emit      = true;
@@ -1197,7 +1198,7 @@ static void eatMne(U8 mne) {
 }
 
 static FILE *openFile(SmView path, char const *modes) {
-    static SmBuf buf = {0};
+    static SmBuf buf = {};
     buf.view.len     = 0;
     smBufCat(&buf, path);
     smBufCat(&buf, SM_VIEW("\0"));
@@ -1205,7 +1206,7 @@ static FILE *openFile(SmView path, char const *modes) {
 }
 
 static Bool fileExists(SmView path) {
-    static SmBuf buf = {0};
+    static SmBuf buf = {};
     buf.view.len     = 0;
     smBufCat(&buf, path);
     smBufCat(&buf, SM_VIEW("\0"));
@@ -1218,7 +1219,7 @@ static Bool fileExists(SmView path) {
 }
 
 static SmView findInclude(SmView path) {
-    static SmBuf buf      = {0};
+    static SmBuf buf      = {};
     SmView       fullpath = smPathIntern(&STRS, path);
     if (!fileExists(fullpath)) {
         for (UInt i = 0; i < IPATHS.bufs.view.len; ++i) {
@@ -1232,6 +1233,14 @@ static SmView findInclude(SmView path) {
                 return fullpath;
             }
         }
+    }
+    return SM_VIEW_NULL;
+}
+
+static SmView expectInclude(SmView path) {
+    SmView fullpath = findInclude(path);
+    if (!smViewEqual(fullpath, SM_VIEW_NULL)) {
+        return fullpath;
     }
     fatal("could not find include file: %" SM_VIEW_FMT "\n",
           SM_VIEW_FMT_ARG(path));
@@ -1347,7 +1356,7 @@ static void eatDirective() {
     case SM_TOK_INCLUDE: {
         eat();
         expect(SM_TOK_STR);
-        SmView path = findInclude(tokView());
+        SmView path = expectInclude(tokView());
         eat();
         expectEOL();
         eat();
@@ -1356,11 +1365,11 @@ static void eatDirective() {
         return;
     }
     case SM_TOK_INCBIN: {
-        static SmBuf buf = {0};
+        static SmBuf buf = {};
         buf.view.len     = 0;
         eat();
         expect(SM_TOK_STR);
-        SmView path = findInclude(tokView());
+        SmView path = expectInclude(tokView());
         eat();
         expectEOL();
         eat();
@@ -1374,9 +1383,20 @@ static void eatDirective() {
         smPathSetAdd(&INCS, path);
         return;
     }
+    case SM_TOK_ONCE: {
+        if (smPathSetContains(&INCS, findInclude(tokPos().file))) {
+            eat();
+            popStream();
+            return;
+        }
+        eat();
+        expectEOL();
+        eat();
+        return;
+    }
     case SM_TOK_MACRO: {
         pos                      = tokPos();
-        static SmMacroTokBuf buf = {0};
+        static SmMacroTokBuf buf = {};
         buf.view.len             = 0;
         eat();
         expect(SM_TOK_ID);
@@ -1487,7 +1507,7 @@ static void eatDirective() {
             eat();
         }
         UInt           depth = 0;
-        SmRepeatTokBuf buf   = {0};
+        SmRepeatTokBuf buf   = {};
         streamdef            = true;
         while (true) {
             switch (peek()) {
@@ -1563,7 +1583,7 @@ static void eatDirective() {
         // TODO check if this struct is already defined
         eat();
         UInt      size      = 0;
-        SmViewBuf fields    = {0};
+        SmViewBuf fields    = {};
         Bool      inunion   = false;
         UInt      unionsize = 0;
         while (true) {
@@ -1812,7 +1832,7 @@ static void pass() {
 }
 
 static void writeDepend() {
-    static SmBuf buf = {0};
+    static SmBuf buf = {};
     buf.view.len     = 0;
     if (!depfile_name) {
         UInt        len    = strlen(infile_name);

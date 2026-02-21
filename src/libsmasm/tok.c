@@ -25,6 +25,7 @@ static struct {
     {SM_TOK_SECTPOP, SM_VIEW("@SECTPOP")},
     {SM_TOK_INCLUDE, SM_VIEW("@INCLUDE")},
     {SM_TOK_INCBIN, SM_VIEW("@INCBIN")},
+    {SM_TOK_ONCE, SM_VIEW("@ONCE")},
     {SM_TOK_IF, SM_VIEW("@IF")},
     {SM_TOK_ELSE, SM_VIEW("@ELSE")},
     {SM_TOK_END, SM_VIEW("@END")},
@@ -66,7 +67,7 @@ static struct {
     {SM_TOK_UNIQUE, SM_VIEW("@UNIQUE")},
 };
 
-static SmViewIntern CHAR_NAMES = {0};
+static SmViewIntern CHAR_NAMES = {};
 
 SmView smTokName(U32 c) {
     for (size_t i = 0; i < (sizeof(TOK_NAMES) / sizeof(TOK_NAMES[0])); ++i) {
@@ -74,7 +75,7 @@ SmView smTokName(U32 c) {
             return TOK_NAMES[i].view;
         }
     }
-    SmBuf buf = {0};
+    SmBuf buf = {};
     smBufCat(&buf, SM_VIEW("`"));
     smUtf8Cat(&buf, c);
     smBufCat(&buf, SM_VIEW("`"));
@@ -439,6 +440,7 @@ static struct {
     {"SECTPOP", SM_TOK_SECTPOP},
     {"INCLUDE", SM_TOK_INCLUDE},
     {"INCBIN", SM_TOK_INCBIN},
+    {"ONCE", SM_TOK_ONCE},
     {"IF", SM_TOK_IF},
     {"ELSE", SM_TOK_ELSE},
     {"END", SM_TOK_END},
@@ -464,7 +466,7 @@ static struct {
 };
 
 static struct {
-    U8  digraph[2];
+    U8  digraph[3];
     U32 tok;
 } const DIGRAPHS[] = {
     {"<<", SM_TOK_ASL},    {">>", SM_TOK_ASR},    {"~>", SM_TOK_LSR},
@@ -474,7 +476,7 @@ static struct {
 };
 
 static struct {
-    U8  pair[2];
+    U8  pair[3];
     U32 tok;
 } const PAIRS[] = {
     {"AF", SM_TOK_AF}, {"BC", SM_TOK_BC}, {"DE", SM_TOK_DE}, {"HL", SM_TOK_HL},

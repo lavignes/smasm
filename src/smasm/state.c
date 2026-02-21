@@ -7,11 +7,11 @@
 #include <stdarg.h>
 #include <string.h>
 
-SmViewIntern STRS   = {0};
-SmSymTab     SYMS   = {0};
-SmExprIntern EXPRS  = {0};
-SmPathSet    IPATHS = {0};
-SmPathSet    INCS   = {0};
+SmViewIntern STRS   = {};
+SmSymTab     SYMS   = {};
+SmExprIntern EXPRS  = {};
+SmPathSet    IPATHS = {};
+SmPathSet    INCS   = {};
 
 SmView intern(SmView view) { return smViewIntern(&STRS, view); }
 
@@ -20,16 +20,16 @@ SmView CODE_SECTION;
 SmView STATIC_UNIT;
 SmView EXPORT_UNIT;
 
-SmView scope     = {0};
+SmView scope     = {};
 UInt   nonce     = 0;
 Bool   emit      = false;
 Bool   streamdef = false;
 
 SmLbl lblLocal(SmView name) { return (SmLbl){scope, name}; }
-SmLbl lblGlobal(SmView name) { return (SmLbl){{0}, name}; }
+SmLbl lblGlobal(SmView name) { return (SmLbl){{}, name}; }
 SmLbl lblAbs(SmView scope, SmView name) { return (SmLbl){scope, name}; }
 
-SmTokStream  STACK[STACK_SIZE] = {0};
+SmTokStream  STACK[STACK_SIZE] = {};
 SmTokStream *ts                = STACK - 1;
 
 _Noreturn void fatal(char const *fmt, ...) {
@@ -118,8 +118,8 @@ SmLbl tokLbl() {
     return lblLocal(intern(name));
 }
 
-SmSectBuf SECTS                  = {0};
-UInt      SECT_STACK[STACK_SIZE] = {0};
+SmSectBuf SECTS                  = {};
+UInt      SECT_STACK[STACK_SIZE] = {};
 UInt     *sect                   = SECT_STACK - 1;
 
 static UInt sectFind(SmView name) {
@@ -139,8 +139,8 @@ void sectSet(SmView name) {
         smSectBufAdd(&SECTS, (SmSect){
                                  .name   = name,
                                  .pc     = 0,
-                                 .data   = {{0}, 0}, // GCC doesnt like {0}
-                                 .relocs = {{0}, 0},
+                                 .data   = {},
+                                 .relocs = {},
                              });
         idx = SECTS.view.len - 1;
     }

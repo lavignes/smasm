@@ -252,7 +252,7 @@ void smDeserializeView(SmSerde *ser, SmView *view) {
 }
 
 SmViewIntern smDeserializeViewIntern(SmSerde *ser) {
-    static SmBuf buf = {0};
+    static SmBuf buf = {};
     UInt         len = smDeserializeU32(ser);
     if (!buf.view.bytes) {
         buf.view.bytes = malloc(len);
@@ -270,7 +270,7 @@ SmViewIntern smDeserializeViewIntern(SmSerde *ser) {
     }
     buf.view.len = len;
     smDeserializeView(ser, &buf.view);
-    SmViewIntern in = {0};
+    SmViewIntern in = {};
     smViewIntern(&in, buf.view);
     return in;
 }
@@ -282,7 +282,7 @@ static SmView readViewRef(SmSerde *ser, SmViewIntern const *in) {
 }
 
 static SmLbl readLbl(SmSerde *ser, SmViewIntern const *in) {
-    SmLbl lbl = {0};
+    SmLbl lbl = {};
     if (smDeserializeU8(ser) == 0) {
         lbl.scope = readViewRef(ser, in);
     }
@@ -291,12 +291,12 @@ static SmLbl readLbl(SmSerde *ser, SmViewIntern const *in) {
 }
 
 SmExprIntern smDeserializeExprIntern(SmSerde *ser, SmViewIntern const *strin) {
-    static SmExprBuf buf = {0};
+    static SmExprBuf buf = {};
     buf.view.len         = 0;
     UInt len             = smDeserializeU32(ser);
     for (UInt i = 0; i < len; ++i) {
         U8     kind = smDeserializeU8(ser);
-        SmExpr expr = {0};
+        SmExpr expr = {};
         expr.kind   = kind;
         switch (kind) {
         case SM_EXPR_CONST:
@@ -323,7 +323,7 @@ SmExprIntern smDeserializeExprIntern(SmSerde *ser, SmViewIntern const *strin) {
         }
         smExprBufAdd(&buf, expr);
     }
-    SmExprIntern in = {0};
+    SmExprIntern in = {};
     smExprIntern(&in, buf.view);
     return in;
 }
@@ -336,10 +336,10 @@ static SmExprView readExprBufRef(SmSerde *ser, SmExprIntern const *in) {
 
 SmSymTab smDeserializeSymTab(SmSerde *ser, SmViewIntern const *strin,
                              SmExprIntern const *exprin) {
-    SmSymTab tab = {0};
+    SmSymTab tab = {};
     UInt     len = smDeserializeU32(ser);
     for (UInt i = 0; i < len; ++i) {
-        SmSym sym    = {0};
+        SmSym sym    = {};
         sym.lbl      = readLbl(ser, strin);
         sym.value    = readExprBufRef(ser, exprin);
         sym.unit     = readViewRef(ser, strin);
@@ -355,10 +355,10 @@ SmSymTab smDeserializeSymTab(SmSerde *ser, SmViewIntern const *strin,
 
 SmSectBuf smDeserializeSectBuf(SmSerde *ser, SmViewIntern const *strin,
                                SmExprIntern const *exprin) {
-    SmSectBuf buf = {0};
+    SmSectBuf buf = {};
     UInt      len = smDeserializeU32(ser);
     for (UInt i = 0; i < len; ++i) {
-        SmSect sect          = {0};
+        SmSect sect          = {};
         sect.name            = readViewRef(ser, strin);
         UInt len             = smDeserializeU32(ser);
         sect.data.view.bytes = malloc(len);
@@ -370,7 +370,7 @@ SmSectBuf smDeserializeSectBuf(SmSerde *ser, SmViewIntern const *strin,
         smDeserializeView(ser, &sect.data.view);
         len = smDeserializeU32(ser);
         for (UInt j = 0; j < len; ++j) {
-            SmReloc reloc  = {0};
+            SmReloc reloc  = {};
             reloc.offset   = smDeserializeU16(ser);
             reloc.width    = smDeserializeU8(ser);
             reloc.value    = readExprBufRef(ser, exprin);
