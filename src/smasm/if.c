@@ -18,14 +18,14 @@ void ifInvoke() {
         case SM_TOK_STRUCT:
         case SM_TOK_UNION:
             ++depth;
-            break;
+            goto ifconsume;
         case SM_TOK_END:
             if (depth == 0) {
                 eat();
                 goto ifdone;
             }
             --depth;
-            break;
+            goto ifconsume;
         case SM_TOK_ELSE:
             if (depth == 0) {
                 eat();
@@ -55,6 +55,7 @@ void ifInvoke() {
             }
             break;
         default:
+        ifconsume:
             if (!ignore) {
                 smPosTokBufAdd(&buf,
                                (SmPosTok){.tok = peek(), .pos = tokPos()});

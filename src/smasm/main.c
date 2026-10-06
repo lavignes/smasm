@@ -1423,14 +1423,14 @@ static void eatDirective() {
             case SM_TOK_STRUCT:
             case SM_TOK_UNION:
                 ++depth;
-                break;
+                goto macconsume;
             case SM_TOK_END:
                 if (depth == 0) {
                     eat();
                     goto macdone;
                 }
                 --depth;
-                break;
+                goto macconsume;
             default:
                 break;
             }
@@ -1476,6 +1476,7 @@ static void eatDirective() {
                                        });
                 break;
             default:
+            macconsume:
                 smMacroTokBufAdd(&buf, (SmMacroTok){.kind = SM_MACRO_TOK_TOK,
                                                     .pos  = tokPos(),
                                                     .tok  = peek()});
@@ -1517,14 +1518,14 @@ static void eatDirective() {
             case SM_TOK_STRUCT:
             case SM_TOK_UNION:
                 ++depth;
-                break;
+                goto rptconsume;
             case SM_TOK_END:
                 if (depth == 0) {
                     eat();
                     goto rptdone;
                 }
                 --depth;
-                break;
+                goto rptconsume;
             default:
                 break;
             }
@@ -1556,6 +1557,7 @@ static void eatDirective() {
                                                 .view = intern(tokView())});
                 break;
             default:
+            rptconsume:
                 smRepeatTokBufAdd(&buf, (SmRepeatTok){.kind = SM_REPEAT_TOK_TOK,
                                                       .pos  = tokPos(),
                                                       .tok  = peek()});
