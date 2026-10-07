@@ -229,7 +229,7 @@ void fmtInvoke(U32 tok) {
                 prec = exprEatSolvedU16();
             } else if (isdigit(c)) {
                 i += scanDigits((SmView){fmt.view.bytes + i, fmt.view.len - i},
-                                &width) -
+                                &prec) -
                      1;
             } else {
                 --i;
